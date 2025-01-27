@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-01-27T22:47:40.951Z",
+  "buildTime": "2025-01-27T23:18:16.650Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -10,20 +10,20 @@
   },
   "sources": [
     {
-      "name": "Content Template",
-      "description": "Content template extension",
+      "name": "MangaFire Extension",
+      "description": "A paperback extension for MangaFire",
       "version": "0.9.0",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
       "badges": [
         {
-          "label": "Template",
+          "label": "ALL MANGA",
           "textColor": "#FFFFFF",
           "backgroundColor": "#F64B4B"
         },
         {
-          "label": "Content",
+          "label": "BEST QUALITY",
           "textColor": "#FFFFFF",
           "backgroundColor": "#03C04A"
         }
@@ -36,12 +36,10 @@
       ],
       "developers": [
         {
-          "name": "Celarye",
-          "website": "https://celarye.dev",
-          "github": "https://github.com/Celarye"
+          "name": "Karrot"
         }
       ],
-      "id": "ContentTemplate"
+      "id": "MangaFire"
     }
   ]
 }
