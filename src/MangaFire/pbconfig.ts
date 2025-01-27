@@ -1,15 +1,15 @@
 import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "Content Template",
-  description: "Content template extension",
+  name: "MangaFire Extension",
+  description: "A paperback extension for MangaFire",
   version: "0.9.0",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
   badges: [
-    { label: "Template", textColor: "#FFFFFF", backgroundColor: "#F64B4B" },
-    { label: "Content", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
+    { label: "ALL MANGA", textColor: "#FFFFFF", backgroundColor: "#F64B4B" },
+    { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
   ],
   capabilities: [
     SourceIntents.SETTINGS_UI,
@@ -19,9 +19,7 @@ export default {
   ],
   developers: [
     {
-      name: "Celarye",
-      website: "https://celarye.dev",
-      github: "https://github.com/Celarye",
+      name: "Karrot",
     },
   ],
 } satisfies SourceInfo;

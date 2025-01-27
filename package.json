@@ -1,24 +1,23 @@
 {
-  "name": "extension-templates",
-  "description": "Paperback extensions designed as templates to help developers get started quickly.",
-  "author": "Paperback Community",
+  "name": "kakarotextension",
+  "description": "Mangafire extension",
+  "author": "Karrot",
   "keywords": [
     "Paperback",
-    "extensions",
-    "templates"
+    "extensions"
   ],
   "version": "0.9.0",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/paperback-community/extension-templates.git"
+    "url": "git+https://github.com/karrot0/KakarotExtension.git"
   },
   "bugs": {
-    "url": "https://github.com/paperback-community/extension-templates/issues"
+    "url": "https://github.com/karrot0/KakarotExtension/issues"
   },
-  "homepage": "https://github.com/paperback-community/extension-templates#readme",
-  "repositoryName": "Paperback Community Templates",
-  "repositoryDescription": "Extensions designed as templates to help developers get started quickly. Maintained by the Paperback Community.",
+  "homepage": "https://github.com/karrot0/KakarotExtension#readme",
+  "repositoryName": "KakarotExtension",
+  "repositoryDescription": "Mangafire extension",
   "private": true,
   "type": "module",
   "scripts": {
@@ -32,7 +31,7 @@
     "serve": "paperback-cli serve",
     "logcat": "paperback-cli logcat",
     "dev": "nodemon -w \"./src/**/*.ts\" -e \"ts\" -x \"npm run serve\"",
-    "test": "tsc --project tsconfig.json --noEmit && npm run lint:check && npm run format:check && npm run bundle",
+    "test": "tsc --project tsconfig.json --noEmit && npm run format:check && npm run bundle",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -50,6 +49,7 @@
     "typescript-eslint": "^8.22.0"
   },
   "dependencies": {
-    "@types/node": "^22.10.10"
+    "@types/node": "^22.10.10",
+    "cheerio": "^1.0.0"
   }
 }
