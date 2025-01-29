@@ -16743,11 +16743,12 @@ var source = (() => {
       const $2 = await this.fetchCheerio(request);
       const pages = [];
       const pageMap = /* @__PURE__ */ new Map();
-      $2(".pages.longstrip .page.fit-w .img img").each((_, element) => {
-        const dataNumber = parseInt($2(element).attr("data-number") || "1");
-        const imageUrl = $2(element).attr("src");
-        if (imageUrl) {
-          pageMap.set(dataNumber, imageUrl);
+      $2(".page.fit-w").each((_, element) => {
+        const img = $2(element).find("img");
+        const pageNum = parseInt(img.attr("data-number") || "0", 10);
+        const imgUrl = img.attr("src");
+        if (imgUrl) {
+          pageMap.set(pageNum, imgUrl);
         }
       });
       Array.from(pageMap.entries()).sort(([a], [b]) => a - b).forEach(([, url]) => pages.push(url));
