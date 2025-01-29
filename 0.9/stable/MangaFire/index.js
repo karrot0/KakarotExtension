@@ -16737,7 +16737,7 @@ var source = (() => {
     async getChapterDetails(chapter) {
       try {
         const request = {
-          url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).build(),
+          url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.sourceManga.mangaId).addPath("en").addPath("chapter-" + chapter.chapNum).build(),
           method: "GET"
         };
         const $2 = await this.fetchCheerio(request);
