@@ -246,23 +246,14 @@ export class MangaFireExtension implements MangaFireImplementation {
     const $ = await this.fetchCheerio(request);
     const pages: string[] = [];
 
-    // Select all images inside .page.fit-w
-    $("div.page.fit-w img").each((_, element) => {
-      let imageUrl = $(element).attr("src") ?? ""; // Get 'src'
-
-      if (!imageUrl) {
-        imageUrl = $(element).attr("data-src") ?? ""; // Fallback for lazy-loaded images
-      }
-
+    // Select all elements with data-number
+    $("[data-number]").each((_, element) => {
+      const imageUrl =
+        $(element).attr("src") || $(element).attr("data-src") || "";
       if (imageUrl) {
         pages.push(imageUrl);
       }
     });
-
-    // Push the additional image
-    pages.push(
-      "https://plus.unsplash.com/premium_photo-1673697239909-e11521d1ba94?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8ZXZlbmluZ3xlbnwwfHwwfHx8MA%3D%3D",
-    );
 
     return {
       id: chapter.chapterId,
