@@ -135,17 +135,48 @@ export class MangaFireExtension implements MangaFireImplementation {
     const $ = await this.fetchCheerio(request);
 
     // Extract basic manga details
-    const title = $(".detail h1").text().trim();
-    const image = $(".detail .poster img").attr("src") || "";
-    const description = $(".detail .excerpt").text().trim();
+    const title = $(".manga-detail .info h1").text().trim();
+    const altTitles = [$(".manga-detail .info h6").text().trim()];
+    const image = $(".manga-detail .poster img").attr("src") || "";
+    const description = $(".manga-detail .info .description").text().trim();
+    const status = $(".manga-detail .info .min-info")
+      .text()
+      .includes("Releasing")
+      ? "ONGOING"
+      : "COMPLETED";
+
+    // Extract tags
+    const tags: TagSection[] = [];
+    const genres: string[] = [];
+    $(".manga-detail .meta div").each((_, element) => {
+      const label = $(element).find("span").first().text().trim();
+      if (label === "Genres:") {
+        $(element)
+          .find("a")
+          .each((_, genreElement) => {
+            genres.push($(genreElement).text().trim());
+          });
+      }
+    });
+
+    if (genres.length > 0) {
+      tags.push({
+        id: "genres",
+        title: "Genres",
+        tags: genres.map((genre) => ({
+          id: genre.toLowerCase(),
+          title: genre,
+        })),
+      });
+    }
 
     return createSourceManga({
       id: mangaId,
-      titles: [title],
+      titles: [title, ...altTitles],
       image: image,
-      status: "ONGOING",
+      status: status,
       desc: description,
-      tags: [],
+      tags: tags,
     });
   }
 
@@ -154,6 +185,8 @@ export class MangaFireExtension implements MangaFireImplementation {
       url: new URLBuilder(baseUrl)
         .addPath("read")
         .addPath(chapter.chapterId)
+        .addPath("en")
+        .addQuery("chapter-", chapter.chapNum.toString())
         .build(),
       method: "GET",
     };
@@ -162,7 +195,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     // Extract chapter images
     const pages: string[] = [];
-    $(".chapter-images img").each((_, element) => {
+    $(".page.fit-w .img img").each((_, element) => {
       const imageUrl = $(element).attr("src");
       if (imageUrl) pages.push(imageUrl);
     });
@@ -186,16 +219,14 @@ export class MangaFireExtension implements MangaFireImplementation {
     const $ = await this.fetchCheerio(request);
     const chapters: Chapter[] = [];
 
-    $(".chapter-list li").each((_, element) => {
+    $(".list-body .item").each((_, element) => {
       const li = $(element);
       const link = li.find("a");
       const chapterId = link.attr("href")?.replace("/read/", "") || "";
-      const title = link.text().trim();
+      const title = link.find("span").first().text().trim();
 
-      // Extract chapter number from title
-      const chapterNumber = parseFloat(
-        title.match(/Chapter (\d+)/)?.[1] || "0",
-      );
+      // Extract chapter number from data-number attribute
+      const chapterNumber = parseFloat(li.attr("data-number") || "0");
 
       chapters.push({
         chapterId: chapterId,
@@ -232,14 +263,13 @@ export class MangaFireExtension implements MangaFireImplementation {
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-    $(".unit").each((_, element) => {
+    $(".unit .inner").each((_, element) => {
       const unit = $(element);
-      const infoLink = unit.find(".info > a").eq(1); // Get second <a> in .info
+      const infoLink = unit.find(".info > a").last(); // Get the manga title link
       const title = infoLink.text().trim();
       const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
 
-      // Only add if title and mangaId exist and not already collected
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
         items.push(
