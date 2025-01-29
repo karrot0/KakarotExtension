@@ -246,9 +246,11 @@ export class MangaFireExtension implements MangaFireImplementation {
     const $ = await this.fetchCheerio(request);
     const pages: string[] = [];
 
-    // Select all elements with data-number
-    $(".page-wrapper .page fit-w").each((_, element) => {
-      const imageUrl = $(element).find("img").attr("src");
+    $("#page-wrapper .pages .page.fit-w").each((_, element) => {
+      // Find the <img> tag within the .img container and get the src attribute
+      const imageUrl = $(element).find(".img img").attr("src");
+
+      // If the src exists, push it to the pages array
       if (imageUrl) {
         pages.push(imageUrl);
       }
