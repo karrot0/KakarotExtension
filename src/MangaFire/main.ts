@@ -66,7 +66,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         id: "genres",
         title: "Genres",
         type: DiscoverSectionType.genres,
-      }
+      },
     ];
   }
 
@@ -158,9 +158,11 @@ export class MangaFireExtension implements MangaFireImplementation {
     $("#info-rating .meta div").each((_, element) => {
       const label = $(element).find("span").first().text().trim();
       if (label === "Genres:") {
-        $(element).find("a").each((_, genreElement) => {
-          genres.push($(genreElement).text().trim());
-        });
+        $(element)
+          .find("a")
+          .each((_, genreElement) => {
+            genres.push($(genreElement).text().trim());
+          });
       }
     });
 
@@ -192,7 +194,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         contentRating: ContentRating.EVERYONE,
         status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
         tagGroups: tags,
-      }
+      },
     };
   }
 
@@ -245,12 +247,22 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     const $ = await this.fetchCheerio(request);
 
-    // Extract chapter images
+    // Extract chapter images and their data-number attributes
     const pages: string[] = [];
-    $(".page.fit-w .img img").each((_, element) => {
-      const imageUrl = $(element).attr("src") || $(element).attr("data-src");
-      if (imageUrl) pages.push(imageUrl);
+    const pageMap = new Map<number, string>();
+
+    $(".page.fit-w .img.loaded img").each((_, element) => {
+      const dataNumber = parseInt($(element).attr("data-number") || "1");
+      const imageUrl = $(element).attr("src");
+      if (imageUrl) {
+        pageMap.set(dataNumber, imageUrl);
+      }
     });
+
+    // Sort pages by their data-number to maintain correct order
+    Array.from(pageMap.entries())
+      .sort(([a], [b]) => a - b)
+      .forEach(([, url]) => pages.push(url));
 
     return {
       id: chapter.chapterId,
