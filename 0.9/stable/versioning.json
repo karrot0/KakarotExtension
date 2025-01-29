@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-01-29T12:22:39.183Z",
+  "buildTime": "2025-01-29T21:50:38.552Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -39,6 +39,37 @@
         }
       ],
       "id": "MangaFire"
+    },
+    {
+      "name": "Manganelo",
+      "description": "A paperback extension for Manganelo.com",
+      "version": "0.9.0",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [
+        {
+          "label": "ALL MANGA",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#F64B4B"
+        },
+        {
+          "label": "AGGREGATOR",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#007AFF"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Manganelo"
     }
   ]
 }
