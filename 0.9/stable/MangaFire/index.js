@@ -2067,7 +2067,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.PaperbackInterceptor = void 0;
-      var PaperbackInterceptor = class {
+      var PaperbackInterceptor2 = class {
         id;
         constructor(id) {
           this.id = id;
@@ -2079,7 +2079,7 @@ var source = (() => {
           Application.unregisterInterceptor(this.id);
         }
       };
-      exports.PaperbackInterceptor = PaperbackInterceptor;
+      exports.PaperbackInterceptor = PaperbackInterceptor2;
     }
   });
 
@@ -2684,7 +2684,7 @@ var source = (() => {
     MangaFireExtension: () => MangaFireExtension
   });
   init_buffer();
-  var import_types2 = __toESM(require_lib(), 1);
+  var import_types3 = __toESM(require_lib(), 1);
 
   // node_modules/cheerio/dist/browser/index.js
   init_buffer();
@@ -16577,10 +16577,28 @@ var source = (() => {
     }
   };
 
+  // src/MangaFire/MangaFireInterceptor.ts
+  init_buffer();
+  var import_types2 = __toESM(require_lib(), 1);
+  var FireInterceptor = class extends import_types2.PaperbackInterceptor {
+    async interceptRequest(request) {
+      request.headers = {
+        ...request.headers,
+        referer: `https://mangafire.to/`
+      };
+      return request;
+    }
+    async interceptResponse(request, response, data2) {
+      return data2;
+    }
+  };
+
   // src/MangaFire/main.ts
   var baseUrl = "https://mangafire.to";
   var MangaFireExtension = class {
+    requestManager = new FireInterceptor("main");
     async initialise() {
+      this.requestManager.registerInterceptor();
       Application.registerSearchFilter({
         id: "sortBy",
         type: "dropdown",
@@ -16598,22 +16616,22 @@ var source = (() => {
         {
           id: "popular_section",
           title: "Popular",
-          type: import_types2.DiscoverSectionType.featured
+          type: import_types3.DiscoverSectionType.featured
         },
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types2.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
           id: "new_manga_section",
           title: "New Manga",
-          type: import_types2.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
           id: "genres",
           title: "Genres",
-          type: import_types2.DiscoverSectionType.genres
+          type: import_types3.DiscoverSectionType.genres
         }
       ];
     }
@@ -16702,7 +16720,7 @@ var source = (() => {
           thumbnailUrl: image,
           synopsis: description,
           rating,
-          contentRating: import_types2.ContentRating.EVERYONE,
+          contentRating: import_types3.ContentRating.EVERYONE,
           status,
           tagGroups: tags
         }
@@ -16837,7 +16855,7 @@ var source = (() => {
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
-        throw new import_types2.CloudflareError({ url: baseUrl, method: "GET" });
+        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
       }
     }
     async fetchCheerio(request) {
