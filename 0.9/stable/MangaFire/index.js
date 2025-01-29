@@ -16755,8 +16755,12 @@ var source = (() => {
     async getChapterDetails(chapter) {
       try {
         const request = {
-          url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.sourceManga.mangaId).addPath("en").addPath("chapter-" + chapter.chapNum).build(),
-          method: "GET"
+          url: new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath(chapter.sourceManga.mangaId).addPath("chapter").addPath("en").build(),
+          method: "GET",
+          headers: {
+            Referer: baseUrl,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+          }
         };
         const [response, buffer] = await Application.scheduleRequest(request);
         this.checkCloudflareStatus(response.status);
