@@ -66,7 +66,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         id: "genres",
         title: "Genres",
         type: DiscoverSectionType.genres,
-      }
+      },
     ];
   }
 
@@ -158,9 +158,11 @@ export class MangaFireExtension implements MangaFireImplementation {
     $("#info-rating .meta div").each((_, element) => {
       const label = $(element).find("span").first().text().trim();
       if (label === "Genres:") {
-        $(element).find("a").each((_, genreElement) => {
-          genres.push($(genreElement).text().trim());
-        });
+        $(element)
+          .find("a")
+          .each((_, genreElement) => {
+            genres.push($(genreElement).text().trim());
+          });
       }
     });
 
@@ -192,7 +194,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         contentRating: ContentRating.EVERYONE,
         status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
         tagGroups: tags,
-      }
+      },
     };
   }
 
