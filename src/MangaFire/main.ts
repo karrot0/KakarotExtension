@@ -239,8 +239,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       url: new URLBuilder(baseUrl)
         .addPath("read")
         .addPath(chapter.chapterId)
-        .addPath("en")
-        .addQuery("chapter-", chapter.chapNum.toString())
         .build(),
       method: "GET",
     };
@@ -251,7 +249,7 @@ export class MangaFireExtension implements MangaFireImplementation {
     const pages: string[] = [];
     const pageMap = new Map<number, string>();
 
-    $(".page.fit-w .img.loaded img").each((_, element) => {
+    $(".pages.longstrip .page.fit-w .img img").each((_, element) => {
       const dataNumber = parseInt($(element).attr("data-number") || "1");
       const imageUrl = $(element).attr("src");
       if (imageUrl) {
