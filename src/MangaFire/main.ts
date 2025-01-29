@@ -242,7 +242,9 @@ export class MangaFireExtension implements MangaFireImplementation {
       const request = {
         url: new URLBuilder(baseUrl)
           .addPath("read")
-          .addPath(chapter.chapterId)
+          .addPath(chapter.sourceManga.mangaId)
+          .addPath("en")
+          .addPath("chapter-" + chapter.chapNum)
           .build(),
         method: "GET",
       };
