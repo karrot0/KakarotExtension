@@ -16737,13 +16737,13 @@ var source = (() => {
     async getChapterDetails(chapter) {
       const request = {
         // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
-        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addQuery("chapter-", chapter.chapNum.toString()).build(),
+        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const pages = [];
       const pageMap = /* @__PURE__ */ new Map();
-      $2(".page.fit-w .img.loaded img").each((_, element) => {
+      $2(".pages.longstrip .page.fit-w .img img").each((_, element) => {
         const dataNumber = parseInt($2(element).attr("data-number") || "1");
         const imageUrl = $2(element).attr("src");
         if (imageUrl) {
