@@ -203,72 +203,86 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
+    // const request = {
+    //   url: new URLBuilder(baseUrl)
+    //     .addPath("manga")
+    //     .addPath(sourceManga.mangaId)
+    //     .build(),
+    //   method: "GET",
+    // };
+    // example https://mangafire.to/ajax/read/0w5k/chapter/en
     const request = {
       url: new URLBuilder(baseUrl)
-        .addPath("manga")
-        .addPath(sourceManga.mangaId)
+        .addPath("ajax")
+        .addPath("read")
+        .addPath(sourceManga.mangaId.split(".")[1])
+        .addPath("chapter")
+        .addPath("en")
         .build(),
-      method: "GET",
-    };
+      method: "GET"
+    }
 
-    const $ = await this.fetchCheerio(request);
+    const [_, buffer] = await Application.scheduleRequest(request);
+
+    const r: MangaFire.Result = JSON.parse(Application.arrayBufferToUTF8String(buffer)) as MangaFire.Result ;
+    const $ = cheerio.load(r.result.html);
+    
     const chapters: Chapter[] = [];
 
-    $(".list-body .item").each((_, element) => {
+    $("li").each((_, element)=>{
+      // console.log();
       const li = $(element);
       const link = li.find("a");
-      const chapterId = link.attr("href")?.replace("/read/", "") || "";
+      const chapterId = link.attr("data-id") || "0";
       const title = link.find("span").first().text().trim();
       // Extract chapter number from data-number attribute
-      const chapterNumber = parseFloat(li.attr("data-number") || "0");
-      const date = link.find("span").last().text().trim();
+      const chapterNumber = parseFloat(link.attr("data-number") || "0");
 
       chapters.push({
         chapterId: chapterId,
         title: title,
         sourceManga: sourceManga,
         chapNum: chapterNumber,
-        creationDate: new Date(date),
+        // creationDate: new Date(date),
         volume: undefined,
-        langCode: "en",
+        langCode: "🇬🇧",
       });
-    });
+    })
 
     return chapters;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
+    console.log(`Parsing chapter ${chapter.chapterId}`)
     try {
       // Constructs the URL for fetching chapter details.
       // Example: https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7
       // where "5f5b3b7b7d1c8c0001b3b7b7" is the chapter ID.
       // Makes this url https://mangafire.to/read/mangaid/en/chapter-X
+      // 
+      // Utilizing ajax API
+      // Example: https://mangafire.to/ajax/read/chapter/3832635
       const url = new URLBuilder(baseUrl)
+        .addPath("ajax")
         .addPath("read")
+        .addPath("chapter")
         .addPath(chapter.chapterId)
-        .addPath("en")
-        .addPath(chapter.chapNum.toString())
         .build();
+
+      console.log(url);
 
       const request: Request = {
         url,
         method: "GET",
       };
 
-      const [, buffer] = await Application.scheduleRequest(request);
-      const result = await Application.executeInWebView({
-        source: {
-          html: Application.arrayBufferToUTF8String(buffer),
-          baseUrl: baseUrl,
-          loadCSS: false,
-          loadImages: false,
-        },
-        inject:
-          "const array = Array.from(document.querySelectorAll('img[alt*=\"chapter\"]'));const imgSrcArray = Array.from(array).map(img => img.src); return imgSrcArray;",
-        storage: { cookies: [] },
-      });
-      const pages: string[] = result.result as string[];
-      // return parseChapterDetails($, chapter.sourceManga.mangaId, chapter.chapterId)
+      const [_, buffer] = await Application.scheduleRequest(request);
+      const json: MangaFire.PageResponse = JSON.parse(Application.arrayBufferToUTF8String(buffer)) as MangaFire.PageResponse;
+
+      const pages: string[] = [];
+      json.result.images.forEach((value: MangaFire.ImageData)=>{
+        pages.push(value[0]);
+      })
       return {
         mangaId: chapter.sourceManga.mangaId,
         id: chapter.chapterId,
