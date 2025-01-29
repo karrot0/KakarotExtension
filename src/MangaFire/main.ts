@@ -261,7 +261,7 @@ export class MangaFireExtension implements MangaFireImplementation {
           html: Application.arrayBufferToUTF8String(buffer),
           baseUrl: request.url,
           loadCSS: false,
-          loadImages: false,
+          loadImages: true,
         },
         inject:
           "const array = Array.from(document.querySelectorAll('img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
