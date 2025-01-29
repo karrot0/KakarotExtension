@@ -16742,16 +16742,20 @@ var source = (() => {
         };
         const $2 = await this.fetchCheerio(request);
         const pages = [];
-        $2("#page-wrapper img.fit-w").each((_, element) => {
-          const imageUrl = $2(element).attr("src");
-          if (imageUrl) {
-            pages.push(imageUrl);
+        const pageElements = $2(".page.fit-w img.fit-w");
+        pageElements.each((_, img) => {
+          const src = $2(img).attr("src");
+          const number = $2(img).attr("data-number");
+          if (src && !src.includes("data:")) {
+            const intNumber = parseInt(number || "0");
+            pages[intNumber - 1] = src;
           }
         });
+        const compactPages = pages.filter((page) => page !== void 0);
         return {
           id: chapter.chapterId,
           mangaId: chapter.sourceManga.mangaId,
-          pages
+          pages: compactPages
         };
       } catch (error) {
         console.error(
