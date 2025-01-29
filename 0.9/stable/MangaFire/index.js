@@ -16659,26 +16659,48 @@ var source = (() => {
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
-      const title = $2(".detail h1").text().trim();
-      const image = $2(".detail .poster img").attr("src") || "";
-      const description = $2(".detail .excerpt").text().trim();
+      const title = $2(".manga-detail .info h1").text().trim();
+      const altTitles = [$2(".manga-detail .info h6").text().trim()];
+      const image = $2(".manga-detail .poster img").attr("src") || "";
+      const description = $2(".manga-detail .info .description").text().trim();
+      const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
+      const tags = [];
+      const genres = [];
+      $2(".manga-detail .meta div").each((_, element) => {
+        const label = $2(element).find("span").first().text().trim();
+        if (label === "Genres:") {
+          $2(element).find("a").each((_2, genreElement) => {
+            genres.push($2(genreElement).text().trim());
+          });
+        }
+      });
+      if (genres.length > 0) {
+        tags.push({
+          id: "genres",
+          title: "Genres",
+          tags: genres.map((genre) => ({
+            id: genre.toLowerCase(),
+            title: genre
+          }))
+        });
+      }
       return createSourceManga({
         id: mangaId,
-        titles: [title],
+        titles: [title, ...altTitles],
         image,
-        status: "ONGOING",
+        status,
         desc: description,
-        tags: []
+        tags
       });
     }
     async getChapterDetails(chapter) {
       const request = {
-        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).build(),
+        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addQuery("chapter-", chapter.chapNum.toString()).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const pages = [];
-      $2(".chapter-images img").each((_, element) => {
+      $2(".page.fit-w .img img").each((_, element) => {
         const imageUrl = $2(element).attr("src");
         if (imageUrl) pages.push(imageUrl);
       });
@@ -16695,14 +16717,12 @@ var source = (() => {
       };
       const $2 = await this.fetchCheerio(request);
       const chapters = [];
-      $2(".chapter-list li").each((_, element) => {
+      $2(".list-body .item").each((_, element) => {
         const li = $2(element);
         const link = li.find("a");
         const chapterId = link.attr("href")?.replace("/read/", "") || "";
-        const title = link.text().trim();
-        const chapterNumber = parseFloat(
-          title.match(/Chapter (\d+)/)?.[1] || "0"
-        );
+        const title = link.find("span").first().text().trim();
+        const chapterNumber = parseFloat(li.attr("data-number") || "0");
         chapters.push({
           chapterId,
           title,
@@ -16724,9 +16744,9 @@ var source = (() => {
       };
       const $2 = await this.fetchCheerio(request);
       const items = [];
-      $2(".unit").each((_, element) => {
+      $2(".unit .inner").each((_, element) => {
         const unit = $2(element);
-        const infoLink = unit.find(".info > a").eq(1);
+        const infoLink = unit.find(".info > a").last();
         const title = infoLink.text().trim();
         const image = unit.find(".poster img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
