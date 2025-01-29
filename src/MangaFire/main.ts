@@ -260,16 +260,11 @@ export class MangaFireExtension implements MangaFireImplementation {
           loadImages: false,
         },
         inject:
-          "const array = Array.from(document.querySelectorAll('.page.fit-w img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
+          "const array = Array.from(document.querySelectorAll('img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
         storage: { cookies: [] },
       });
 
-      const pages: string[] = [];
-      for (const img of result as unknown as string[]) {
-        if (typeof img === "string" && !img.includes("data:")) {
-          pages.push(img);
-        }
-      }
+      const pages: string[] = result.result as string[];
 
       // Filter out any undefined entries and ensure array is compact
       const compactPages = pages.filter((page) => page !== undefined);
