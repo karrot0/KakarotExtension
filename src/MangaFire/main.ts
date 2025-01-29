@@ -242,15 +242,21 @@ export class MangaFireExtension implements MangaFireImplementation {
       // Constructs the URL for fetching chapter details.
       // Example: https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7
       // where "5f5b3b7b7d1c8c0001b3b7b7" is the chapter ID.
-      // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
+      // Makes this url https://mangafire.to/read/mangaid/en/chapter-X
       const request = {
         url: new URLBuilder(baseUrl)
+          .addPath("ajax")
           .addPath("read")
           .addPath(chapter.sourceManga.mangaId)
+          .addPath("chapter")
           .addPath("en")
-          .addPath("chapter-" + chapter.chapNum)
           .build(),
         method: "GET",
+        headers: {
+          Referer: baseUrl,
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        },
       };
 
       const [response, buffer] = await Application.scheduleRequest(request);
