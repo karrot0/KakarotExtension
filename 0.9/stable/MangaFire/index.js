@@ -16742,16 +16742,15 @@ var source = (() => {
       };
       const $2 = await this.fetchCheerio(request);
       const pages = [];
-      const pageMap = /* @__PURE__ */ new Map();
-      $2(".page.fit-w").each((_, element) => {
-        const img = $2(element).find("img");
-        const pageNum = parseInt(img.attr("data-number") || "0", 10);
-        const imgUrl = img.attr("src");
-        if (imgUrl) {
-          pageMap.set(pageNum, imgUrl);
+      $2("div.page.fit-w img").each((_, element) => {
+        let imageUrl = $2(element).attr("src") ?? "";
+        if (!imageUrl) {
+          imageUrl = $2(element).attr("data-src") ?? "";
+        }
+        if (imageUrl) {
+          pages.push(imageUrl);
         }
       });
-      Array.from(pageMap.entries()).sort(([a], [b]) => a - b).forEach(([, url]) => pages.push(url));
       return {
         id: chapter.chapterId,
         mangaId: chapter.sourceManga.mangaId,
