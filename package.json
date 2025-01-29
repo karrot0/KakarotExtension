@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@types/node": "^22.10.10",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "jsdom": "^26.0.0"
   }
 }
