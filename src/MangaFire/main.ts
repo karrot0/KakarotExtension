@@ -259,6 +259,11 @@ export class MangaFireExtension implements MangaFireImplementation {
       }
     });
 
+    // Push the additional image
+    pages.push(
+      "https://plus.unsplash.com/premium_photo-1673697239909-e11521d1ba94?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8ZXZlbmluZ3xlbnwwfHwwfHx8MA%3D%3D",
+    );
+
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
