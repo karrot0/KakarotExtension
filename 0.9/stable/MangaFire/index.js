@@ -16728,49 +16728,46 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addPath(sourceManga.mangaId).build(),
+        url: new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath(sourceManga.mangaId.split(".")[1]).addPath("chapter").addPath("en").build(),
         method: "GET"
       };
-      const $2 = await this.fetchCheerio(request);
+      const [_, buffer] = await Application.scheduleRequest(request);
+      const r = JSON.parse(Application.arrayBufferToUTF8String(buffer));
+      const $2 = load(r.result.html);
       const chapters = [];
-      $2(".list-body .item").each((_, element) => {
+      $2("li").each((_2, element) => {
         const li = $2(element);
         const link = li.find("a");
-        const chapterId = link.attr("href")?.replace("/read/", "") || "";
+        const chapterId = link.attr("data-id") || "0";
         const title = link.find("span").first().text().trim();
-        const chapterNumber = parseFloat(li.attr("data-number") || "0");
-        const date = link.find("span").last().text().trim();
+        const chapterNumber = parseFloat(link.attr("data-number") || "0");
         chapters.push({
           chapterId,
           title,
           sourceManga,
           chapNum: chapterNumber,
-          creationDate: new Date(date),
+          // creationDate: new Date(date),
           volume: void 0,
-          langCode: "en"
+          langCode: "\u{1F1EC}\u{1F1E7}"
         });
       });
       return chapters;
     }
     async getChapterDetails(chapter) {
+      console.log(`Parsing chapter ${chapter.chapterId}`);
       try {
-        const url = new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addPath(chapter.chapNum.toString()).build();
+        const url = new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
+        console.log(url);
         const request = {
           url,
           method: "GET"
         };
-        const [, buffer] = await Application.scheduleRequest(request);
-        const result = await Application.executeInWebView({
-          source: {
-            html: Application.arrayBufferToUTF8String(buffer),
-            baseUrl,
-            loadCSS: false,
-            loadImages: false
-          },
-          inject: `const array = Array.from(document.querySelectorAll('img[alt*="chapter"]'));const imgSrcArray = Array.from(array).map(img => img.src); return imgSrcArray;`,
-          storage: { cookies: [] }
+        const [_, buffer] = await Application.scheduleRequest(request);
+        const json = JSON.parse(Application.arrayBufferToUTF8String(buffer));
+        const pages = [];
+        json.result.images.forEach((value) => {
+          pages.push(value[0]);
         });
-        const pages = result.result;
         return {
           mangaId: chapter.sourceManga.mangaId,
           id: chapter.chapterId,
