@@ -234,33 +234,43 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const request = {
+    try {
+      // Constructs the URL for fetching chapter details.
+      // Example: https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7
+      // where "5f5b3b7b7d1c8c0001b3b7b7" is the chapter ID.
       // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
-      url: new URLBuilder(baseUrl)
-        .addPath("read")
-        .addPath(chapter.chapterId)
-        .build(),
-      method: "GET",
-    };
+      const request = {
+        url: new URLBuilder(baseUrl)
+          .addPath("read")
+          .addPath(chapter.chapterId)
+          .build(),
+        method: "GET",
+      };
 
-    const $ = await this.fetchCheerio(request);
-    const pages: string[] = [];
+      const $ = await this.fetchCheerio(request);
+      const pages: string[] = [];
 
-    $("#page-wrapper .pages .page.fit-w").each((_, element) => {
-      // Find the <img> tag within the .img container and get the src attribute
-      const imageUrl = $(element).find(".img img").attr("src");
+      $("#page-wrapper img.fit-w").each((_, element) => {
+        const imageUrl = $(element).attr("src");
+        if (imageUrl) {
+          pages.push(imageUrl);
+        }
+      });
 
-      // If the src exists, push it to the pages array
-      if (imageUrl) {
-        pages.push(imageUrl);
-      }
-    });
-
-    return {
-      id: chapter.chapterId,
-      mangaId: chapter.sourceManga.mangaId,
-      pages: pages,
-    };
+      return {
+        id: chapter.chapterId,
+        mangaId: chapter.sourceManga.mangaId,
+        pages: pages,
+      };
+    } catch (error) {
+      console.error(
+        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
+        error,
+      );
+      throw new Error(
+        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
+      );
+    }
   }
 
   async getUpdatedSectionItems(
