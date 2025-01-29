@@ -16749,15 +16749,10 @@ var source = (() => {
             loadCSS: false,
             loadImages: false
           },
-          inject: "const array = Array.from(document.querySelectorAll('.page.fit-w img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
+          inject: "const array = Array.from(document.querySelectorAll('img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
           storage: { cookies: [] }
         });
-        const pages = [];
-        for (const img of result) {
-          if (typeof img === "string" && !img.includes("data:")) {
-            pages.push(img);
-          }
-        }
+        const pages = result.result;
         const compactPages = pages.filter((page) => page !== void 0);
         return {
           id: chapter.chapterId,
