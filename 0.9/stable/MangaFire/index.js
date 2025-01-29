@@ -2140,7 +2140,7 @@ var source = (() => {
       exports.BasicRateLimiter = void 0;
       var Lock_1 = require_Lock();
       var PaperbackInterceptor_1 = require_PaperbackInterceptor();
-      var BasicRateLimiter2 = class extends PaperbackInterceptor_1.PaperbackInterceptor {
+      var BasicRateLimiter = class extends PaperbackInterceptor_1.PaperbackInterceptor {
         options;
         promise;
         currentRequestsMade = 0;
@@ -2180,7 +2180,7 @@ var source = (() => {
           }
         }
       };
-      exports.BasicRateLimiter = BasicRateLimiter2;
+      exports.BasicRateLimiter = BasicRateLimiter;
     }
   });
 
@@ -16595,11 +16595,6 @@ var source = (() => {
     }
     async getDiscoverSections() {
       return [
-        // {
-        //   id: "featured_section",
-        //   title: "Featured",
-        //   type: DiscoverSectionType.featured,
-        // },
         {
           id: "popular_section",
           title: "Popular",
@@ -16608,7 +16603,17 @@ var source = (() => {
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types2.DiscoverSectionType.featured
+          type: import_types2.DiscoverSectionType.simpleCarousel
+        },
+        {
+          id: "new_manga_section",
+          title: "New Manga",
+          type: import_types2.DiscoverSectionType.simpleCarousel
+        },
+        {
+          id: "genres",
+          title: "Genres",
+          type: import_types2.DiscoverSectionType.genres
         }
       ];
     }
@@ -16666,7 +16671,8 @@ var source = (() => {
       const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
       const tags = [];
       const genres = [];
-      $2(".manga-detail .meta div").each((_, element) => {
+      let rating = 1;
+      $2("#info-rating .meta div").each((_, element) => {
         const label = $2(element).find("span").first().text().trim();
         if (label === "Genres:") {
           $2(element).find("a").each((_2, genreElement) => {
@@ -16674,6 +16680,10 @@ var source = (() => {
           });
         }
       });
+      const ratingValue = $2("#info-rating .score .live-score").text().trim();
+      if (ratingValue) {
+        rating = parseFloat(ratingValue) / 2;
+      }
       if (genres.length > 0) {
         tags.push({
           id: "genres",
@@ -16684,31 +16694,19 @@ var source = (() => {
           }))
         });
       }
-      return createSourceManga({
-        id: mangaId,
-        titles: [title, ...altTitles],
-        image,
-        status,
-        desc: description,
-        tags
-      });
-    }
-    async getChapterDetails(chapter) {
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addQuery("chapter-", chapter.chapNum.toString()).build(),
-        method: "GET"
+      return {
+        mangaId,
+        mangaInfo: {
+          primaryTitle: title,
+          secondaryTitles: altTitles,
+          thumbnailUrl: image,
+          synopsis: description,
+          rating,
+          contentRating: import_types2.ContentRating.EVERYONE,
+          status,
+          tagGroups: tags
+        }
       };
-      const $2 = await this.fetchCheerio(request);
-      const pages = [];
-      $2(".page.fit-w .img img").each((_, element) => {
-        const imageUrl = $2(element).attr("src");
-        if (imageUrl) pages.push(imageUrl);
-      });
-      return createChapterDetails({
-        id: chapter.chapterId,
-        mangaId: chapter.sourceManga.mangaId,
-        pages
-      });
     }
     async getChapters(sourceManga) {
       const request = {
@@ -16723,17 +16721,36 @@ var source = (() => {
         const chapterId = link.attr("href")?.replace("/read/", "") || "";
         const title = link.find("span").first().text().trim();
         const chapterNumber = parseFloat(li.attr("data-number") || "0");
+        const date = link.find("span").last().text().trim();
         chapters.push({
           chapterId,
           title,
           sourceManga,
           chapNum: chapterNumber,
-          creationDate: /* @__PURE__ */ new Date(),
+          creationDate: new Date(date),
           volume: void 0,
           langCode: "en"
         });
       });
       return chapters;
+    }
+    async getChapterDetails(chapter) {
+      const request = {
+        // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
+        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addQuery("chapter-", chapter.chapNum.toString()).build(),
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const pages = [];
+      $2(".page.fit-w .img img").each((_, element) => {
+        const imageUrl = $2(element).attr("src") || $2(element).attr("data-src");
+        if (imageUrl) pages.push(imageUrl);
+      });
+      return {
+        id: chapter.chapterId,
+        mangaId: chapter.sourceManga.mangaId,
+        pages
+      };
     }
     async getUpdatedSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
@@ -16820,26 +16837,6 @@ var source = (() => {
       title: options.title,
       subtitle: void 0,
       metadata: void 0
-    };
-  }
-  function createSourceManga(options) {
-    return {
-      mangaId: options.id,
-      mangaInfo: {
-        primaryTitle: options.titles[0],
-        secondaryTitles: options.titles.slice(1),
-        thumbnailUrl: options.image,
-        synopsis: options.desc,
-        rating: 1,
-        contentRating: import_types2.ContentRating.EVERYONE
-      }
-    };
-  }
-  function createChapterDetails(options) {
-    return {
-      id: options.id,
-      mangaId: options.mangaId,
-      pages: options.pages
     };
   }
   var MangaFire = new MangaFireExtension();

@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-01-29T02:01:14.075Z",
+  "buildTime": "2025-01-29T02:52:28.779Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -10,7 +10,7 @@
   },
   "sources": [
     {
-      "name": "MangaFire Extension",
+      "name": "MangaFire",
       "description": "A paperback extension for MangaFire",
       "version": "0.9.0",
       "icon": "icon.png",
@@ -29,7 +29,6 @@
         }
       ],
       "capabilities": [
-        32,
         4,
         64,
         1
