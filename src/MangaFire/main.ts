@@ -1,5 +1,4 @@
 import {
-  BasicRateLimiter,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -48,11 +47,6 @@ export class MangaFireExtension implements MangaFireImplementation {
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
     return [
-      // {
-      //   id: "featured_section",
-      //   title: "Featured",
-      //   type: DiscoverSectionType.featured,
-      // },
       {
         id: "popular_section",
         title: "Popular",
@@ -61,8 +55,18 @@ export class MangaFireExtension implements MangaFireImplementation {
       {
         id: "updated_section",
         title: "Recently Updated",
-        type: DiscoverSectionType.featured,
+        type: DiscoverSectionType.simpleCarousel,
       },
+      {
+        id: "new_manga_section",
+        title: "New Manga",
+        type: DiscoverSectionType.simpleCarousel,
+      },
+      {
+        id: "genres",
+        title: "Genres",
+        type: DiscoverSectionType.genres,
+      }
     ];
   }
 
@@ -148,16 +152,23 @@ export class MangaFireExtension implements MangaFireImplementation {
     // Extract tags
     const tags: TagSection[] = [];
     const genres: string[] = [];
-    $(".manga-detail .meta div").each((_, element) => {
+    let rating = 1;
+
+    // Parse info-rating section
+    $("#info-rating .meta div").each((_, element) => {
       const label = $(element).find("span").first().text().trim();
       if (label === "Genres:") {
-        $(element)
-          .find("a")
-          .each((_, genreElement) => {
-            genres.push($(genreElement).text().trim());
-          });
+        $(element).find("a").each((_, genreElement) => {
+          genres.push($(genreElement).text().trim());
+        });
       }
     });
+
+    // Get rating if available
+    const ratingValue = $("#info-rating .score .live-score").text().trim();
+    if (ratingValue) {
+      rating = parseFloat(ratingValue) / 2; // Convert 10-point scale to 5-point scale
+    }
 
     if (genres.length > 0) {
       tags.push({
@@ -170,41 +181,19 @@ export class MangaFireExtension implements MangaFireImplementation {
       });
     }
 
-    return createSourceManga({
-      id: mangaId,
-      titles: [title, ...altTitles],
-      image: image,
-      status: status,
-      desc: description,
-      tags: tags,
-    });
-  }
-
-  async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("read")
-        .addPath(chapter.chapterId)
-        .addPath("en")
-        .addQuery("chapter-", chapter.chapNum.toString())
-        .build(),
-      method: "GET",
+    return {
+      mangaId: mangaId,
+      mangaInfo: {
+        primaryTitle: title,
+        secondaryTitles: altTitles,
+        thumbnailUrl: image,
+        synopsis: description,
+        rating: rating,
+        contentRating: ContentRating.EVERYONE,
+        status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
+        tagGroups: tags,
+      }
     };
-
-    const $ = await this.fetchCheerio(request);
-
-    // Extract chapter images
-    const pages: string[] = [];
-    $(".page.fit-w .img img").each((_, element) => {
-      const imageUrl = $(element).attr("src");
-      if (imageUrl) pages.push(imageUrl);
-    });
-
-    return createChapterDetails({
-      id: chapter.chapterId,
-      mangaId: chapter.sourceManga.mangaId,
-      pages: pages,
-    });
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
@@ -224,22 +213,50 @@ export class MangaFireExtension implements MangaFireImplementation {
       const link = li.find("a");
       const chapterId = link.attr("href")?.replace("/read/", "") || "";
       const title = link.find("span").first().text().trim();
-
       // Extract chapter number from data-number attribute
       const chapterNumber = parseFloat(li.attr("data-number") || "0");
+      const date = link.find("span").last().text().trim();
 
       chapters.push({
         chapterId: chapterId,
         title: title,
         sourceManga: sourceManga,
         chapNum: chapterNumber,
-        creationDate: new Date(),
+        creationDate: new Date(date),
         volume: undefined,
         langCode: "en",
       });
     });
 
     return chapters;
+  }
+
+  async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
+    const request = {
+      // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
+      url: new URLBuilder(baseUrl)
+        .addPath("read")
+        .addPath(chapter.chapterId)
+        .addPath("en")
+        .addQuery("chapter-", chapter.chapNum.toString())
+        .build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+
+    // Extract chapter images
+    const pages: string[] = [];
+    $(".page.fit-w .img img").each((_, element) => {
+      const imageUrl = $(element).attr("src") || $(element).attr("data-src");
+      if (imageUrl) pages.push(imageUrl);
+    });
+
+    return {
+      id: chapter.chapterId,
+      mangaId: chapter.sourceManga.mangaId,
+      pages: pages,
+    };
   }
 
   async getUpdatedSectionItems(
@@ -355,18 +372,6 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 }
 
-function createRequestObject(options: {
-  url: string;
-  method: string;
-  headers: { Referer: string };
-}): Request {
-  return {
-    url: options.url,
-    method: options.method,
-    headers: options.headers,
-  };
-}
-
 function createDiscoverSectionItem(options: {
   id: string;
   image: string;
@@ -380,39 +385,6 @@ function createDiscoverSectionItem(options: {
     title: options.title,
     subtitle: undefined,
     metadata: undefined,
-  };
-}
-
-function createSourceManga(options: {
-  id: string;
-  titles: string[];
-  image: string;
-  status: "ONGOING" | "COMPLETED" | "UNKNOWN";
-  desc: string;
-  tags: TagSection[];
-}): SourceManga {
-  return {
-    mangaId: options.id,
-    mangaInfo: {
-      primaryTitle: options.titles[0],
-      secondaryTitles: options.titles.slice(1),
-      thumbnailUrl: options.image,
-      synopsis: options.desc,
-      rating: 1,
-      contentRating: ContentRating.EVERYONE,
-    },
-  };
-}
-
-function createChapterDetails(options: {
-  id: string;
-  mangaId: string;
-  pages: string[];
-}): ChapterDetails {
-  return {
-    id: options.id,
-    mangaId: options.mangaId,
-    pages: options.pages,
   };
 }
 

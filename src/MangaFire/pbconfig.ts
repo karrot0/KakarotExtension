@@ -1,7 +1,7 @@
 import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "MangaFire Extension",
+  name: "MangaFire",
   description: "A paperback extension for MangaFire",
   version: "0.9.0",
   icon: "icon.png",
@@ -12,8 +12,7 @@ export default {
     { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
   ],
   capabilities: [
-    SourceIntents.SETTINGS_UI,
-    SourceIntents.HOMEPAGE_SECTIONS,
+    SourceIntents.DISCOVER_SECIONS,
     SourceIntents.MANGA_SEARCH,
     SourceIntents.MANGA_CHAPTERS,
   ],
