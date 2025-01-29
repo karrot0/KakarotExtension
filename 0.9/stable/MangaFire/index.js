@@ -16754,32 +16754,27 @@ var source = (() => {
     }
     async getChapterDetails(chapter) {
       try {
+        const url = new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).addPath("en").addPath(chapter.chapNum.toString()).build();
         const request = {
-          url: new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath(chapter.sourceManga.mangaId).addPath("chapter").addPath("en").build(),
-          method: "GET",
-          headers: {
-            Referer: baseUrl,
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-          }
+          url,
+          method: "GET"
         };
-        const [response, buffer] = await Application.scheduleRequest(request);
-        this.checkCloudflareStatus(response.status);
+        const [, buffer] = await Application.scheduleRequest(request);
         const result = await Application.executeInWebView({
           source: {
             html: Application.arrayBufferToUTF8String(buffer),
-            baseUrl: request.url,
+            baseUrl,
             loadCSS: false,
-            loadImages: true
+            loadImages: false
           },
-          inject: "const array = Array.from(document.querySelectorAll('img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
+          inject: `const array = Array.from(document.querySelectorAll('img[alt*="chapter"]'));const imgSrcArray = Array.from(array).map(img => img.src); return imgSrcArray;`,
           storage: { cookies: [] }
         });
         const pages = result.result;
-        const compactPages = pages.filter((page) => page !== void 0);
         return {
-          id: chapter.chapterId,
           mangaId: chapter.sourceManga.mangaId,
-          pages: compactPages
+          id: chapter.chapterId,
+          pages
         };
       } catch (error) {
         console.error(
