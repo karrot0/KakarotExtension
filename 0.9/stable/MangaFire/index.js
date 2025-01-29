@@ -16740,17 +16740,24 @@ var source = (() => {
           url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.sourceManga.mangaId).addPath("en").addPath("chapter-" + chapter.chapNum).build(),
           method: "GET"
         };
-        const $2 = await this.fetchCheerio(request);
-        const pages = [];
-        const pageElements = $2(".page.fit-w img.fit-w");
-        pageElements.each((_, img) => {
-          const src = $2(img).attr("src");
-          const number = $2(img).attr("data-number");
-          if (src && !src.includes("data:")) {
-            const intNumber = parseInt(number || "0");
-            pages[intNumber - 1] = src;
-          }
+        const [response, buffer] = await Application.scheduleRequest(request);
+        this.checkCloudflareStatus(response.status);
+        const result = await Application.executeInWebView({
+          source: {
+            html: Application.arrayBufferToUTF8String(buffer),
+            baseUrl: request.url,
+            loadCSS: false,
+            loadImages: false
+          },
+          inject: "const array = Array.from(document.querySelectorAll('.page.fit-w img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
+          storage: { cookies: [] }
         });
+        const pages = [];
+        for (const img of result) {
+          if (typeof img === "string" && !img.includes("data:")) {
+            pages.push(img);
+          }
+        }
         const compactPages = pages.filter((page) => page !== void 0);
         return {
           id: chapter.chapterId,
