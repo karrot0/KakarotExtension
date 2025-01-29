@@ -21,6 +21,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { URLBuilder } from "../utils/url-builder/base";
+import { FireInterceptor } from "./MangaFireInterceptor";
 
 const baseUrl = "https://mangafire.to";
 
@@ -31,7 +32,10 @@ type MangaFireImplementation = Extension &
   DiscoverSectionProviding;
 
 export class MangaFireExtension implements MangaFireImplementation {
+  requestManager = new FireInterceptor("main");
+
   async initialise(): Promise<void> {
+    this.requestManager.registerInterceptor();
     Application.registerSearchFilter({
       id: "sortBy",
       type: "dropdown",
