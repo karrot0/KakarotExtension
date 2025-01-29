@@ -249,11 +249,12 @@ export class MangaFireExtension implements MangaFireImplementation {
     const pages: string[] = [];
     const pageMap = new Map<number, string>();
 
-    $(".pages.longstrip .page.fit-w .img img").each((_, element) => {
-      const dataNumber = parseInt($(element).attr("data-number") || "1");
-      const imageUrl = $(element).attr("src");
-      if (imageUrl) {
-        pageMap.set(dataNumber, imageUrl);
+    $(".page.fit-w").each((_, element) => {
+      const img = $(element).find("img");
+      const pageNum = parseInt(img.attr("data-number") || "0", 10);
+      const imgUrl = img.attr("src");
+      if (imgUrl) {
+        pageMap.set(pageNum, imgUrl);
       }
     });
 
