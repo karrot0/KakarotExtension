@@ -16735,24 +16735,33 @@ var source = (() => {
       return chapters;
     }
     async getChapterDetails(chapter) {
-      const request = {
-        // Makes this url https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7/en/chapter-1
-        url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).build(),
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const pages = [];
-      $2("#page-wrapper .pages .page.fit-w").each((_, element) => {
-        const imageUrl = $2(element).find(".img img").attr("src");
-        if (imageUrl) {
-          pages.push(imageUrl);
-        }
-      });
-      return {
-        id: chapter.chapterId,
-        mangaId: chapter.sourceManga.mangaId,
-        pages
-      };
+      try {
+        const request = {
+          url: new URLBuilder(baseUrl).addPath("read").addPath(chapter.chapterId).build(),
+          method: "GET"
+        };
+        const $2 = await this.fetchCheerio(request);
+        const pages = [];
+        $2("#page-wrapper img.fit-w").each((_, element) => {
+          const imageUrl = $2(element).attr("src");
+          if (imageUrl) {
+            pages.push(imageUrl);
+          }
+        });
+        return {
+          id: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
+          pages
+        };
+      } catch (error) {
+        console.error(
+          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
+          error
+        );
+        throw new Error(
+          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`
+        );
+      }
     }
     async getUpdatedSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
