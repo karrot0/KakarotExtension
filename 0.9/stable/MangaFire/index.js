@@ -16742,8 +16742,8 @@ var source = (() => {
       };
       const $2 = await this.fetchCheerio(request);
       const pages = [];
-      $2(".page-wrapper .page fit-w").each((_, element) => {
-        const imageUrl = $2(element).find("img").attr("src");
+      $2("#page-wrapper .pages .page.fit-w").each((_, element) => {
+        const imageUrl = $2(element).find(".img img").attr("src");
         if (imageUrl) {
           pages.push(imageUrl);
         }
