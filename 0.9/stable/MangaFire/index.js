@@ -1828,7 +1828,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Form = void 0;
-      var Form2 = class {
+      var Form = class {
         reloadForm() {
           const formId = this["__underlying_formId"];
           if (!formId)
@@ -1841,7 +1841,7 @@ var source = (() => {
           return false;
         }
       };
-      exports.Form = Form2;
+      exports.Form = Form;
     }
   });
 
@@ -2067,7 +2067,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.PaperbackInterceptor = void 0;
-      var PaperbackInterceptor2 = class {
+      var PaperbackInterceptor = class {
         id;
         constructor(id) {
           this.id = id;
@@ -2079,7 +2079,7 @@ var source = (() => {
           Application.unregisterInterceptor(this.id);
         }
       };
-      exports.PaperbackInterceptor = PaperbackInterceptor2;
+      exports.PaperbackInterceptor = PaperbackInterceptor;
     }
   });
 
@@ -16594,65 +16594,35 @@ var source = (() => {
       });
     }
     async getDiscoverSections() {
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addQuery("latest", "1").build(),
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const units = $2(".unit");
-      const results = [];
-      units.each((_, element) => {
-        const unit = $2(element);
-        const poster = unit.find(".poster");
-        const title = unit.find(".info > a").text().trim();
-        const image = unit.find("img").attr("src") || "";
-        const mangaId = poster.attr("href")?.replace("/manga/", "") || "";
-        results.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image,
-            title,
-            type: "simpleCarouselItem"
-          })
-        );
-      });
-      const section = createDiscoverSection({
-        id: "recently_updated",
-        title: "Recently Updated",
-        items: results,
-        type: "singlerow"
-      });
-      return [section];
+      return [
+        // {
+        //   id: "featured_section",
+        //   title: "Featured",
+        //   type: DiscoverSectionType.featured,
+        // },
+        {
+          id: "popular_section",
+          title: "Popular",
+          type: import_types2.DiscoverSectionType.featured
+        },
+        {
+          id: "updated_section",
+          title: "Recently Updated",
+          type: import_types2.DiscoverSectionType.featured
+        }
+      ];
     }
     async getDiscoverSectionItems(section, metadata) {
-      const page = metadata?.page ?? 1;
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addQuery("latest", "1").addQuery("page", page.toString()).build(),
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const units = $2(".unit");
-      const results = [];
-      units.each((_, element) => {
-        const unit = $2(element);
-        const poster = unit.find(".poster");
-        const title = unit.find(".info > a").text().trim();
-        const image = unit.find("img").attr("src") || "";
-        const mangaId = poster.attr("href")?.replace("/manga/", "") || "";
-        results.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image,
-            title,
-            type: "simpleCarouselItem"
-          })
-        );
-      });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
-      return {
-        items: results,
-        metadata: hasNextPage ? { page: page + 1 } : void 0
-      };
+      switch (section.id) {
+        // case "featured_section":
+        //   return this.getFeaturedSectionItems(section, metadata);
+        case "popular_section":
+          return this.getPopularSectionItems(section, metadata);
+        case "updated_section":
+          return this.getUpdatedSectionItems(section, metadata);
+        default:
+          return { items: [] };
+      }
     }
     async getSearchResults(query, metadata) {
       const page = metadata?.page ?? 1;
@@ -16745,6 +16715,72 @@ var source = (() => {
       });
       return chapters;
     }
+    async getUpdatedSectionItems(section, metadata) {
+      const page = metadata?.page ?? 1;
+      const collectedIds = metadata?.collectedIds ?? [];
+      const request = {
+        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const items = [];
+      $2(".unit").each((_, element) => {
+        const unit = $2(element);
+        const infoLink = unit.find(".info > a").eq(1);
+        const title = infoLink.text().trim();
+        const image = unit.find(".poster img").attr("src") || "";
+        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        if (title && mangaId && !collectedIds.includes(mangaId)) {
+          collectedIds.push(mangaId);
+          items.push(
+            createDiscoverSectionItem({
+              id: mangaId,
+              image,
+              title,
+              type: "simpleCarouselItem"
+            })
+          );
+        }
+      });
+      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      return {
+        items,
+        metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
+      };
+    }
+    async getPopularSectionItems(section, metadata) {
+      const page = metadata?.page ?? 1;
+      const collectedIds = metadata?.collectedIds ?? [];
+      const request = {
+        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const items = [];
+      $2(".unit .inner").each((_, element) => {
+        const unit = $2(element);
+        const infoLink = unit.find(".info > a").last();
+        const title = infoLink.text().trim();
+        const image = unit.find(".poster img").attr("src") || "";
+        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        if (title && mangaId && !collectedIds.includes(mangaId)) {
+          collectedIds.push(mangaId);
+          items.push(
+            createDiscoverSectionItem({
+              id: mangaId,
+              image,
+              title,
+              type: "simpleCarouselItem"
+            })
+          );
+        }
+      });
+      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      return {
+        items,
+        metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
+      };
+    }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
         throw new import_types2.CloudflareError({ url: baseUrl, method: "GET" });
@@ -16764,14 +16800,6 @@ var source = (() => {
       title: options.title,
       subtitle: void 0,
       metadata: void 0
-    };
-  }
-  function createDiscoverSection(options) {
-    return {
-      type: import_types2.DiscoverSectionType.featured,
-      id: options.id,
-      title: options.title,
-      subtitle: void 0
     };
   }
   function createSourceManga(options) {
