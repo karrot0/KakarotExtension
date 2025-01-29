@@ -247,9 +247,8 @@ export class MangaFireExtension implements MangaFireImplementation {
     const pages: string[] = [];
 
     // Select all elements with data-number
-    $("[data-number]").each((_, element) => {
-      const imageUrl =
-        $(element).attr("src") || $(element).attr("data-src") || "";
+    $(".page-wrapper .page fit-w").each((_, element) => {
+      const imageUrl = $(element).find("img").attr("src");
       if (imageUrl) {
         pages.push(imageUrl);
       }
