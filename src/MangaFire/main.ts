@@ -249,18 +249,27 @@ export class MangaFireExtension implements MangaFireImplementation {
         method: "GET",
       };
 
-      const $ = await this.fetchCheerio(request);
-      const pages: string[] = [];
+      const [response, buffer] = await Application.scheduleRequest(request);
+      this.checkCloudflareStatus(response.status);
 
-      const pageElements = $(".page.fit-w img.fit-w");
-      pageElements.each((_, img) => {
-        const src = $(img).attr("src");
-        const number = $(img).attr("data-number");
-        if (src && !src.includes("data:")) {
-          const intNumber = parseInt(number || "0");
-          pages[intNumber - 1] = src;
-        }
+      const result = await Application.executeInWebView({
+        source: {
+          html: Application.arrayBufferToUTF8String(buffer),
+          baseUrl: request.url,
+          loadCSS: false,
+          loadImages: false,
+        },
+        inject:
+          "const array = Array.from(document.querySelectorAll('.page.fit-w img.fit-w')); const imgSrcArray = array.map(img => img.src); return imgSrcArray;",
+        storage: { cookies: [] },
       });
+
+      const pages: string[] = [];
+      for (const img of result as unknown as string[]) {
+        if (typeof img === "string" && !img.includes("data:")) {
+          pages.push(img);
+        }
+      }
 
       // Filter out any undefined entries and ensure array is compact
       const compactPages = pages.filter((page) => page !== undefined);
