@@ -250,17 +250,23 @@ export class MangaFireExtension implements MangaFireImplementation {
       const $ = await this.fetchCheerio(request);
       const pages: string[] = [];
 
-      $("#page-wrapper img.fit-w").each((_, element) => {
-        const imageUrl = $(element).attr("src");
-        if (imageUrl) {
-          pages.push(imageUrl);
+      const pageElements = $(".page.fit-w img.fit-w");
+      pageElements.each((_, img) => {
+        const src = $(img).attr("src");
+        const number = $(img).attr("data-number");
+        if (src && !src.includes("data:")) {
+          const intNumber = parseInt(number || "0");
+          pages[intNumber - 1] = src;
         }
       });
+
+      // Filter out any undefined entries and ensure array is compact
+      const compactPages = pages.filter((page) => page !== undefined);
 
       return {
         id: chapter.chapterId,
         mangaId: chapter.sourceManga.mangaId,
-        pages: pages,
+        pages: compactPages,
       };
     } catch (error) {
       console.error(
