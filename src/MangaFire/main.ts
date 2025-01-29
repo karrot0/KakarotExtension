@@ -3,7 +3,6 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
-  CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
   DiscoverSection,
@@ -11,24 +10,14 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
-  Form,
-  LibraryItemSourceLinkProposal,
-  ManagedCollection,
-  ManagedCollectionChangeset,
-  ManagedCollectionProviding,
   MangaProviding,
   PagedResults,
-  PaperbackInterceptor,
   Request,
-  Response,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
-  SettingsFormProviding,
   SourceManga,
-  Tag,
   TagSection,
-  UpdateManager,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
@@ -58,89 +47,39 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("manga")
-        .addQuery("latest", "1")
-        .build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const units = $(".unit");
-
-    const results: DiscoverSectionItem[] = [];
-
-    units.each((_, element) => {
-      const unit = $(element);
-      const poster = unit.find(".poster");
-      const title = unit.find(".info > a").text().trim();
-      const image = unit.find("img").attr("src") || "";
-      const mangaId = poster.attr("href")?.replace("/manga/", "") || "";
-
-      results.push(
-        createDiscoverSectionItem({
-          id: mangaId,
-          image: image,
-          title: title,
-          type: "simpleCarouselItem",
-        }),
-      );
-    });
-
-    const section = createDiscoverSection({
-      id: "recently_updated",
-      title: "Recently Updated",
-      items: results,
-      type: "singlerow",
-    });
-
-    return [section];
+    return [
+      // {
+      //   id: "featured_section",
+      //   title: "Featured",
+      //   type: DiscoverSectionType.featured,
+      // },
+      {
+        id: "popular_section",
+        title: "Popular",
+        type: DiscoverSectionType.featured,
+      },
+      {
+        id: "updated_section",
+        title: "Recently Updated",
+        type: DiscoverSectionType.featured,
+      },
+    ];
   }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: unknown | undefined,
+    metadata: MangaFire.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = (metadata as { page?: number } | undefined)?.page ?? 1;
-
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("manga")
-        .addQuery("latest", "1")
-        .addQuery("page", page.toString())
-        .build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const units = $(".unit");
-
-    const results: DiscoverSectionItem[] = [];
-
-    units.each((_, element) => {
-      const unit = $(element);
-      const poster = unit.find(".poster");
-      const title = unit.find(".info > a").text().trim();
-      const image = unit.find("img").attr("src") || "";
-      const mangaId = poster.attr("href")?.replace("/manga/", "") || "";
-
-      results.push(
-        createDiscoverSectionItem({
-          id: mangaId,
-          image: image,
-          title: title,
-          type: "simpleCarouselItem",
-        }),
-      );
-    });
-
-    const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
-
-    return {
-      items: results,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
-    };
+    switch (section.id) {
+      // case "featured_section":
+      //   return this.getFeaturedSectionItems(section, metadata);
+      case "popular_section":
+        return this.getPopularSectionItems(section, metadata);
+      case "updated_section":
+        return this.getUpdatedSectionItems(section, metadata);
+      default:
+        return { items: [] };
+    }
   }
 
   async getSearchResults(
@@ -272,6 +211,107 @@ export class MangaFireExtension implements MangaFireImplementation {
     return chapters;
   }
 
+  async getUpdatedSectionItems(
+    section: DiscoverSection,
+    metadata: { page?: number; collectedIds?: string[] } | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = metadata?.page ?? 1;
+    const collectedIds = metadata?.collectedIds ?? [];
+
+    const request = {
+      url: new URLBuilder(baseUrl)
+        .addPath("filter")
+        .addQuery("keyword", "")
+        .addQuery("language[]", "en")
+        .addQuery("sort", "recently_updated")
+        .addQuery("page", page.toString())
+        .build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+    const items: DiscoverSectionItem[] = [];
+
+    $(".unit").each((_, element) => {
+      const unit = $(element);
+      const infoLink = unit.find(".info > a").eq(1); // Get second <a> in .info
+      const title = infoLink.text().trim();
+      const image = unit.find(".poster img").attr("src") || "";
+      const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+
+      // Only add if title and mangaId exist and not already collected
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push(
+          createDiscoverSectionItem({
+            id: mangaId,
+            image: image,
+            title: title,
+            type: "simpleCarouselItem",
+          }),
+        );
+      }
+    });
+
+    // Check if there's a next page
+    const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
+
+    return {
+      items: items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
+  async getPopularSectionItems(
+    section: DiscoverSection,
+    metadata: { page?: number; collectedIds?: string[] } | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = metadata?.page ?? 1;
+    const collectedIds = metadata?.collectedIds ?? [];
+
+    const request = {
+      url: new URLBuilder(baseUrl)
+        .addPath("filter")
+        .addQuery("keyword", "")
+        .addQuery("language[]", "en")
+        .addQuery("sort", "most_viewed")
+        .addQuery("page", page.toString())
+        .build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+    const items: DiscoverSectionItem[] = [];
+
+    $(".unit .inner").each((_, element) => {
+      const unit = $(element);
+      const infoLink = unit.find(".info > a").last(); // Get the manga title link
+      const title = infoLink.text().trim();
+      const image = unit.find(".poster img").attr("src") || "";
+      const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push(
+          createDiscoverSectionItem({
+            id: mangaId,
+            image: image,
+            title: title,
+            type: "simpleCarouselItem",
+          }),
+        );
+      }
+    });
+
+    // Check if there's a next page
+    const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
+
+    return {
+      items: items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
   checkCloudflareStatus(status: number): void {
     if (status == 503 || status == 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
@@ -310,20 +350,6 @@ function createDiscoverSectionItem(options: {
     title: options.title,
     subtitle: undefined,
     metadata: undefined,
-  };
-}
-
-function createDiscoverSection(options: {
-  id: string;
-  title: string;
-  items: DiscoverSectionItem[];
-  type: "singlerow";
-}): DiscoverSection {
-  return {
-    type: DiscoverSectionType.featured,
-    id: options.id,
-    title: options.title,
-    subtitle: undefined,
   };
 }
 
