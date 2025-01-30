@@ -16769,12 +16769,20 @@ var source = (() => {
           pages
         };
       } catch (error) {
-        console.error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-          error
-        );
+        const errorDetails = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : void 0;
+        const errorContext = {
+          error: errorDetails,
+          stack: errorStack,
+          source: "MangaNeloExtension.getChapterDetails",
+          chapterId: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
+          requestUrl: `${chapter.chapterId}`,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        console.error("Chapter details fetch failed:", errorContext);
         throw new Error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`
+          `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`
         );
       }
     }
