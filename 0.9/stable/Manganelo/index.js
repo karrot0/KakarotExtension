@@ -16678,7 +16678,7 @@ var source = (() => {
     }
     async getMangaDetails(mangaId) {
       const request = {
-        url: new URLBuilder("https://chapmanganelo.com").addPath("manga").addPath(mangaId).build(),
+        url: new URLBuilder(baseUrl).addPath(`manga-${mangaId}`).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16734,7 +16734,7 @@ var source = (() => {
         const li = $2(element);
         const link = li.find("a.chapter-name");
         const href = link.attr("href") || "";
-        const chapterId = href.replace("https://chapmanganelo.com/", "");
+        const chapterId = href;
         const title = link.text().trim();
         const chapterNumber = parseFloat(
           li.attr("id")?.replace("num-", "") || "0"
@@ -16754,7 +16754,7 @@ var source = (() => {
     }
     async getChapterDetails(chapter) {
       try {
-        const url = new URLBuilder("https://chapmanganelo.com").addPath(chapter.chapterId).build();
+        const url = chapter.chapterId;
         const request = {
           url,
           method: "GET"
@@ -16804,7 +16804,7 @@ var source = (() => {
         const infoLink = unit.find(".genres-item-name");
         const title = infoLink.text().trim();
         const image = unit.find(".genres-item-img img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace(/.*?manga-([^/]+).*/, "$1") || "";
+        const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -16837,7 +16837,7 @@ var source = (() => {
         const infoLink = unit.find(".genres-item-name");
         const title = infoLink.text().trim();
         const image = unit.find(".genres-item-img img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace(/.*?manga-([^/]+).*/, "$1") || "";
+        const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
