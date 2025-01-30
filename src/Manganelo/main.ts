@@ -263,19 +263,21 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       };
 
       const $ = await this.fetchCheerio(request);
-      const pages: string[] = [];
 
-      $(".container-chapter-reader img.reader-content").each((_, element) => {
-        const imgSrc = $(element).attr("src");
-        if (imgSrc) {
-          pages.push(imgSrc);
-        }
-      });
+      const pages: string[] = [];
+      for (const img of $(
+        ".container-chapter-reader img.reader-content",
+      ).toArray()) {
+        let image = $(img).attr("src") ?? "";
+        if (!image) image = $(img).attr("data-src") ?? "";
+        if (!image) continue;
+        pages.push(image);
+      }
 
       return {
-        mangaId: chapter.sourceManga.mangaId,
         id: chapter.chapterId,
-        pages,
+        mangaId: chapter.sourceManga.mangaId,
+        pages: pages,
       };
     } catch (error) {
       const errorDetails =
