@@ -140,7 +140,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     // Example URL: https://m.manganelo.com/manga-af123456
     const request = {
-      url: new URLBuilder(mangaId).build(),
+      url: `${mangaId}`,
       method: "GET",
     };
 
@@ -223,10 +223,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const request = {
-      url: new URLBuilder("https://chapmanganelo.com")
-        .addPath("manga")
-        .addPath(sourceManga.mangaId)
-        .build(),
+      url: `${sourceManga.mangaId}`,
       method: "GET",
     };
 
@@ -263,7 +260,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
       const request = {
-        url: new URLBuilder(chapter.chapterId).build(),
+        url: `${chapter.chapterId}`,
         method: "GET",
       };
 
