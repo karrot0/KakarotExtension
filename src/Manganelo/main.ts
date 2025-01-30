@@ -236,16 +236,16 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const href = link.attr("href") || "";
       const chapterId = href.replace("https://chapmanganelo.com", "");
       const title = link.attr("title")?.trim() || link.text().trim();
-      // URL Example: https://chapmanganelo.com/manga-xp137661/chapter-69.2
-      // Output Example: 69.2
-      const chapterNumber = parseFloat(li.attr("id") || "");
+
+      // Extract chapter number from title using regex
+      const chapterMatch = title.match(/Chapter\s+(\d+\.?\d*)/i);
+      const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
 
       chapters.push({
         chapterId: chapterId,
         title: title,
         sourceManga: sourceManga,
         chapNum: chapterNumber,
-        //creationDate: date ? new Date(date) : new Date(),
         volume: undefined,
         langCode: "GB",
       });
