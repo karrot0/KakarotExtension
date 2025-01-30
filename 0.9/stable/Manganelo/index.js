@@ -16782,7 +16782,10 @@ var source = (() => {
           requestUrl: `${chapter.chapterId}`,
           timestamp: (/* @__PURE__ */ new Date()).toISOString()
         };
-        console.error("Chapter details fetch failed:", errorContext);
+        console.error(
+          "Chapter details fetch failed:",
+          JSON.stringify(errorContext, null, 2)
+        );
         throw new Error(
           `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`
         );
