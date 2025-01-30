@@ -3,12 +3,12 @@ declare namespace MangaFire {
     offset?: number;
     collectedIds?: string[];
   }
-  interface Result{
-    status: number,
+  interface Result {
+    status: number;
     result: {
-      html: string,
+      html: string;
       title_format: string;
-    },
+    };
   }
 
   interface PageResponse {
@@ -17,13 +17,11 @@ declare namespace MangaFire {
       images: ImageData[];
     };
   }
-  
+
   // Represents each image entry in the "images" array
   // Each entry is an array where:
   // - index 0 is a string (image URL)
   // - index 1 is a number (possibly an identifier or category)
   // - index 2 is a number (possibly a flag or status indicator)
   type ImageData = [string, number, number];
-
-  
 }

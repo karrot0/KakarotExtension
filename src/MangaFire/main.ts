@@ -219,17 +219,19 @@ export class MangaFireExtension implements MangaFireImplementation {
         .addPath("chapter")
         .addPath("en")
         .build(),
-      method: "GET"
-    }
+      method: "GET",
+    };
 
     const [_, buffer] = await Application.scheduleRequest(request);
 
-    const r: MangaFire.Result = JSON.parse(Application.arrayBufferToUTF8String(buffer)) as MangaFire.Result ;
+    const r: MangaFire.Result = JSON.parse(
+      Application.arrayBufferToUTF8String(buffer),
+    ) as MangaFire.Result;
     const $ = cheerio.load(r.result.html);
-    
+
     const chapters: Chapter[] = [];
 
-    $("li").each((_, element)=>{
+    $("li").each((_, element) => {
       // console.log();
       const li = $(element);
       const link = li.find("a");
@@ -247,19 +249,19 @@ export class MangaFireExtension implements MangaFireImplementation {
         volume: undefined,
         langCode: "🇬🇧",
       });
-    })
+    });
 
     return chapters;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    console.log(`Parsing chapter ${chapter.chapterId}`)
+    console.log(`Parsing chapter ${chapter.chapterId}`);
     try {
       // Constructs the URL for fetching chapter details.
       // Example: https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7
       // where "5f5b3b7b7d1c8c0001b3b7b7" is the chapter ID.
       // Makes this url https://mangafire.to/read/mangaid/en/chapter-X
-      // 
+      //
       // Utilizing ajax API
       // Example: https://mangafire.to/ajax/read/chapter/3832635
       const url = new URLBuilder(baseUrl)
@@ -277,12 +279,14 @@ export class MangaFireExtension implements MangaFireImplementation {
       };
 
       const [_, buffer] = await Application.scheduleRequest(request);
-      const json: MangaFire.PageResponse = JSON.parse(Application.arrayBufferToUTF8String(buffer)) as MangaFire.PageResponse;
+      const json: MangaFire.PageResponse = JSON.parse(
+        Application.arrayBufferToUTF8String(buffer),
+      ) as MangaFire.PageResponse;
 
       const pages: string[] = [];
-      json.result.images.forEach((value: MangaFire.ImageData)=>{
+      json.result.images.forEach((value: MangaFire.ImageData) => {
         pages.push(value[0]);
-      })
+      });
       return {
         mangaId: chapter.sourceManga.mangaId,
         id: chapter.chapterId,

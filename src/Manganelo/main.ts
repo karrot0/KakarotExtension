@@ -21,9 +21,9 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { URLBuilder } from "../utils/url-builder/base";
-import { FireInterceptor } from "./ManganeloInterceptor";
+import { NeloInterceptor } from "./ManganeloInterceptor";
 
-const baseUrl = "https://w.manganelo.com";
+const baseUrl = "https://m.manganelo.com";
 
 type MangaNeloImplementation = Extension &
   SearchResultsProviding &
@@ -32,7 +32,7 @@ type MangaNeloImplementation = Extension &
   DiscoverSectionProviding;
 
 export class MangaNeloExtension implements MangaNeloImplementation {
-  requestManager = new FireInterceptor("main");
+  requestManager = new NeloInterceptor("main");
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();

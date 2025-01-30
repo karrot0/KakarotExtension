@@ -1,10 +1,10 @@
 import { PaperbackInterceptor, Request, Response } from "@paperback/types";
 
-export class FireInterceptor extends PaperbackInterceptor {
+export class NeloInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
       ...request.headers,
-      referer: `https://w.manganelo.com`,
+      referer: `https://m.manganelo.com`,
     };
     return request;
   }
