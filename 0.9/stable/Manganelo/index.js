@@ -16756,21 +16756,14 @@ var source = (() => {
           method: "GET"
         };
         const [, buffer] = await Application.scheduleRequest(request);
-        const result = await Application.executeInWebView({
-          source: {
-            html: Application.arrayBufferToUTF8String(buffer),
-            baseUrl,
-            loadCSS: false,
-            loadImages: false
-          },
-          inject: `
-          const images = Array.from(document.querySelectorAll('.container-chapter-reader img.reader-content'));
-          const imgSrcArray = images.map(img => img.src);
-          return imgSrcArray;
-        `,
-          storage: { cookies: [] }
+        const $2 = load(Application.arrayBufferToUTF8String(buffer));
+        const pages = [];
+        $2(".container-chapter-reader img.reader-content").each((_, element) => {
+          const imgSrc = $2(element).attr("src");
+          if (imgSrc) {
+            pages.push(imgSrc);
+          }
         });
-        const pages = result.result;
         return {
           mangaId: chapter.sourceManga.mangaId,
           id: chapter.chapterId,
