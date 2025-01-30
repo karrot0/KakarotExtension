@@ -16734,19 +16734,17 @@ var source = (() => {
         const li = $2(element);
         const link = li.find("a.chapter-name");
         const href = link.attr("href") || "";
-        const chapterId = href;
-        const title = link.text().trim();
+        const chapterId = href.replace("https://chapmanganelo.com", "");
+        const title = link.attr("title")?.trim() || link.text().trim();
         const chapterNumber = parseFloat(
           li.attr("id")?.replace("num-", "") || "0"
         );
-        const dateElement = li.find("span.chapter-time, span.text-nowrap");
-        const date = dateElement.attr("title")?.trim() || dateElement.text().trim();
         chapters.push({
           chapterId,
           title,
           sourceManga,
           chapNum: chapterNumber,
-          creationDate: date ? new Date(date) : /* @__PURE__ */ new Date(),
+          //creationDate: date ? new Date(date) : new Date(),
           volume: void 0,
           langCode: "GB"
         });
