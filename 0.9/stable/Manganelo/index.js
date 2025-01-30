@@ -16678,7 +16678,7 @@ var source = (() => {
     }
     async getMangaDetails(mangaId) {
       const request = {
-        url: new URLBuilder(mangaId).build(),
+        url: `${mangaId}`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16725,7 +16725,7 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const request = {
-        url: new URLBuilder("https://chapmanganelo.com").addPath("manga").addPath(sourceManga.mangaId).build(),
+        url: `${sourceManga.mangaId}`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16756,7 +16756,7 @@ var source = (() => {
     async getChapterDetails(chapter) {
       try {
         const request = {
-          url: new URLBuilder(chapter.chapterId).build(),
+          url: `${chapter.chapterId}`,
           method: "GET"
         };
         const [, buffer] = await Application.scheduleRequest(request);
