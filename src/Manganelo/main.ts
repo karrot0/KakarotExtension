@@ -140,7 +140,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     // Example URL: https://m.manganelo.com/manga-af123456
     const request = {
-      url: new URLBuilder(baseUrl).addPath(`manga-${mangaId}`).build(),
+      url: new URLBuilder(mangaId).build(),
       method: "GET",
     };
 
@@ -233,7 +233,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
     const $ = await this.fetchCheerio(request);
     const chapters: Chapter[] = [];
 
-    $("#row-content-chapter .a-h").each((_, element) => {
+    $(".a-h").each((_, element) => {
       const li = $(element);
       const link = li.find("a.chapter-name");
       const href = link.attr("href") || "";
@@ -242,7 +242,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const chapterNumber = parseFloat(
         li.attr("id")?.replace("num-", "") || "0",
       );
-      const date = link.find("span.chapter-time").attr("title")?.trim();
+      const dateElement = li.find("span.chapter-time, span.text-nowrap");
+      const date =
+        dateElement.attr("title")?.trim() || dateElement.text().trim();
 
       chapters.push({
         chapterId: chapterId,
@@ -251,7 +253,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         chapNum: chapterNumber,
         creationDate: date ? new Date(date) : new Date(),
         volume: undefined,
-        langCode: "en",
+        langCode: "GB",
       });
     });
 
@@ -260,10 +262,8 @@ export class MangaNeloExtension implements MangaNeloImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
-      const url = chapter.chapterId;
-
-      const request: Request = {
-        url,
+      const request = {
+        url: new URLBuilder(chapter.chapterId).build(),
         method: "GET",
       };
 
@@ -324,8 +324,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const title = infoLink.text().trim();
       const image = unit.find(".genres-item-img img").attr("src") || "";
       // Example URL: https://m.manganelo.com/manga-af123456
-      // Returns af123456s
-      const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? ""; // Extract everything after "manga-" // Nullish coalescing instead of ||
+      const mangaId = infoLink.attr("href");
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -375,8 +374,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const title = infoLink.text().trim();
       const image = unit.find(".genres-item-img img").attr("src") || "";
       // Example URL: https://m.manganelo.com/manga-af123456
-      // Returns af123456s
-      const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? ""; // Extract everything after "manga-" // Nullish coalescing instead of ||
+      const mangaId = infoLink.attr("href");
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
