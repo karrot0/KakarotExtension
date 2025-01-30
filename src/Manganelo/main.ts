@@ -147,7 +147,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
     const $ = await this.fetchCheerio(request);
 
     // Extract basic manga details
-    const title = $("story-info-right h1").text().trim();
+    const title = $(".story-info-right h1").text().trim();
     const altTitles = $(".variations-tableInfo .table-value h2")
       .first()
       .text()
@@ -236,8 +236,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const href = link.attr("href") || "";
       const chapterId = href;
       const title = link.text().trim();
-      let chapterNumber = parseFloat(li.attr("id")?.replace("num-", "") || "0");
-      if (isNaN(chapterNumber)) chapterNumber = 0;
+      const chapterNumber = parseFloat(
+        li.attr("id")?.replace("num-", "") || "0",
+      );
       const dateElement = li.find("span.chapter-time, span.text-nowrap");
       const date =
         dateElement.attr("title")?.trim() || dateElement.text().trim();
