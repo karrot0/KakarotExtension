@@ -16678,7 +16678,7 @@ var source = (() => {
     }
     async getMangaDetails(mangaId) {
       const request = {
-        url: new URLBuilder(baseUrl).addPath(`manga-${mangaId}`).build(),
+        url: new URLBuilder(mangaId).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16730,7 +16730,7 @@ var source = (() => {
       };
       const $2 = await this.fetchCheerio(request);
       const chapters = [];
-      $2("#row-content-chapter .a-h").each((_, element) => {
+      $2(".a-h").each((_, element) => {
         const li = $2(element);
         const link = li.find("a.chapter-name");
         const href = link.attr("href") || "";
@@ -16739,7 +16739,8 @@ var source = (() => {
         const chapterNumber = parseFloat(
           li.attr("id")?.replace("num-", "") || "0"
         );
-        const date = link.find("span.chapter-time").attr("title")?.trim();
+        const dateElement = li.find("span.chapter-time, span.text-nowrap");
+        const date = dateElement.attr("title")?.trim() || dateElement.text().trim();
         chapters.push({
           chapterId,
           title,
@@ -16747,16 +16748,15 @@ var source = (() => {
           chapNum: chapterNumber,
           creationDate: date ? new Date(date) : /* @__PURE__ */ new Date(),
           volume: void 0,
-          langCode: "en"
+          langCode: "GB"
         });
       });
       return chapters;
     }
     async getChapterDetails(chapter) {
       try {
-        const url = chapter.chapterId;
         const request = {
-          url,
+          url: new URLBuilder(chapter.chapterId).build(),
           method: "GET"
         };
         const [, buffer] = await Application.scheduleRequest(request);
@@ -16804,7 +16804,7 @@ var source = (() => {
         const infoLink = unit.find(".genres-item-name");
         const title = infoLink.text().trim();
         const image = unit.find(".genres-item-img img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? "";
+        const mangaId = infoLink.attr("href");
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -16837,7 +16837,7 @@ var source = (() => {
         const infoLink = unit.find(".genres-item-name");
         const title = infoLink.text().trim();
         const image = unit.find(".genres-item-img img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? "";
+        const mangaId = infoLink.attr("href");
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
