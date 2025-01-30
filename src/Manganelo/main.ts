@@ -236,8 +236,10 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const href = link.attr("href") || "";
       const chapterId = href.replace("https://chapmanganelo.com", "");
       const title = link.attr("title")?.trim() || link.text().trim();
+      // URL Example: https://chapmanganelo.com/manga-xp137661/chapter-69.2
+      // Output Example: 69.2
       const chapterNumber = parseFloat(
-        li.attr("id")?.replace("num-", "") || "0",
+        chapterId.replace(/.*?chapter-(\d+\.?\d*).*/, "$1"),
       );
 
       chapters.push({
