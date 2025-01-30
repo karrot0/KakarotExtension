@@ -234,6 +234,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const li = $(element);
       const link = li.find("a.chapter-name");
       const href = link.attr("href") || "";
+      // Example URL: https://m.manganelo.com/manga-af123456/chapter-1
       const chapterId = href.replace("https://chapmanganelo.com", "");
       const title = link.attr("title")?.trim() || link.text().trim();
 
@@ -261,8 +262,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         method: "GET",
       };
 
-      const [, buffer] = await Application.scheduleRequest(request);
-      const $ = cheerio.load(Application.arrayBufferToUTF8String(buffer));
+      const $ = await this.fetchCheerio(request);
       const pages: string[] = [];
 
       $(".container-chapter-reader img.reader-content").each((_, element) => {
