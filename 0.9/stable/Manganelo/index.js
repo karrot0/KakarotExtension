@@ -16757,15 +16757,17 @@ var source = (() => {
         };
         const $2 = await this.fetchCheerio(request);
         const pages = [];
-        $2(".container-chapter-reader img.reader-content").each((_, element) => {
-          const imgSrc = $2(element).attr("src");
-          if (imgSrc) {
-            pages.push(imgSrc);
-          }
-        });
+        for (const img of $2(
+          ".container-chapter-reader img.reader-content"
+        ).toArray()) {
+          let image = $2(img).attr("src") ?? "";
+          if (!image) image = $2(img).attr("data-src") ?? "";
+          if (!image) continue;
+          pages.push(image);
+        }
         return {
-          mangaId: chapter.sourceManga.mangaId,
           id: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
           pages
         };
       } catch (error) {
