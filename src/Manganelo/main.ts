@@ -278,12 +278,25 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         pages,
       };
     } catch (error) {
-      console.error(
-        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-        error,
-      );
+      const errorDetails =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      // Create detailed error context
+      const errorContext = {
+        error: errorDetails,
+        stack: errorStack,
+        source: "MangaNeloExtension.getChapterDetails",
+        chapterId: chapter.chapterId,
+        mangaId: chapter.sourceManga.mangaId,
+        requestUrl: `${chapter.chapterId}`,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.error("Chapter details fetch failed:", errorContext);
+
       throw new Error(
-        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
+        `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`,
       );
     }
   }
