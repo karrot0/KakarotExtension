@@ -16736,9 +16736,7 @@ var source = (() => {
         const href = link.attr("href") || "";
         const chapterId = href.replace("https://chapmanganelo.com", "");
         const title = link.attr("title")?.trim() || link.text().trim();
-        const chapterNumber = parseFloat(
-          chapterId.replace(/.*?chapter-(\d+\.?\d*).*/, "$1")
-        );
+        const chapterNumber = parseFloat(li.attr("id") || "");
         chapters.push({
           chapterId,
           title,
