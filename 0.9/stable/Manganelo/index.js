@@ -16736,13 +16736,13 @@ var source = (() => {
         const href = link.attr("href") || "";
         const chapterId = href.replace("https://chapmanganelo.com", "");
         const title = link.attr("title")?.trim() || link.text().trim();
-        const chapterNumber = parseFloat(li.attr("id") || "");
+        const chapterMatch = title.match(/Chapter\s+(\d+\.?\d*)/i);
+        const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
         chapters.push({
           chapterId,
           title,
           sourceManga,
           chapNum: chapterNumber,
-          //creationDate: date ? new Date(date) : new Date(),
           volume: void 0,
           langCode: "GB"
         });
