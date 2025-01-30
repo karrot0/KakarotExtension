@@ -16755,8 +16755,7 @@ var source = (() => {
           url: `${chapter.chapterId}`,
           method: "GET"
         };
-        const [, buffer] = await Application.scheduleRequest(request);
-        const $2 = load(Application.arrayBufferToUTF8String(buffer));
+        const $2 = await this.fetchCheerio(request);
         const pages = [];
         $2(".container-chapter-reader img.reader-content").each((_, element) => {
           const imgSrc = $2(element).attr("src");
