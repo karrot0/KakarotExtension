@@ -16580,11 +16580,11 @@ var source = (() => {
   // src/Manganelo/ManganeloInterceptor.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
-  var FireInterceptor = class extends import_types2.PaperbackInterceptor {
+  var NeloInterceptor = class extends import_types2.PaperbackInterceptor {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        referer: `https://w.manganelo.com`
+        referer: `https://m.manganelo.com`
       };
       return request;
     }
@@ -16594,9 +16594,9 @@ var source = (() => {
   };
 
   // src/Manganelo/main.ts
-  var baseUrl = "https://w.manganelo.com";
+  var baseUrl = "https://m.manganelo.com";
   var MangaNeloExtension = class {
-    requestManager = new FireInterceptor("main");
+    requestManager = new NeloInterceptor("main");
     async initialise() {
       this.requestManager.registerInterceptor();
       Application.registerSearchFilter({

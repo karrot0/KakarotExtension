@@ -16732,7 +16732,9 @@ var source = (() => {
         method: "GET"
       };
       const [_, buffer] = await Application.scheduleRequest(request);
-      const r = JSON.parse(Application.arrayBufferToUTF8String(buffer));
+      const r = JSON.parse(
+        Application.arrayBufferToUTF8String(buffer)
+      );
       const $2 = load(r.result.html);
       const chapters = [];
       $2("li").each((_2, element) => {
@@ -16763,7 +16765,9 @@ var source = (() => {
           method: "GET"
         };
         const [_, buffer] = await Application.scheduleRequest(request);
-        const json = JSON.parse(Application.arrayBufferToUTF8String(buffer));
+        const json = JSON.parse(
+          Application.arrayBufferToUTF8String(buffer)
+        );
         const pages = [];
         json.result.images.forEach((value) => {
           pages.push(value[0]);

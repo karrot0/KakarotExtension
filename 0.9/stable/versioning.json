@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-01-29T21:55:40.106Z",
+  "buildTime": "2025-01-30T01:33:40.964Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -36,6 +36,9 @@
       "developers": [
         {
           "name": "Karrot"
+        },
+        {
+          "name": "nyzzik"
         }
       ],
       "id": "MangaFire"
