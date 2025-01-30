@@ -16682,7 +16682,7 @@ var source = (() => {
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
-      const title = $2("story-info-right h1").text().trim();
+      const title = $2(".story-info-right h1").text().trim();
       const altTitles = $2(".variations-tableInfo .table-value h2").first().text().trim().split(";").map((t) => t.trim());
       const image = $2(".info-image img").attr("src") || "";
       const description = $2("#panel-story-info-description").text().replace("Description :", "").trim();
@@ -16736,8 +16736,9 @@ var source = (() => {
         const href = link.attr("href") || "";
         const chapterId = href;
         const title = link.text().trim();
-        let chapterNumber = parseFloat(li.attr("id")?.replace("num-", "") || "0");
-        if (isNaN(chapterNumber)) chapterNumber = 0;
+        const chapterNumber = parseFloat(
+          li.attr("id")?.replace("num-", "") || "0"
+        );
         const dateElement = li.find("span.chapter-time, span.text-nowrap");
         const date = dateElement.attr("title")?.trim() || dateElement.text().trim();
         chapters.push({
