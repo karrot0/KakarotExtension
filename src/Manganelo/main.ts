@@ -238,9 +238,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const title = link.attr("title")?.trim() || link.text().trim();
       // URL Example: https://chapmanganelo.com/manga-xp137661/chapter-69.2
       // Output Example: 69.2
-      const chapterNumber = parseFloat(
-        chapterId.replace(/.*?chapter-(\d+\.?\d*).*/, "$1"),
-      );
+      const chapterNumber = parseFloat(li.attr("id") || "");
 
       chapters.push({
         chapterId: chapterId,
