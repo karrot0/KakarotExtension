@@ -16736,9 +16736,8 @@ var source = (() => {
         const href = link.attr("href") || "";
         const chapterId = href;
         const title = link.text().trim();
-        const chapterNumber = parseFloat(
-          li.attr("id")?.replace("num-", "") || "0"
-        );
+        let chapterNumber = parseFloat(li.attr("id")?.replace("num-", "") || "0");
+        if (isNaN(chapterNumber)) chapterNumber = 0;
         const dateElement = li.find("span.chapter-time, span.text-nowrap");
         const date = dateElement.attr("title")?.trim() || dateElement.text().trim();
         chapters.push({
