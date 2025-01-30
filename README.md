@@ -1,36 +1,22 @@
-# Template Extensions
+# 🔥 Kakarot Extension
 
-Paperback extensions designed as templates to help developers get started quickly.
+A manga extension for Paperback that includes popular manga sources.
 
-This includes the following:
+## 📚 Available Sources
 
-- Package config
-- TypeScript config
-- ESLint config
-- Prettier config
-- Dependabot config
-- nodemon development setup
-- Husky pre-push hook
-- GitHub CI/CD Actions
-- VSCode config files (settings + extensions)
-- A basic example content extension
-- A basic example tracker extension
+- Mangafire
+- Manganelo
 
-All extension repositories in the Paperback Community GitHub Organization use this one as their base template.
+## 📋 Upcoming Sources
 
-## Templates
+- _Coming soon..._
 
-### Content Template
+## 🚀 Installation
 
-Template that shows the functionality of content providing extensions.
+1. Open Paperback
+2. Add this repository using [this link](https://github.com/karrot0/KakarotExtension/0.9/stable)
+3. Install and enjoy reading!
 
-### Tracker Template
+---
 
-Template that shows the functionality of tracker providing extensions.
-
-> [!NOTE]  
-> This template still has to be made.
-
-## Installation
-
-Add this repository to Paperback through [this link](https://paperback-community.github.io/extension-templates).
+_Note: This extension is not affiliated with the source websites._

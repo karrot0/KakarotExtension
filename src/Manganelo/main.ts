@@ -95,6 +95,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
     metadata: { page?: number } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
+    // Example URL: https://m.manganelo.com/advanced_search?s=all&page=1&keyw=it_starts_with_a_kingpin_account
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("advanced_search")
       .addQuery("s", "all")
@@ -137,11 +138,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
+    // Example URL: https://m.manganelo.com/manga-af123456
     const request = {
-      url: new URLBuilder("https://chapmanganelo.com")
-        .addPath("manga")
-        .addPath(mangaId)
-        .build(),
+      url: new URLBuilder(baseUrl).addPath(`manga-${mangaId}`).build(),
       method: "GET",
     };
 
@@ -238,7 +237,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const li = $(element);
       const link = li.find("a.chapter-name");
       const href = link.attr("href") || "";
-      const chapterId = href.replace("https://chapmanganelo.com/", "");
+      const chapterId = href;
       const title = link.text().trim();
       const chapterNumber = parseFloat(
         li.attr("id")?.replace("num-", "") || "0",
@@ -261,9 +260,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
-      const url = new URLBuilder("https://chapmanganelo.com")
-        .addPath(chapter.chapterId)
-        .build();
+      const url = chapter.chapterId;
 
       const request: Request = {
         url,
@@ -326,8 +323,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const infoLink = unit.find(".genres-item-name");
       const title = infoLink.text().trim();
       const image = unit.find(".genres-item-img img").attr("src") || "";
-      const mangaId =
-        infoLink.attr("href")?.replace(/.*?manga-([^/]+).*/, "$1") || "";
+      // Example URL: https://m.manganelo.com/manga-af123456
+      // Returns af123456s
+      const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? ""; // Extract everything after "manga-" // Nullish coalescing instead of ||
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -376,8 +374,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const infoLink = unit.find(".genres-item-name");
       const title = infoLink.text().trim();
       const image = unit.find(".genres-item-img img").attr("src") || "";
-      const mangaId =
-        infoLink.attr("href")?.replace(/.*?manga-([^/]+).*/, "$1") || "";
+      // Example URL: https://m.manganelo.com/manga-af123456
+      // Returns af123456s
+      const mangaId = infoLink.attr("href")?.match(/manga-([^/]+)/)?.[1] ?? ""; // Extract everything after "manga-" // Nullish coalescing instead of ||
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
