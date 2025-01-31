@@ -9,12 +9,14 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   PagedResults,
   Request,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -22,6 +24,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
+import { MangaFireSettingsForm } from "./MangaFireSettings";
 
 const baseUrl = "https://mangafire.to";
 
@@ -29,6 +32,7 @@ type MangaFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MangaFireExtension implements MangaFireImplementation {
@@ -36,6 +40,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+
     Application.registerSearchFilter({
       id: "sortBy",
       type: "dropdown",
@@ -68,19 +73,45 @@ export class MangaFireExtension implements MangaFireImplementation {
         { id: "all", value: "All" },
         { id: "action", value: "Action" },
         { id: "adventure", value: "Adventure" },
+        { id: "avant-garde", value: "Avant Garde" },
+        { id: "boys-love", value: "Boys Love" },
         { id: "comedy", value: "Comedy" },
+        { id: "demons", value: "Demons" },
         { id: "drama", value: "Drama" },
         { id: "ecchi", value: "Ecchi" },
         { id: "fantasy", value: "Fantasy" },
+        { id: "girls-love", value: "Girls Love" },
+        { id: "gourmet", value: "Gourmet" },
+        { id: "harem", value: "Harem" },
         { id: "horror", value: "Horror" },
-        { id: "mature", value: "Mature" },
+        { id: "isekai", value: "Isekai" },
+        { id: "iyashikei", value: "Iyashikei" },
+        { id: "josei", value: "Josei" },
+        { id: "kids", value: "Kids" },
+        { id: "magic", value: "Magic" },
+        { id: "mahou-shoujo", value: "Mahou Shoujo" },
+        { id: "martial-arts", value: "Martial Arts" },
+        { id: "mecha", value: "Mecha" },
+        { id: "military", value: "Military" },
+        { id: "music", value: "Music" },
+        { id: "mystery", value: "Mystery" },
+        { id: "parody", value: "Parody" },
+        { id: "psychological", value: "Psychological" },
+        { id: "reverse-harem", value: "Reverse Harem" },
         { id: "romance", value: "Romance" },
+        { id: "school", value: "School" },
         { id: "sci-fi", value: "Sci-Fi" },
+        { id: "seinen", value: "Seinen" },
         { id: "shoujo", value: "Shoujo" },
         { id: "shounen", value: "Shounen" },
         { id: "slice-of-life", value: "Slice of Life" },
+        { id: "space", value: "Space" },
         { id: "sports", value: "Sports" },
+        { id: "super-power", value: "Super Power" },
         { id: "supernatural", value: "Supernatural" },
+        { id: "suspense", value: "Suspense" },
+        { id: "thriller", value: "Thriller" },
+        { id: "vampire", value: "Vampire" },
       ],
       allowExclusion: true,
       value: { all: "included" },
@@ -100,6 +131,10 @@ export class MangaFireExtension implements MangaFireImplementation {
       value: "all",
       title: "Status Filter",
     });
+  }
+
+  async getSettingsForm(): Promise<Form> {
+    return new MangaFireSettingsForm();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -155,7 +190,8 @@ export class MangaFireExtension implements MangaFireImplementation {
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("filter")
       .addQuery("keyword", query.title)
-      .addQuery("page", page.toString());
+      .addQuery("page", page.toString())
+      .addQuery("genre_mode", "and");
 
     const getFilterValue = (id: string) =>
       query.filters.find((filter) => filter.id == id)?.value;
@@ -239,6 +275,17 @@ export class MangaFireExtension implements MangaFireImplementation {
     const altTitles = [$(".manga-detail .info h6").text().trim()];
     const image = $(".manga-detail .poster img").attr("src") || "";
     const description = $(".manga-detail .info .description").text().trim();
+    const authors: string[] = [];
+    $("#info-rating .meta div").each((_, element) => {
+      const label = $(element).find("span").first().text().trim();
+      if (label === "Author:") {
+        $(element)
+          .find("a")
+          .each((_, authorElement) => {
+            authors.push($(authorElement).text().trim());
+          });
+      }
+    });
     const status = $(".manga-detail .info .min-info")
       .text()
       .includes("Releasing")

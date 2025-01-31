@@ -12,6 +12,8 @@ export default {
     { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
   ],
   capabilities: [
+    SourceIntents.SETTINGS_UI,
+    SourceIntents.COLLECTION_MANAGEMENT,
     SourceIntents.DISCOVER_SECIONS,
     SourceIntents.MANGA_SEARCH,
     SourceIntents.MANGA_CHAPTERS,
