@@ -192,6 +192,7 @@ export class MangaFireExtension implements MangaFireImplementation {
     // No Genre: https://mangafire.to/filter?keyword=one+piece&type%5B%5D=manga&genre_mode=and&status%5B%5D=releasing&sort=most_relevance
     // With pages: https://mangafire.to/filter?page=2&keyword=one%20piece
     // ALL: https://mangafire.to/filter?keyword=one+peice&sort=recently_updated
+    // Exclude: https://mangafire.to/filter?keyword=&genre%5B%5D=-9&sort=recently_updated
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("filter")
       .addQuery("keyword", query.title)
@@ -202,8 +203,9 @@ export class MangaFireExtension implements MangaFireImplementation {
       query.filters.find((filter) => filter.id == id)?.value;
 
     const type = getFilterValue("type");
-    // Get's { id: string, value: string }[] in which type is the id
-    const genres = getFilterValue("genres");
+    const genres = getFilterValue("genres") as
+      | Record<string, "included" | "excluded">
+      | undefined;
     const status = getFilterValue("status");
     const sortBy = getFilterValue("sortBy");
 
@@ -211,8 +213,14 @@ export class MangaFireExtension implements MangaFireImplementation {
       searchUrl.addQuery("type[]", type);
     }
 
-    if (genres && genres != "all") {
-      searchUrl.addQuery("genre[]", genres);
+    // Handle included and excluded genres
+    if (genres && typeof genres === "object") {
+      Object.entries(genres).forEach(([id, value]) => {
+        if (id !== "all") {
+          // For excluded genres, add a minus sign before the ID
+          searchUrl.addQuery("genre[]", value === "excluded" ? `-${id}` : id);
+        }
+      });
     }
 
     if (status && status != "all") {

@@ -10,6 +10,7 @@ import {
   Section,
   SourceManga,
   TagSection,
+  ToggleRow,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
@@ -19,28 +20,66 @@ import { URLBuilder } from "../utils/url-builder/base";
 
 const baseUrl = "https://mangafire.to";
 
+class State<T> {
+  private _value: T;
+  public get value(): T {
+    return this._value;
+  }
+
+  public get selector(): SelectorID<(value: T) => Promise<void>> {
+    return Application.Selector(this as State<T>, "updateValue");
+  }
+
+  constructor(
+    private form: Form,
+    value: T,
+  ) {
+    this._value = value;
+  }
+
+  public async updateValue(value: T): Promise<void> {
+    this._value = value;
+    this.form.reloadForm();
+  }
+}
+
 export class MangaFireSettingsForm extends Form {
-  private mangaFireUrl: string = "";
+  inputValue = new State(this, "");
+  rowsVisible = new State(this, false);
 
   override getSections(): Application.FormSectionElement[] {
     return [
-      Section("MangaFire Importer", [
-        InputRow("mangafireUrl", {
-          title: "Import URL (Pastebin/Raw)",
-          value: "",
-          onValueChange: async (txt) => {
-            this.mangaFireUrl = txt;
-          },
-        }),
-        ButtonRow("import_button", {
-          title: "Import MangaFire Collection",
-          onSelect: async () => {
-            if (this.mangaFireUrl) {
-              await this.addToCollection(this.mangaFireUrl);
-            }
-          },
+      Section("hideImporter", [
+        ToggleRow("toggle", {
+          title: "Show MAL Importer",
+          value: this.rowsVisible.value,
+          onValueChange: this.rowsVisible.selector,
         }),
       ]),
+
+      ...(() =>
+        this.rowsVisible.value
+          ? [
+              Section("MangaFire Importer", [
+                InputRow("mangafireurl", {
+                  title: "Import URL (Pastebin/Raw)",
+                  value: this.inputValue.value,
+                  onValueChange: async (txt) => {
+                    Application.setState("mangafireurl", txt);
+                  },
+                }),
+                ButtonRow("import_button", {
+                  title: "Import MangaFire Collection",
+                  onSelect: async () => {
+                    const url = Application.getState("mangafireurl");
+                    if (typeof url === "string") {
+                      await this.addToCollection(url);
+                    }
+                  },
+                }),
+              ]),
+            ]
+          : [])(),
     ];
   }
 
