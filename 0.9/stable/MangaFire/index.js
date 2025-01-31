@@ -1828,7 +1828,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Form = void 0;
-      var Form = class {
+      var Form3 = class {
         reloadForm() {
           const formId = this["__underlying_formId"];
           if (!formId)
@@ -1841,7 +1841,7 @@ var source = (() => {
           return false;
         }
       };
-      exports.Form = Form;
+      exports.Form = Form3;
     }
   });
 
@@ -1851,18 +1851,18 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.LabelRow = LabelRow;
-      exports.InputRow = InputRow;
+      exports.LabelRow = LabelRow2;
+      exports.InputRow = InputRow2;
       exports.ToggleRow = ToggleRow;
       exports.SelectRow = SelectRow;
-      exports.ButtonRow = ButtonRow;
+      exports.ButtonRow = ButtonRow2;
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
-      function LabelRow(id, props) {
+      function LabelRow2(id, props) {
         return { ...props, id, type: "labelRow", isHidden: props.isHidden ?? false };
       }
-      function InputRow(id, props) {
+      function InputRow2(id, props) {
         return { ...props, id, type: "inputRow", isHidden: props.isHidden ?? false };
       }
       function ToggleRow(id, props) {
@@ -1871,7 +1871,7 @@ var source = (() => {
       function SelectRow(id, props) {
         return { ...props, id, type: "selectRow", isHidden: props.isHidden ?? false };
       }
-      function ButtonRow(id, props) {
+      function ButtonRow2(id, props) {
         return { ...props, id, type: "buttonRow", isHidden: props.isHidden ?? false };
       }
       function NavigationRow(id, props) {
@@ -1902,8 +1902,8 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.Section = Section;
-      function Section(params, items) {
+      exports.Section = Section2;
+      function Section2(params, items) {
         let info;
         if (typeof params === "string") {
           info = { id: params };
@@ -2191,7 +2191,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CloudflareError = void 0;
-      var CloudflareError2 = class extends Error {
+      var CloudflareError3 = class extends Error {
         resolutionRequest;
         type = "cloudflareError";
         constructor(resolutionRequest, message = "Cloudflare bypass is required") {
@@ -2199,7 +2199,7 @@ var source = (() => {
           this.resolutionRequest = resolutionRequest;
         }
       };
-      exports.CloudflareError = CloudflareError2;
+      exports.CloudflareError = CloudflareError3;
     }
   });
 
@@ -2684,7 +2684,7 @@ var source = (() => {
     MangaFireExtension: () => MangaFireExtension
   });
   init_buffer();
-  var import_types3 = __toESM(require_lib(), 1);
+  var import_types4 = __toESM(require_lib(), 1);
 
   // node_modules/cheerio/dist/browser/index.js
   init_buffer();
@@ -11104,7 +11104,7 @@ var source = (() => {
     get currentTmplContentOrNode() {
       return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
     }
-    constructor(document, treeAdapter, handler) {
+    constructor(document2, treeAdapter, handler) {
       this.treeAdapter = treeAdapter;
       this.handler = handler;
       this.items = [];
@@ -11112,7 +11112,7 @@ var source = (() => {
       this.stackTop = -1;
       this.tmplCount = 0;
       this.currentTagId = TAG_ID.UNKNOWN;
-      this.current = document;
+      this.current = document2;
     }
     //Index of element
     _indexOf(element) {
@@ -11546,8 +11546,8 @@ var source = (() => {
     getTemplateContent(templateElement) {
       return templateElement.content;
     },
-    setDocumentType(document, name, publicId, systemId) {
-      const doctypeNode = document.childNodes.find((node) => node.nodeName === "#documentType");
+    setDocumentType(document2, name, publicId, systemId) {
+      const doctypeNode = document2.childNodes.find((node) => node.nodeName === "#documentType");
       if (doctypeNode) {
         doctypeNode.name = name;
         doctypeNode.publicId = publicId;
@@ -11560,14 +11560,14 @@ var source = (() => {
           systemId,
           parentNode: null
         };
-        defaultTreeAdapter.appendChild(document, node);
+        defaultTreeAdapter.appendChild(document2, node);
       }
     },
-    setDocumentMode(document, mode) {
-      document.mode = mode;
+    setDocumentMode(document2, mode) {
+      document2.mode = mode;
     },
-    getDocumentMode(document) {
-      return document.mode;
+    getDocumentMode(document2) {
+      return document2.mode;
     },
     detachNode(node) {
       if (node.parentNode) {
@@ -12039,7 +12039,7 @@ var source = (() => {
     onParseError: null
   };
   var Parser = class {
-    constructor(options, document, fragmentContext = null, scriptHandler = null) {
+    constructor(options, document2, fragmentContext = null, scriptHandler = null) {
       this.fragmentContext = fragmentContext;
       this.scriptHandler = scriptHandler;
       this.currentToken = null;
@@ -12064,7 +12064,7 @@ var source = (() => {
       if (this.onParseError) {
         this.options.sourceCodeLocationInfo = true;
       }
-      this.document = document !== null && document !== void 0 ? document : this.treeAdapter.createDocument();
+      this.document = document2 !== null && document2 !== void 0 ? document2 : this.treeAdapter.createDocument();
       this.tokenizer = new Tokenizer(this.options, this);
       this.activeFormattingElements = new FormattingElementList(this.treeAdapter);
       this.fragmentContextID = fragmentContext ? getTagID(this.treeAdapter.getTagName(fragmentContext)) : TAG_ID.UNKNOWN;
@@ -15224,24 +15224,24 @@ var source = (() => {
     getTemplateContent(templateElement) {
       return templateElement.children[0];
     },
-    setDocumentType(document, name, publicId, systemId) {
+    setDocumentType(document2, name, publicId, systemId) {
       const data2 = serializeDoctypeContent(name, publicId, systemId);
-      let doctypeNode = document.children.find((node) => isDirective(node) && node.name === "!doctype");
+      let doctypeNode = document2.children.find((node) => isDirective(node) && node.name === "!doctype");
       if (doctypeNode) {
         doctypeNode.data = data2 !== null && data2 !== void 0 ? data2 : null;
       } else {
         doctypeNode = new ProcessingInstruction("!doctype", data2);
-        adapter.appendChild(document, doctypeNode);
+        adapter.appendChild(document2, doctypeNode);
       }
       doctypeNode["x-name"] = name;
       doctypeNode["x-publicId"] = publicId;
       doctypeNode["x-systemId"] = systemId;
     },
-    setDocumentMode(document, mode) {
-      document["x-mode"] = mode;
+    setDocumentMode(document2, mode) {
+      document2["x-mode"] = mode;
     },
-    getDocumentMode(document) {
-      return document["x-mode"];
+    getDocumentMode(document2) {
+      return document2["x-mode"];
     },
     detachNode(node) {
       if (node.parent) {
@@ -16533,8 +16533,8 @@ var source = (() => {
     baseUrl;
     queryParams = {};
     pathSegments = [];
-    constructor(baseUrl2) {
-      this.baseUrl = baseUrl2.replace(/\/+$/, "");
+    constructor(baseUrl3) {
+      this.baseUrl = baseUrl3.replace(/\/+$/, "");
     }
     formatArrayQuery(key, value) {
       return value.length > 0 ? value.map((v) => `${key}[]=${v}`) : [];
@@ -16593,8 +16593,272 @@ var source = (() => {
     }
   };
 
-  // src/MangaFire/main.ts
+  // src/MangaFire/MangaFireSettings.ts
+  init_buffer();
+  var import_types3 = __toESM(require_lib(), 1);
+
+  // src/utils/importer.ts
+  init_buffer();
+  var xml2 = {
+    parseMAL: (xmlContent) => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+      if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+        throw new Error("Invalid XML format");
+      }
+      const mangaNodes = xmlDoc.getElementsByTagName("manga");
+      const mangaList = [];
+      for (let i = 0; i < mangaNodes.length; i++) {
+        const manga = mangaNodes[i];
+        const title = manga.getElementsByTagName("manga_title")[0]?.textContent?.trim() || "";
+        const chapters = parseFloat(
+          manga.getElementsByTagName("my_read_chapters")[0]?.textContent || "0"
+        );
+        const volumes = parseFloat(
+          manga.getElementsByTagName("my_read_volumes")[0]?.textContent || "0"
+        );
+        const status = parseInt(
+          manga.getElementsByTagName("my_status")[0]?.textContent || "0"
+        );
+        if (title) {
+          mangaList.push({
+            title,
+            chapters,
+            volumes,
+            status
+          });
+        }
+      }
+      return mangaList;
+    }
+  };
+
+  // src/utils/rawTextFetcher.ts
+  init_buffer();
+  var SUPPORTED_DOMAINS = [
+    "pastebin.com",
+    "raw.githubusercontent.com",
+    "gist.githubusercontent.com",
+    "gitlab.com"
+  ];
+  async function fetchRawText(url) {
+    try {
+      if (url.includes("pastebin.com") && !url.includes("raw")) {
+        url = url.replace("pastebin.com/", "pastebin.com/raw/");
+      }
+      if (url.includes("gist.github.com") && !url.includes("raw")) {
+        url = url.replace("gist.github.com", "gist.githubusercontent.com/raw");
+      }
+      const request = {
+        url,
+        method: "GET"
+      };
+      const [response, data2] = await Application.scheduleRequest(request);
+      if (response.status !== 200) {
+        throw new Error(`Failed to fetch data: HTTP ${response.status}`);
+      }
+      const text3 = Application.arrayBufferToUTF8String(data2);
+      if (!text3 || text3.trim().length === 0) {
+        throw new Error("Received empty response");
+      }
+      return text3;
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch text: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+  function isValidDataUrl(url) {
+    try {
+      const parsedUrl = new URL(url);
+      return SUPPORTED_DOMAINS.some(
+        (domain) => parsedUrl.hostname.includes(domain)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  // src/MangaFire/MangaFireSettings.ts
   var baseUrl = "https://mangafire.to";
+  var MangaFireSettingsForm = class extends import_types3.Form {
+    statusMessage = "";
+    getSections() {
+      return [
+        (0, import_types3.Section)("MangaFire Importer", [
+          (0, import_types3.InputRow)("mangafireUrl", {
+            title: "Import URL (Pastebin/Raw)",
+            value: "",
+            onValueChange: async (txt) => {
+              if (txt && !isValidDataUrl(txt)) {
+                this.statusMessage = "Please enter a valid Pastebin or raw text URL";
+                this.updateStatus();
+              }
+            }
+          }),
+          (0, import_types3.ButtonRow)("import_button", {
+            title: "Import MangaFire Collection",
+            onSelect: async () => {
+              const input = document.getElementById(
+                "mangafireUrl"
+              );
+              if (!input?.value) {
+                this.statusMessage = "Please enter a valid URL";
+                this.updateStatus();
+                return;
+              }
+              await this.addToCollection(input.value);
+            }
+          }),
+          (0, import_types3.LabelRow)("status", {
+            title: "Status",
+            value: this.statusMessage
+          })
+        ])
+      ];
+    }
+    updateStatus() {
+      const statusLabel = document.getElementById("status");
+      if (statusLabel) {
+        statusLabel.textContent = this.statusMessage;
+      }
+    }
+    async getManga(page = 1) {
+      const searchUrl = new URLBuilder(baseUrl).addPath("filter");
+      const request = {
+        url: searchUrl.build(),
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const searchResults = [];
+      $2(".original.card-lg .unit .inner").each((_, element) => {
+        const unit = $2(element);
+        const infoLink = unit.find(".info > a");
+        const title = infoLink.text().trim();
+        const image = unit.find("img").attr("src") || "";
+        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        searchResults.push({
+          mangaId,
+          imageUrl: image,
+          title,
+          subtitle: void 0,
+          metadata: void 0
+        });
+      });
+      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      return {
+        items: searchResults,
+        metadata: hasNextPage ? { page: page + 1 } : void 0
+      };
+    }
+    async searchManga(title) {
+      const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", title).build();
+      const request = {
+        url: searchUrl,
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const results = [];
+      $2(".original.card-lg .unit .inner").each((_, element) => {
+        const unit = $2(element);
+        const infoLink = unit.find(".info > a");
+        const title2 = infoLink.text().trim();
+        const image = unit.find("img").attr("src") || "";
+        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        results.push({
+          mangaId,
+          imageUrl: image,
+          title: title2,
+          subtitle: void 0,
+          metadata: void 0
+        });
+      });
+      return results;
+    }
+    async findBestMatch(title, results) {
+      const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+      return results.find((result) => {
+        const normalizedResult = result.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return normalizedResult === normalizedTitle;
+      }) || null;
+    }
+    async addToCollection(url) {
+      try {
+        if (!isValidDataUrl(url)) {
+          throw new Error(
+            "Invalid URL format. Please use Pastebin or raw text URL"
+          );
+        }
+        this.statusMessage = "Fetching data...";
+        this.updateStatus();
+        const rawText = await fetchRawText(url);
+        if (!rawText) {
+          throw new Error("No data found");
+        }
+        this.statusMessage = "Processing XML data...";
+        this.updateStatus();
+        const mangaList = xml2.parseMAL(rawText);
+        if (mangaList.length === 0) {
+          throw new Error("No manga found in the XML file");
+        }
+        let addedCount = 0;
+        let failedCount = 0;
+        const collectionName = "MAL Import";
+        const collections = await Application.getManagedLibraryCollections();
+        const collection = collections.find((c) => c.title === collectionName);
+        if (!collection) {
+          this.statusMessage = "Collection creation not implemented";
+          this.updateStatus();
+          return;
+        }
+        for (const manga of mangaList) {
+          try {
+            this.statusMessage = `Searching for: ${manga.title}`;
+            this.updateStatus();
+            const searchResults = await this.searchManga(manga.title);
+            const match = await this.findBestMatch(manga.title, searchResults);
+            if (match) {
+              await Application.commitManagedCollectionChanges({
+                collection,
+                additions: [
+                  {
+                    mangaId: match.mangaId,
+                    mangaInfo: {
+                      primaryTitle: match.title
+                    }
+                  }
+                ],
+                deletions: []
+              });
+              addedCount++;
+            } else {
+              failedCount++;
+            }
+          } catch (err) {
+            failedCount++;
+            console.error(`Failed to import: ${manga.title}`, err);
+          }
+        }
+        this.statusMessage = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
+      } catch (error) {
+        this.statusMessage = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+      }
+      this.updateStatus();
+    }
+    checkCloudflareStatus(status) {
+      if (status == 503 || status == 403) {
+        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
+      }
+    }
+    async fetchCheerio(request) {
+      const [response, data2] = await Application.scheduleRequest(request);
+      this.checkCloudflareStatus(response.status);
+      return load(Application.arrayBufferToUTF8String(data2));
+    }
+  };
+
+  // src/MangaFire/main.ts
+  var baseUrl2 = "https://mangafire.to";
   var MangaFireExtension = class {
     requestManager = new FireInterceptor("main");
     async initialise() {
@@ -16629,19 +16893,45 @@ var source = (() => {
           { id: "all", value: "All" },
           { id: "action", value: "Action" },
           { id: "adventure", value: "Adventure" },
+          { id: "avant-garde", value: "Avant Garde" },
+          { id: "boys-love", value: "Boys Love" },
           { id: "comedy", value: "Comedy" },
+          { id: "demons", value: "Demons" },
           { id: "drama", value: "Drama" },
           { id: "ecchi", value: "Ecchi" },
           { id: "fantasy", value: "Fantasy" },
+          { id: "girls-love", value: "Girls Love" },
+          { id: "gourmet", value: "Gourmet" },
+          { id: "harem", value: "Harem" },
           { id: "horror", value: "Horror" },
-          { id: "mature", value: "Mature" },
+          { id: "isekai", value: "Isekai" },
+          { id: "iyashikei", value: "Iyashikei" },
+          { id: "josei", value: "Josei" },
+          { id: "kids", value: "Kids" },
+          { id: "magic", value: "Magic" },
+          { id: "mahou-shoujo", value: "Mahou Shoujo" },
+          { id: "martial-arts", value: "Martial Arts" },
+          { id: "mecha", value: "Mecha" },
+          { id: "military", value: "Military" },
+          { id: "music", value: "Music" },
+          { id: "mystery", value: "Mystery" },
+          { id: "parody", value: "Parody" },
+          { id: "psychological", value: "Psychological" },
+          { id: "reverse-harem", value: "Reverse Harem" },
           { id: "romance", value: "Romance" },
+          { id: "school", value: "School" },
           { id: "sci-fi", value: "Sci-Fi" },
+          { id: "seinen", value: "Seinen" },
           { id: "shoujo", value: "Shoujo" },
           { id: "shounen", value: "Shounen" },
           { id: "slice-of-life", value: "Slice of Life" },
+          { id: "space", value: "Space" },
           { id: "sports", value: "Sports" },
-          { id: "supernatural", value: "Supernatural" }
+          { id: "super-power", value: "Super Power" },
+          { id: "supernatural", value: "Supernatural" },
+          { id: "suspense", value: "Suspense" },
+          { id: "thriller", value: "Thriller" },
+          { id: "vampire", value: "Vampire" }
         ],
         allowExclusion: true,
         value: { all: "included" },
@@ -16661,27 +16951,30 @@ var source = (() => {
         title: "Status Filter"
       });
     }
+    async getSettingsForm() {
+      return new MangaFireSettingsForm();
+    }
     async getDiscoverSections() {
       return [
         {
           id: "popular_section",
           title: "Popular",
-          type: import_types3.DiscoverSectionType.featured
+          type: import_types4.DiscoverSectionType.featured
         },
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types4.DiscoverSectionType.simpleCarousel
         },
         {
           id: "new_manga_section",
           title: "New Manga",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types4.DiscoverSectionType.simpleCarousel
         },
         {
           id: "genres_section",
           title: "Genres",
-          type: import_types3.DiscoverSectionType.genres
+          type: import_types4.DiscoverSectionType.genres
         }
       ];
     }
@@ -16703,7 +16996,7 @@ var source = (() => {
     }
     async getSearchResults(query, metadata) {
       const page = metadata?.page ?? 1;
-      const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString());
+      const searchUrl = new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
       const type = getFilterValue("type");
       const genres = getFilterValue("genres");
@@ -16761,7 +17054,7 @@ var source = (() => {
     }
     async getMangaDetails(mangaId) {
       const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
+        url: new URLBuilder(baseUrl2).addPath("manga").addPath(mangaId).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16769,6 +17062,15 @@ var source = (() => {
       const altTitles = [$2(".manga-detail .info h6").text().trim()];
       const image = $2(".manga-detail .poster img").attr("src") || "";
       const description = $2(".manga-detail .info .description").text().trim();
+      const authors = [];
+      $2("#info-rating .meta div").each((_, element) => {
+        const label = $2(element).find("span").first().text().trim();
+        if (label === "Author:") {
+          $2(element).find("a").each((_2, authorElement) => {
+            authors.push($2(authorElement).text().trim());
+          });
+        }
+      });
       const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
       const tags = [];
       const genres = [];
@@ -16803,7 +17105,7 @@ var source = (() => {
           thumbnailUrl: image,
           synopsis: description,
           rating,
-          contentRating: import_types3.ContentRating.EVERYONE,
+          contentRating: import_types4.ContentRating.EVERYONE,
           status,
           tagGroups: tags
         }
@@ -16811,7 +17113,7 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const request = {
-        url: new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath(sourceManga.mangaId.split(".")[1]).addPath("chapter").addPath("en").build(),
+        url: new URLBuilder(baseUrl2).addPath("ajax").addPath("read").addPath(sourceManga.mangaId.split(".")[1]).addPath("chapter").addPath("en").build(),
         method: "GET"
       };
       const [_, buffer] = await Application.scheduleRequest(request);
@@ -16841,7 +17143,7 @@ var source = (() => {
     async getChapterDetails(chapter) {
       console.log(`Parsing chapter ${chapter.chapterId}`);
       try {
-        const url = new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
+        const url = new URLBuilder(baseUrl2).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
         console.log(url);
         const request = {
           url,
@@ -16874,7 +17176,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
+        url: new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16907,7 +17209,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
+        url: new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -16940,7 +17242,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl).addPath("added").build(),
+        url: new URLBuilder(baseUrl2).addPath("added").build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17005,7 +17307,7 @@ var source = (() => {
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
-        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
+        throw new import_types4.CloudflareError({ url: baseUrl2, method: "GET" });
       }
     }
     async fetchCheerio(request) {
