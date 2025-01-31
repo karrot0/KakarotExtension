@@ -2569,12 +2569,12 @@ var source = (() => {
         SourceIntents2[SourceIntents2["SETTINGS_UI"] = 32] = "SETTINGS_UI";
         SourceIntents2[SourceIntents2["MANGA_SEARCH"] = 64] = "MANGA_SEARCH";
       })(SourceIntents || (exports.SourceIntents = SourceIntents = {}));
-      var ContentRating2;
-      (function(ContentRating3) {
-        ContentRating3["EVERYONE"] = "SAFE";
-        ContentRating3["MATURE"] = "MATURE";
-        ContentRating3["ADULT"] = "ADULT";
-      })(ContentRating2 || (exports.ContentRating = ContentRating2 = {}));
+      var ContentRating3;
+      (function(ContentRating4) {
+        ContentRating4["EVERYONE"] = "SAFE";
+        ContentRating4["MATURE"] = "MATURE";
+        ContentRating4["ADULT"] = "ADULT";
+      })(ContentRating3 || (exports.ContentRating = ContentRating3 = {}));
     }
   });
 
@@ -16782,6 +16782,65 @@ var source = (() => {
         return normalizedResult === normalizedTitle;
       }) || null;
     }
+    async getMangaDetails(mangaId) {
+      const request = {
+        url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const title = $2(".manga-detail .info h1").text().trim();
+      const altTitles = [$2(".manga-detail .info h6").text().trim()];
+      const image = $2(".manga-detail .poster img").attr("src") || "";
+      const description = $2(".manga-detail .info .description").text().trim();
+      const authors = [];
+      $2("#info-rating .meta div").each((_, element) => {
+        const label = $2(element).find("span").first().text().trim();
+        if (label === "Author:") {
+          $2(element).find("a").each((_2, authorElement) => {
+            authors.push($2(authorElement).text().trim());
+          });
+        }
+      });
+      const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
+      const tags = [];
+      const genres = [];
+      let rating = 1;
+      $2("#info-rating .meta div").each((_, element) => {
+        const label = $2(element).find("span").first().text().trim();
+        if (label === "Genres:") {
+          $2(element).find("a").each((_2, genreElement) => {
+            genres.push($2(genreElement).text().trim());
+          });
+        }
+      });
+      const ratingValue = $2("#info-rating .score .live-score").text().trim();
+      if (ratingValue) {
+        rating = parseFloat(ratingValue) / 2;
+      }
+      if (genres.length > 0) {
+        tags.push({
+          id: "genres",
+          title: "Genres",
+          tags: genres.map((genre) => ({
+            id: genre.toLowerCase(),
+            title: genre
+          }))
+        });
+      }
+      return {
+        mangaId,
+        mangaInfo: {
+          primaryTitle: title,
+          secondaryTitles: altTitles,
+          thumbnailUrl: image,
+          synopsis: description,
+          rating,
+          contentRating: import_types3.ContentRating.EVERYONE,
+          status,
+          tagGroups: tags
+        }
+      };
+    }
     async addToCollection(url) {
       try {
         if (!isValidDataUrl(url)) {
@@ -16818,19 +16877,14 @@ var source = (() => {
             const searchResults = await this.searchManga(manga.title);
             const match = await this.findBestMatch(manga.title, searchResults);
             if (match) {
+              const sourceManga = await this.getMangaDetails(match.mangaId);
               await Application.commitManagedCollectionChanges({
                 collection,
-                additions: [
-                  {
-                    mangaId: match.mangaId,
-                    mangaInfo: {
-                      primaryTitle: match.title
-                    }
-                  }
-                ],
+                additions: [sourceManga],
                 deletions: []
               });
               addedCount++;
+              await Application.sleep(0.5);
             } else {
               failedCount++;
             }
@@ -16891,47 +16945,47 @@ var source = (() => {
         type: "multiselect",
         options: [
           { id: "all", value: "All" },
-          { id: "action", value: "Action" },
-          { id: "adventure", value: "Adventure" },
-          { id: "avant-garde", value: "Avant Garde" },
-          { id: "boys-love", value: "Boys Love" },
-          { id: "comedy", value: "Comedy" },
-          { id: "demons", value: "Demons" },
-          { id: "drama", value: "Drama" },
-          { id: "ecchi", value: "Ecchi" },
-          { id: "fantasy", value: "Fantasy" },
-          { id: "girls-love", value: "Girls Love" },
-          { id: "gourmet", value: "Gourmet" },
-          { id: "harem", value: "Harem" },
-          { id: "horror", value: "Horror" },
-          { id: "isekai", value: "Isekai" },
-          { id: "iyashikei", value: "Iyashikei" },
-          { id: "josei", value: "Josei" },
-          { id: "kids", value: "Kids" },
-          { id: "magic", value: "Magic" },
-          { id: "mahou-shoujo", value: "Mahou Shoujo" },
-          { id: "martial-arts", value: "Martial Arts" },
-          { id: "mecha", value: "Mecha" },
-          { id: "military", value: "Military" },
-          { id: "music", value: "Music" },
-          { id: "mystery", value: "Mystery" },
-          { id: "parody", value: "Parody" },
-          { id: "psychological", value: "Psychological" },
-          { id: "reverse-harem", value: "Reverse Harem" },
-          { id: "romance", value: "Romance" },
-          { id: "school", value: "School" },
-          { id: "sci-fi", value: "Sci-Fi" },
-          { id: "seinen", value: "Seinen" },
-          { id: "shoujo", value: "Shoujo" },
-          { id: "shounen", value: "Shounen" },
-          { id: "slice-of-life", value: "Slice of Life" },
-          { id: "space", value: "Space" },
-          { id: "sports", value: "Sports" },
-          { id: "super-power", value: "Super Power" },
-          { id: "supernatural", value: "Supernatural" },
-          { id: "suspense", value: "Suspense" },
-          { id: "thriller", value: "Thriller" },
-          { id: "vampire", value: "Vampire" }
+          { id: "1", value: "Action" },
+          { id: "78", value: "Adventure" },
+          { id: "3", value: "Avant Garde" },
+          { id: "4", value: "Boys Love" },
+          { id: "5", value: "Comedy" },
+          { id: "77", value: "Demons" },
+          { id: "6", value: "Drama" },
+          { id: "7", value: "Ecchi" },
+          { id: "79", value: "Fantasy" },
+          { id: "9", value: "Girls Love" },
+          { id: "10", value: "Gourmet" },
+          { id: "11", value: "Harem" },
+          { id: "530", value: "Horror" },
+          { id: "13", value: "Isekai" },
+          { id: "531", value: "Iyashikei" },
+          { id: "15", value: "Josei" },
+          { id: "532", value: "Kids" },
+          { id: "539", value: "Magic" },
+          { id: "533", value: "Mahou Shoujo" },
+          { id: "534", value: "Martial Arts" },
+          { id: "19", value: "Mecha" },
+          { id: "535", value: "Military" },
+          { id: "21", value: "Music" },
+          { id: "22", value: "Mystery" },
+          { id: "23", value: "Parody" },
+          { id: "536", value: "Psychological" },
+          { id: "25", value: "Reverse Harem" },
+          { id: "26", value: "Romance" },
+          { id: "73", value: "School" },
+          { id: "28", value: "Sci-Fi" },
+          { id: "537", value: "Seinen" },
+          { id: "30", value: "Shoujo" },
+          { id: "31", value: "Shounen" },
+          { id: "538", value: "Slice of Life" },
+          { id: "33", value: "Space" },
+          { id: "34", value: "Sports" },
+          { id: "75", value: "Super Power" },
+          { id: "76", value: "Supernatural" },
+          { id: "37", value: "Suspense" },
+          { id: "38", value: "Thriller" },
+          { id: "39", value: "Vampire" }
         ],
         allowExclusion: true,
         value: { all: "included" },
@@ -17017,6 +17071,9 @@ var source = (() => {
       if (sortBy) {
         let sort = "most_relevance";
         switch (sortBy) {
+          case "relevance":
+            sort = "most_relevance";
+            break;
           case "latest":
             sort = "recently_updated";
             break;
@@ -17276,21 +17333,47 @@ var source = (() => {
         { id: "manhua", name: "Manhua", type: "type" },
         { id: "manhwa", name: "Manhwa", type: "type" },
         { id: "manga", name: "Manga", type: "type" },
-        { id: "action", name: "Action", type: "genres" },
-        { id: "adventure", name: "Adventure", type: "genres" },
-        { id: "comedy", name: "Comedy", type: "genres" },
-        { id: "drama", name: "Drama", type: "genres" },
-        { id: "ecchi", name: "Ecchi", type: "genres" },
-        { id: "fantasy", name: "Fantasy", type: "genres" },
-        { id: "horror", name: "Horror", type: "genres" },
-        { id: "mature", name: "Mature", type: "genres" },
-        { id: "romance", name: "Romance", type: "genres" },
-        { id: "sci-fi", name: "Sci-Fi", type: "genres" },
-        { id: "shoujo", name: "Shoujo", type: "genres" },
-        { id: "shounen", name: "Shounen", type: "genres" },
-        { id: "slice-of-life", name: "Slice of Life", type: "genres" },
-        { id: "sports", name: "Sports", type: "genres" },
-        { id: "supernatural", name: "Supernatural", type: "genres" }
+        { id: "1", name: "Action", type: "genres" },
+        { id: "78", name: "Adventure", type: "genres" },
+        { id: "3", name: "Avant Garde", type: "genres" },
+        { id: "4", name: "Boys Love", type: "genres" },
+        { id: "5", name: "Comedy", type: "genres" },
+        { id: "77", name: "Demons", type: "genres" },
+        { id: "6", name: "Drama", type: "genres" },
+        { id: "7", name: "Ecchi", type: "genres" },
+        { id: "79", name: "Fantasy", type: "genres" },
+        { id: "9", name: "Girls Love", type: "genres" },
+        { id: "10", name: "Gourmet", type: "genres" },
+        { id: "11", name: "Harem", type: "genres" },
+        { id: "530", name: "Horror", type: "genres" },
+        { id: "13", name: "Isekai", type: "genres" },
+        { id: "531", name: "Iyashikei", type: "genres" },
+        { id: "15", name: "Josei", type: "genres" },
+        { id: "532", name: "Kids", type: "genres" },
+        { id: "539", name: "Magic", type: "genres" },
+        { id: "533", name: "Mahou Shoujo", type: "genres" },
+        { id: "534", name: "Martial Arts", type: "genres" },
+        { id: "19", name: "Mecha", type: "genres" },
+        { id: "535", name: "Military", type: "genres" },
+        { id: "21", name: "Music", type: "genres" },
+        { id: "22", name: "Mystery", type: "genres" },
+        { id: "23", name: "Parody", type: "genres" },
+        { id: "536", name: "Psychological", type: "genres" },
+        { id: "25", name: "Reverse Harem", type: "genres" },
+        { id: "26", name: "Romance", type: "genres" },
+        { id: "73", name: "School", type: "genres" },
+        { id: "28", name: "Sci-Fi", type: "genres" },
+        { id: "537", name: "Seinen", type: "genres" },
+        { id: "30", name: "Shoujo", type: "genres" },
+        { id: "31", name: "Shounen", type: "genres" },
+        { id: "538", name: "Slice of Life", type: "genres" },
+        { id: "33", name: "Space", type: "genres" },
+        { id: "34", name: "Sports", type: "genres" },
+        { id: "75", name: "Super Power", type: "genres" },
+        { id: "76", name: "Supernatural", type: "genres" },
+        { id: "37", name: "Suspense", type: "genres" },
+        { id: "38", name: "Thriller", type: "genres" },
+        { id: "39", name: "Vampire", type: "genres" }
       ];
       return {
         items: items.map((item) => ({
