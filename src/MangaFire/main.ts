@@ -47,6 +47,59 @@ export class MangaFireExtension implements MangaFireImplementation {
       value: "relevance",
       title: "Sort By Filter",
     });
+
+    Application.registerSearchFilter({
+      id: "type",
+      type: "dropdown",
+      options: [
+        { id: "all", value: "All" },
+        { id: "manhua", value: "Manhua" },
+        { id: "manhwa", value: "Manhwa" },
+        { id: "manga", value: "Manga" },
+      ],
+      value: "all",
+      title: "Type Filter",
+    });
+
+    Application.registerSearchFilter({
+      id: "genres",
+      type: "multiselect",
+      options: [
+        { id: "all", value: "All" },
+        { id: "action", value: "Action" },
+        { id: "adventure", value: "Adventure" },
+        { id: "comedy", value: "Comedy" },
+        { id: "drama", value: "Drama" },
+        { id: "ecchi", value: "Ecchi" },
+        { id: "fantasy", value: "Fantasy" },
+        { id: "horror", value: "Horror" },
+        { id: "mature", value: "Mature" },
+        { id: "romance", value: "Romance" },
+        { id: "sci-fi", value: "Sci-Fi" },
+        { id: "shoujo", value: "Shoujo" },
+        { id: "shounen", value: "Shounen" },
+        { id: "slice-of-life", value: "Slice of Life" },
+        { id: "sports", value: "Sports" },
+        { id: "supernatural", value: "Supernatural" },
+      ],
+      allowExclusion: true,
+      value: { all: "included" },
+      title: "Genre Filter",
+      allowEmptySelection: true,
+      maximum: undefined,
+    });
+
+    Application.registerSearchFilter({
+      id: "status",
+      type: "dropdown",
+      options: [
+        { id: "all", value: "All" },
+        { id: "ongoing", value: "Ongoing" },
+        { id: "completed", value: "Completed" },
+      ],
+      value: "all",
+      title: "Status Filter",
+    });
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -67,7 +120,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         type: DiscoverSectionType.simpleCarousel,
       },
       {
-        id: "genres",
+        id: "genres_section",
         title: "Genres",
         type: DiscoverSectionType.genres,
       },
@@ -85,6 +138,10 @@ export class MangaFireExtension implements MangaFireImplementation {
         return this.getPopularSectionItems(section, metadata);
       case "updated_section":
         return this.getUpdatedSectionItems(section, metadata);
+      case "new_manga_section":
+        return this.getNewMangaSectionItems(section, metadata);
+      case "genres_section":
+        return this.getFilterSection();
       default:
         return { items: [] };
     }
@@ -98,11 +155,46 @@ export class MangaFireExtension implements MangaFireImplementation {
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("filter")
       .addQuery("keyword", query.title)
-      .addQuery("page", page.toString())
-      .build();
+      .addQuery("page", page.toString());
+
+    const getFilterValue = (id: string) =>
+      query.filters.find((filter) => filter.id == id)?.value;
+
+    const type = getFilterValue("type");
+    const genres = getFilterValue("genres");
+    const status = getFilterValue("status");
+    const sortBy = getFilterValue("sortBy");
+
+    if (type && type != "all") {
+      searchUrl.addQuery("type[]", type);
+    }
+
+    if (genres && genres != "all") {
+      searchUrl.addQuery("genre[]", genres);
+    }
+
+    if (status && status != "all") {
+      searchUrl.addQuery(
+        "status[]",
+        status === "ongoing" ? "releasing" : "completed",
+      );
+    }
+
+    if (sortBy) {
+      let sort = "most_relevance";
+      switch (sortBy) {
+        case "latest":
+          sort = "recently_updated";
+          break;
+        case "oldest":
+          sort = "oldest";
+          break;
+      }
+      searchUrl.addQuery("sort", sort);
+    }
 
     const request = {
-      url: searchUrl,
+      url: searchUrl.build(),
       method: "GET",
     };
 
@@ -257,11 +349,6 @@ export class MangaFireExtension implements MangaFireImplementation {
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     console.log(`Parsing chapter ${chapter.chapterId}`);
     try {
-      // Constructs the URL for fetching chapter details.
-      // Example: https://mangafire.to/read/5f5b3b7b7d1c8c0001b3b7b7
-      // where "5f5b3b7b7d1c8c0001b3b7b7" is the chapter ID.
-      // Makes this url https://mangafire.to/read/mangaid/en/chapter-X
-      //
       // Utilizing ajax API
       // Example: https://mangafire.to/ajax/read/chapter/3832635
       const url = new URLBuilder(baseUrl)
@@ -400,6 +487,86 @@ export class MangaFireExtension implements MangaFireImplementation {
     return {
       items: items,
       metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
+  async getNewMangaSectionItems(
+    section: DiscoverSection,
+    metadata: { page?: number; collectedIds?: string[] } | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = metadata?.page ?? 1;
+    const collectedIds = metadata?.collectedIds ?? [];
+
+    const request = {
+      url: new URLBuilder(baseUrl).addPath("added").build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+    const items: DiscoverSectionItem[] = [];
+
+    $(".unit .inner").each((_, element) => {
+      const unit = $(element);
+      const infoLink = unit.find(".info > a").last();
+      const title = infoLink.text().trim();
+      const image = unit.find(".poster img").attr("src") || "";
+      const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push(
+          createDiscoverSectionItem({
+            id: mangaId,
+            image: image,
+            title: title,
+            type: "simpleCarouselItem",
+          }),
+        );
+      }
+    });
+
+    // Check if there's a next page
+    const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
+
+    return {
+      items: items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
+  async getFilterSection(): Promise<PagedResults<DiscoverSectionItem>> {
+    const items = [
+      { id: "manhua", name: "Manhua", type: "type" },
+      { id: "manhwa", name: "Manhwa", type: "type" },
+      { id: "manga", name: "Manga", type: "type" },
+      { id: "action", name: "Action", type: "genres" },
+      { id: "adventure", name: "Adventure", type: "genres" },
+      { id: "comedy", name: "Comedy", type: "genres" },
+      { id: "drama", name: "Drama", type: "genres" },
+      { id: "ecchi", name: "Ecchi", type: "genres" },
+      { id: "fantasy", name: "Fantasy", type: "genres" },
+      { id: "horror", name: "Horror", type: "genres" },
+      { id: "mature", name: "Mature", type: "genres" },
+      { id: "romance", name: "Romance", type: "genres" },
+      { id: "sci-fi", name: "Sci-Fi", type: "genres" },
+      { id: "shoujo", name: "Shoujo", type: "genres" },
+      { id: "shounen", name: "Shounen", type: "genres" },
+      { id: "slice-of-life", name: "Slice of Life", type: "genres" },
+      { id: "sports", name: "Sports", type: "genres" },
+      { id: "supernatural", name: "Supernatural", type: "genres" },
+    ];
+
+    return {
+      items: items.map((item) => ({
+        type: "genresCarouselItem",
+        searchQuery: {
+          title: "",
+          filters: [{ id: item.type, value: item.id }],
+        },
+        name: item.name,
+        metadata: undefined,
+      })),
+      metadata: undefined,
     };
   }
 
