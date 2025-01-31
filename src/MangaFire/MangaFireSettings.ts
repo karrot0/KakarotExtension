@@ -4,7 +4,6 @@ import {
   ContentRating,
   Form,
   InputRow,
-  LabelRow,
   ManagedCollectionProviding,
   Request,
   SearchResultItem,
@@ -21,7 +20,7 @@ import { URLBuilder } from "../utils/url-builder/base";
 const baseUrl = "https://mangafire.to";
 
 export class MangaFireSettingsForm extends Form {
-  private statusMessage: string = "";
+  private mangaFireUrl: string = "";
 
   override getSections(): Application.FormSectionElement[] {
     return [
@@ -30,40 +29,19 @@ export class MangaFireSettingsForm extends Form {
           title: "Import URL (Pastebin/Raw)",
           value: "",
           onValueChange: async (txt) => {
-            if (txt && !isValidDataUrl(txt)) {
-              this.statusMessage =
-                "Please enter a valid Pastebin or raw text URL";
-              this.updateStatus();
-            }
+            this.mangaFireUrl = txt;
           },
         }),
         ButtonRow("import_button", {
           title: "Import MangaFire Collection",
           onSelect: async () => {
-            const input = document.getElementById(
-              "mangafireUrl",
-            ) as HTMLInputElement;
-            if (!input?.value) {
-              this.statusMessage = "Please enter a valid URL";
-              this.updateStatus();
-              return;
+            if (this.mangaFireUrl) {
+              await this.addToCollection(this.mangaFireUrl);
             }
-            await this.addToCollection(input.value);
           },
-        }),
-        LabelRow("status", {
-          title: "Status",
-          value: this.statusMessage,
         }),
       ]),
     ];
-  }
-
-  private updateStatus(): void {
-    const statusLabel = document.getElementById("status") as HTMLElement;
-    if (statusLabel) {
-      statusLabel.textContent = this.statusMessage;
-    }
   }
 
   async getManga(page: number = 1) {
@@ -238,18 +216,12 @@ export class MangaFireSettingsForm extends Form {
         );
       }
 
-      this.statusMessage = "Fetching data...";
-      this.updateStatus();
-
       const rawText = await fetchRawText(url);
       if (!rawText) {
         throw new Error("No data found");
       }
 
       // Parse XML content
-      this.statusMessage = "Processing XML data...";
-      this.updateStatus();
-
       const mangaList = xml.parseMAL(rawText);
       if (mangaList.length === 0) {
         throw new Error("No manga found in the XML file");
@@ -266,16 +238,11 @@ export class MangaFireSettingsForm extends Form {
 
       const collection = collections.find((c) => c.title === collectionName);
       if (!collection) {
-        this.statusMessage = "Collection creation not implemented";
-        this.updateStatus();
-        return;
+        throw new Error("Collection not found");
       }
 
       for (const manga of mangaList) {
         try {
-          this.statusMessage = `Searching for: ${manga.title}`;
-          this.updateStatus();
-
           const searchResults = await this.searchManga(manga.title);
           const match = await this.findBestMatch(manga.title, searchResults);
 
@@ -303,12 +270,14 @@ export class MangaFireSettingsForm extends Form {
         }
       }
 
-      this.statusMessage = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
+      console.log(
+        `Import completed. Added: ${addedCount}, Failed: ${failedCount}`,
+      );
     } catch (error) {
-      this.statusMessage = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+      console.error(
+        `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
-
-    this.updateStatus();
   }
 
   checkCloudflareStatus(status: number): void {

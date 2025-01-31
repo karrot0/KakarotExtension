@@ -114,9 +114,9 @@ export class MangaFireExtension implements MangaFireImplementation {
         { id: "39", value: "Vampire" },
       ],
       allowExclusion: true,
-      value: { all: "included" },
+      value: {},
       title: "Genre Filter",
-      allowEmptySelection: true,
+      allowEmptySelection: false,
       maximum: undefined,
     });
 
