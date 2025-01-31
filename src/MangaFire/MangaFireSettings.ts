@@ -1,6 +1,7 @@
 import {
   ButtonRow,
   CloudflareError,
+  ContentRating,
   Form,
   InputRow,
   LabelRow,
@@ -9,6 +10,7 @@ import {
   SearchResultItem,
   Section,
   SourceManga,
+  TagSection,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
@@ -149,6 +151,85 @@ export class MangaFireSettingsForm extends Form {
     );
   }
 
+  async getMangaDetails(mangaId: string): Promise<SourceManga> {
+    const request = {
+      url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+
+    // Extract basic manga details
+    const title = $(".manga-detail .info h1").text().trim();
+    const altTitles = [$(".manga-detail .info h6").text().trim()];
+    const image = $(".manga-detail .poster img").attr("src") || "";
+    const description = $(".manga-detail .info .description").text().trim();
+    const authors: string[] = [];
+    $("#info-rating .meta div").each((_, element) => {
+      const label = $(element).find("span").first().text().trim();
+      if (label === "Author:") {
+        $(element)
+          .find("a")
+          .each((_, authorElement) => {
+            authors.push($(authorElement).text().trim());
+          });
+      }
+    });
+    const status = $(".manga-detail .info .min-info")
+      .text()
+      .includes("Releasing")
+      ? "ONGOING"
+      : "COMPLETED";
+
+    // Extract tags
+    const tags: TagSection[] = [];
+    const genres: string[] = [];
+    let rating = 1;
+
+    // Parse info-rating section
+    $("#info-rating .meta div").each((_, element) => {
+      const label = $(element).find("span").first().text().trim();
+      if (label === "Genres:") {
+        $(element)
+          .find("a")
+          .each((_, genreElement) => {
+            genres.push($(genreElement).text().trim());
+          });
+      }
+    });
+
+    // Get rating if available
+    const ratingValue = $("#info-rating .score .live-score").text().trim();
+    if (ratingValue) {
+      rating = parseFloat(ratingValue) / 2; // Convert 10-point scale to 5-point scale
+    }
+
+    if (genres.length > 0) {
+      tags.push({
+        id: "genres",
+        title: "Genres",
+        tags: genres.map((genre) => ({
+          id: genre.toLowerCase(),
+          title: genre,
+        })),
+      });
+    }
+
+    return {
+      mangaId: mangaId,
+      mangaInfo: {
+        primaryTitle: title,
+        secondaryTitles: altTitles,
+        thumbnailUrl: image,
+        synopsis: description,
+        rating: rating,
+        contentRating: ContentRating.EVERYONE,
+        status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
+        tagGroups: tags,
+      },
+    };
+  }
+
   async addToCollection(url: string) {
     try {
       if (!isValidDataUrl(url)) {
@@ -199,22 +280,20 @@ export class MangaFireSettingsForm extends Form {
           const match = await this.findBestMatch(manga.title, searchResults);
 
           if (match) {
-            // Add to collection
+            // Get full manga details instead of basic info
+            const sourceManga = await this.getMangaDetails(match.mangaId);
+
             await (
               Application as unknown as ManagedCollectionProviding
             ).commitManagedCollectionChanges({
               collection,
-              additions: [
-                {
-                  mangaId: match.mangaId,
-                  mangaInfo: {
-                    primaryTitle: match.title,
-                  },
-                } as SourceManga,
-              ],
+              additions: [sourceManga],
               deletions: [],
             });
             addedCount++;
+
+            // Add small delay to prevent rate limiting
+            await Application.sleep(0.5);
           } else {
             failedCount++;
           }
