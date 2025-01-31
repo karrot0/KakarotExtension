@@ -1851,7 +1851,7 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.LabelRow = LabelRow2;
+      exports.LabelRow = LabelRow;
       exports.InputRow = InputRow2;
       exports.ToggleRow = ToggleRow;
       exports.SelectRow = SelectRow;
@@ -1859,7 +1859,7 @@ var source = (() => {
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
-      function LabelRow2(id, props) {
+      function LabelRow(id, props) {
         return { ...props, id, type: "labelRow", isHidden: props.isHidden ?? false };
       }
       function InputRow2(id, props) {
@@ -11104,7 +11104,7 @@ var source = (() => {
     get currentTmplContentOrNode() {
       return this._isInTemplate() ? this.treeAdapter.getTemplateContent(this.current) : this.current;
     }
-    constructor(document2, treeAdapter, handler) {
+    constructor(document, treeAdapter, handler) {
       this.treeAdapter = treeAdapter;
       this.handler = handler;
       this.items = [];
@@ -11112,7 +11112,7 @@ var source = (() => {
       this.stackTop = -1;
       this.tmplCount = 0;
       this.currentTagId = TAG_ID.UNKNOWN;
-      this.current = document2;
+      this.current = document;
     }
     //Index of element
     _indexOf(element) {
@@ -11546,8 +11546,8 @@ var source = (() => {
     getTemplateContent(templateElement) {
       return templateElement.content;
     },
-    setDocumentType(document2, name, publicId, systemId) {
-      const doctypeNode = document2.childNodes.find((node) => node.nodeName === "#documentType");
+    setDocumentType(document, name, publicId, systemId) {
+      const doctypeNode = document.childNodes.find((node) => node.nodeName === "#documentType");
       if (doctypeNode) {
         doctypeNode.name = name;
         doctypeNode.publicId = publicId;
@@ -11560,14 +11560,14 @@ var source = (() => {
           systemId,
           parentNode: null
         };
-        defaultTreeAdapter.appendChild(document2, node);
+        defaultTreeAdapter.appendChild(document, node);
       }
     },
-    setDocumentMode(document2, mode) {
-      document2.mode = mode;
+    setDocumentMode(document, mode) {
+      document.mode = mode;
     },
-    getDocumentMode(document2) {
-      return document2.mode;
+    getDocumentMode(document) {
+      return document.mode;
     },
     detachNode(node) {
       if (node.parentNode) {
@@ -12039,7 +12039,7 @@ var source = (() => {
     onParseError: null
   };
   var Parser = class {
-    constructor(options, document2, fragmentContext = null, scriptHandler = null) {
+    constructor(options, document, fragmentContext = null, scriptHandler = null) {
       this.fragmentContext = fragmentContext;
       this.scriptHandler = scriptHandler;
       this.currentToken = null;
@@ -12064,7 +12064,7 @@ var source = (() => {
       if (this.onParseError) {
         this.options.sourceCodeLocationInfo = true;
       }
-      this.document = document2 !== null && document2 !== void 0 ? document2 : this.treeAdapter.createDocument();
+      this.document = document !== null && document !== void 0 ? document : this.treeAdapter.createDocument();
       this.tokenizer = new Tokenizer(this.options, this);
       this.activeFormattingElements = new FormattingElementList(this.treeAdapter);
       this.fragmentContextID = fragmentContext ? getTagID(this.treeAdapter.getTagName(fragmentContext)) : TAG_ID.UNKNOWN;
@@ -15224,24 +15224,24 @@ var source = (() => {
     getTemplateContent(templateElement) {
       return templateElement.children[0];
     },
-    setDocumentType(document2, name, publicId, systemId) {
+    setDocumentType(document, name, publicId, systemId) {
       const data2 = serializeDoctypeContent(name, publicId, systemId);
-      let doctypeNode = document2.children.find((node) => isDirective(node) && node.name === "!doctype");
+      let doctypeNode = document.children.find((node) => isDirective(node) && node.name === "!doctype");
       if (doctypeNode) {
         doctypeNode.data = data2 !== null && data2 !== void 0 ? data2 : null;
       } else {
         doctypeNode = new ProcessingInstruction("!doctype", data2);
-        adapter.appendChild(document2, doctypeNode);
+        adapter.appendChild(document, doctypeNode);
       }
       doctypeNode["x-name"] = name;
       doctypeNode["x-publicId"] = publicId;
       doctypeNode["x-systemId"] = systemId;
     },
-    setDocumentMode(document2, mode) {
-      document2["x-mode"] = mode;
+    setDocumentMode(document, mode) {
+      document["x-mode"] = mode;
     },
-    getDocumentMode(document2) {
-      return document2["x-mode"];
+    getDocumentMode(document) {
+      return document["x-mode"];
     },
     detachNode(node) {
       if (node.parent) {
@@ -16682,7 +16682,7 @@ var source = (() => {
   // src/MangaFire/MangaFireSettings.ts
   var baseUrl = "https://mangafire.to";
   var MangaFireSettingsForm = class extends import_types3.Form {
-    statusMessage = "";
+    mangaFireUrl = "";
     getSections() {
       return [
         (0, import_types3.Section)("MangaFire Importer", [
@@ -16690,38 +16690,19 @@ var source = (() => {
             title: "Import URL (Pastebin/Raw)",
             value: "",
             onValueChange: async (txt) => {
-              if (txt && !isValidDataUrl(txt)) {
-                this.statusMessage = "Please enter a valid Pastebin or raw text URL";
-                this.updateStatus();
-              }
+              this.mangaFireUrl = txt;
             }
           }),
           (0, import_types3.ButtonRow)("import_button", {
             title: "Import MangaFire Collection",
             onSelect: async () => {
-              const input = document.getElementById(
-                "mangafireUrl"
-              );
-              if (!input?.value) {
-                this.statusMessage = "Please enter a valid URL";
-                this.updateStatus();
-                return;
+              if (this.mangaFireUrl) {
+                await this.addToCollection(this.mangaFireUrl);
               }
-              await this.addToCollection(input.value);
             }
-          }),
-          (0, import_types3.LabelRow)("status", {
-            title: "Status",
-            value: this.statusMessage
           })
         ])
       ];
-    }
-    updateStatus() {
-      const statusLabel = document.getElementById("status");
-      if (statusLabel) {
-        statusLabel.textContent = this.statusMessage;
-      }
     }
     async getManga(page = 1) {
       const searchUrl = new URLBuilder(baseUrl).addPath("filter");
@@ -16848,14 +16829,10 @@ var source = (() => {
             "Invalid URL format. Please use Pastebin or raw text URL"
           );
         }
-        this.statusMessage = "Fetching data...";
-        this.updateStatus();
         const rawText = await fetchRawText(url);
         if (!rawText) {
           throw new Error("No data found");
         }
-        this.statusMessage = "Processing XML data...";
-        this.updateStatus();
         const mangaList = xml2.parseMAL(rawText);
         if (mangaList.length === 0) {
           throw new Error("No manga found in the XML file");
@@ -16866,14 +16843,10 @@ var source = (() => {
         const collections = await Application.getManagedLibraryCollections();
         const collection = collections.find((c) => c.title === collectionName);
         if (!collection) {
-          this.statusMessage = "Collection creation not implemented";
-          this.updateStatus();
-          return;
+          throw new Error("Collection not found");
         }
         for (const manga of mangaList) {
           try {
-            this.statusMessage = `Searching for: ${manga.title}`;
-            this.updateStatus();
             const searchResults = await this.searchManga(manga.title);
             const match = await this.findBestMatch(manga.title, searchResults);
             if (match) {
@@ -16893,11 +16866,14 @@ var source = (() => {
             console.error(`Failed to import: ${manga.title}`, err);
           }
         }
-        this.statusMessage = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
+        console.log(
+          `Import completed. Added: ${addedCount}, Failed: ${failedCount}`
+        );
       } catch (error) {
-        this.statusMessage = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+        console.error(
+          `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
       }
-      this.updateStatus();
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
@@ -16988,9 +16964,9 @@ var source = (() => {
           { id: "39", value: "Vampire" }
         ],
         allowExclusion: true,
-        value: { all: "included" },
+        value: {},
         title: "Genre Filter",
-        allowEmptySelection: true,
+        allowEmptySelection: false,
         maximum: void 0
       });
       Application.registerSearchFilter({
