@@ -471,4 +471,4 @@ function createDiscoverSectionItem(options: {
   };
 }
 
-export const Thunder = new ThunderExtension();
+export const ThunderScans = new ThunderExtension();
