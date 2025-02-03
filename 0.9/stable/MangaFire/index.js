@@ -17250,6 +17250,9 @@ var source = (() => {
         const title = infoLink.text().trim();
         const image = unit.find(".poster img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const latest_chapter = unit.find(".content[data-name='chap']").find("a").eq(0).text().trim();
+        const latestChapterMatch = latest_chapter.match(/Chap (\d+)/);
+        const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -17257,6 +17260,7 @@ var source = (() => {
               id: mangaId,
               image,
               title,
+              subtitle,
               type: "simpleCarouselItem"
             })
           );
