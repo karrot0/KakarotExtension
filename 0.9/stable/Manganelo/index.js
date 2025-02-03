@@ -16734,7 +16734,7 @@ var source = (() => {
         const li = $2(element);
         const link = li.find("a.chapter-name");
         const href = link.attr("href") || "";
-        const chapterId = href.replace("https://chapmanganelo.com", "");
+        const chapterId = href;
         const title = link.attr("title")?.trim() || link.text().trim();
         const chapterMatch = title.match(/Chapter\s+(\d+\.?\d*)/i);
         const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
@@ -16757,14 +16757,11 @@ var source = (() => {
         };
         const $2 = await this.fetchCheerio(request);
         const pages = [];
-        for (const img of $2(
-          ".container-chapter-reader img.reader-content"
-        ).toArray()) {
-          let image = $2(img).attr("src") ?? "";
-          if (!image) image = $2(img).attr("data-src") ?? "";
-          if (!image) continue;
-          pages.push(image);
-        }
+        $2(".container-chapter-reader img").each((_, img) => {
+          const src = $2(img).attr("src") ?? $2(img).attr("data-src");
+          if (!src) return;
+          pages.push(src);
+        });
         return {
           id: chapter.chapterId,
           mangaId: chapter.sourceManga.mangaId,

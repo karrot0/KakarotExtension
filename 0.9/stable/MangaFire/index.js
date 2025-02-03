@@ -16715,14 +16715,12 @@ var source = (() => {
             (0, import_types3.InputRow)("mangafireurl", {
               title: "Import URL (Pastebin/Raw)",
               value: this.inputValue.value,
-              onValueChange: async (txt) => {
-                Application.setState("mangafireurl", txt);
-              }
+              onValueChange: this.inputValue.selector
             }),
             (0, import_types3.ButtonRow)("import_button", {
               title: "Import MangaFire Collection",
               onSelect: async () => {
-                const url = Application.getState("mangafireurl");
+                const url = this.inputValue.value.toString();
                 if (typeof url === "string") {
                   await this.addToCollection(url);
                 }
