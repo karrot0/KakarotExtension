@@ -259,7 +259,7 @@ export class ThunderExtension implements ThunderImplementation {
       const $ = await this.fetchCheerio(request);
 
       const pages: string[] = [];
-      $("#readerarea img").each((_, img) => {
+      $("img.ts-main-image").each((_, img) => {
         const src = $(img).attr("src");
         if (!src) return;
 
