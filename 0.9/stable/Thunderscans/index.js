@@ -16577,7 +16577,7 @@ var source = (() => {
     }
   };
 
-  // src/Thunderscans/ThunderInterceptor.ts
+  // src/Thunderscans/ThunderScansInterceptor.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
   var ThunderInterceptor = class extends import_types2.PaperbackInterceptor {
