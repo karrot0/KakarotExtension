@@ -16910,7 +16910,7 @@ var source = (() => {
       mangaId: options.id,
       imageUrl: options.image,
       title: options.title,
-      subtitle: void 0,
+      subtitle: options.subtitle,
       metadata: void 0
     };
   }
