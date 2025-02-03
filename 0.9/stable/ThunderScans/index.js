@@ -16763,7 +16763,7 @@ var source = (() => {
         };
         const $2 = await this.fetchCheerio(request);
         const pages = [];
-        $2("#readerarea img").each((_, img) => {
+        $2("img.ts-main-image").each((_, img) => {
           const src = $2(img).attr("src");
           if (!src) return;
           pages.push(src);
