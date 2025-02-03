@@ -2680,8 +2680,8 @@ var source = (() => {
   // src/Thunderscans/main.ts
   var main_exports = {};
   __export(main_exports, {
-    Thunder: () => Thunder,
-    ThunderExtension: () => ThunderExtension
+    ThunderExtension: () => ThunderExtension,
+    ThunderScans: () => ThunderScans
   });
   init_buffer();
   var import_types3 = __toESM(require_lib(), 1);
@@ -16922,7 +16922,7 @@ var source = (() => {
       metadata: void 0
     };
   }
-  var Thunder = new ThunderExtension();
+  var ThunderScans = new ThunderExtension();
   return __toCommonJS(main_exports);
 })();
 /*! Bundled license information:
