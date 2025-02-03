@@ -10,6 +10,7 @@ export default {
   badges: [
     { label: "ALL MANGA", textColor: "#FFFFFF", backgroundColor: "#F64B4B" },
     { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
+    { label: "AGGREGATOR", textColor: "#FFFFFF", backgroundColor: "#007AFF" },
   ],
   capabilities: [
     SourceIntents.SETTINGS_UI,

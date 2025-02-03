@@ -9,12 +9,12 @@ A manga extension for Paperback that includes popular manga sources.
 
 ## 📋 Upcoming Sources
 
-- _Coming soon..._
+-
 
 ## 🚀 Installation
 
 1. Open Paperback
-2. Add this repository using [this link](https://github.com/karrot0/KakarotExtension/0.9/stable)
+2. Add this repository using [this link](https://karrot0.github.io/KakarotExtension/0.9/stable/)
 3. Install and enjoy reading!
 
 ---
