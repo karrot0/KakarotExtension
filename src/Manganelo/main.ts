@@ -85,6 +85,8 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         return this.getPopularSectionItems(section, metadata);
       case "updated_section":
         return this.getUpdatedSectionItems(section, metadata);
+      case "new_manga_section":
+        return this.getNewMangaSectionItems(section, metadata);
       default:
         return { items: [] };
     }
@@ -331,6 +333,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const image = unit.find(".genres-item-img img").attr("src") || "";
       // Example URL: https://m.manganelo.com/manga-af123456
       const mangaId = infoLink.attr("href");
+      const chapterText = unit.find(".genres-item-chap").text().trim() || "";
+      const chapterMatch = chapterText.match(/Chapter\s+(\d+(\.\d+)?)/i);
+      const latest_chapter = chapterMatch ? `Ch. ${chapterMatch[1]}` : "";
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -339,6 +344,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
             id: mangaId,
             image: image,
             title: title,
+            subtitle: latest_chapter,
             type: "simpleCarouselItem",
           }),
         );
@@ -404,6 +410,56 @@ export class MangaNeloExtension implements MangaNeloImplementation {
     };
   }
 
+  async getNewMangaSectionItems(
+    section: DiscoverSection,
+    metadata: { page?: number; collectedIds?: string[] } | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = metadata?.page ?? 1;
+    const collectedIds = metadata?.collectedIds ?? [];
+
+    const request = {
+      url: new URLBuilder(baseUrl)
+        .addPath("advanced_search")
+        .addQuery("s", "all")
+        .addQuery("orby", "newest")
+        .addQuery("page", page.toString())
+        .build(),
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+    const items: DiscoverSectionItem[] = [];
+
+    $(".content-genres-item").each((_, element) => {
+      const unit = $(element);
+      const infoLink = unit.find(".genres-item-name");
+      const title = infoLink.text().trim();
+      const image = unit.find(".genres-item-img img").attr("src") || "";
+      // Example URL: https://m.manganelo.com/manga-af123456
+      const mangaId = infoLink.attr("href");
+
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push(
+          createDiscoverSectionItem({
+            id: mangaId,
+            image: image,
+            title: title,
+            type: "simpleCarouselItem",
+          }),
+        );
+      }
+    });
+
+    // Check if there's a next page
+    const hasNextPage = !!$(".panel-page-number .page-blue").next().length;
+
+    return {
+      items: items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+    };
+  }
+
   checkCloudflareStatus(status: number): void {
     if (status == 503 || status == 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
@@ -421,6 +477,7 @@ function createDiscoverSectionItem(options: {
   id: string;
   image: string;
   title: string;
+  subtitle?: string;
   type: "simpleCarouselItem";
 }): DiscoverSectionItem {
   return {

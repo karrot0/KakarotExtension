@@ -461,6 +461,7 @@ export class MangaFireExtension implements MangaFireImplementation {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
+    // Example: https://mangafire.to/filter?keyword=&language[]=en&sort=recently_updated&page=1
     const request = {
       url: new URLBuilder(baseUrl)
         .addPath("filter")
@@ -481,6 +482,16 @@ export class MangaFireExtension implements MangaFireImplementation {
       const title = infoLink.text().trim();
       const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+      const latest_chapter = unit
+        .find(".content[data-name='chap']")
+        .find("a")
+        .eq(0)
+        .text()
+        .trim();
+      const latestChapterMatch = latest_chapter.match(/Chap (\d+)/);
+      const subtitle = latestChapterMatch
+        ? `Ch. ${latestChapterMatch[1]}`
+        : undefined;
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -489,6 +500,7 @@ export class MangaFireExtension implements MangaFireImplementation {
             id: mangaId,
             image: image,
             title: title,
+            subtitle: subtitle,
             type: "simpleCarouselItem",
           }),
         );
@@ -677,6 +689,7 @@ function createDiscoverSectionItem(options: {
   id: string;
   image: string;
   title: string;
+  subtitle?: string;
   type: "simpleCarouselItem";
 }): DiscoverSectionItem {
   return {
