@@ -697,7 +697,7 @@ function createDiscoverSectionItem(options: {
     mangaId: options.id,
     imageUrl: options.image,
     title: options.title,
-    subtitle: undefined,
+    subtitle: options.subtitle,
     metadata: undefined,
   };
 }
