@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-02-03T05:14:53.366Z",
+  "buildTime": "2025-02-03T05:21:14.861Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -80,32 +80,6 @@
         }
       ],
       "id": "Manganelo"
-    },
-    {
-      "name": "ThunderScans",
-      "description": "A paperback extension for Thunderscans",
-      "version": "0.9.0",
-      "icon": "icon.png",
-      "language": "en",
-      "contentRating": "SAFE",
-      "badges": [
-        {
-          "label": "TRANSLATOR",
-          "textColor": "#FFFFFF",
-          "backgroundColor": "#800080"
-        }
-      ],
-      "capabilities": [
-        4,
-        64,
-        1
-      ],
-      "developers": [
-        {
-          "name": "Karrot"
-        }
-      ],
-      "id": "ThunderScans"
     }
   ]
 }
