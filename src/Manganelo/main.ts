@@ -234,8 +234,8 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const li = $(element);
       const link = li.find("a.chapter-name");
       const href = link.attr("href") || "";
-      // Example URL: https://m.manganelo.com/manga-af123456/chapter-1
-      const chapterId = href.replace("https://chapmanganelo.com", "");
+      //const chapterId = href.replace("https://chapmanganelo.com", "");
+      const chapterId = href;
       const title = link.attr("title")?.trim() || link.text().trim();
 
       // Extract chapter number from title using regex
@@ -265,14 +265,13 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const $ = await this.fetchCheerio(request);
 
       const pages: string[] = [];
-      for (const img of $(
-        ".container-chapter-reader img.reader-content",
-      ).toArray()) {
-        let image = $(img).attr("src") ?? "";
-        if (!image) image = $(img).attr("data-src") ?? "";
-        if (!image) continue;
-        pages.push(image);
-      }
+      $(".container-chapter-reader img").each((_, img) => {
+        const src = $(img).attr("src") ?? $(img).attr("data-src");
+        if (!src) return;
+
+        // Extract image URL and push to pages array
+        pages.push(src);
+      });
 
       return {
         id: chapter.chapterId,
