@@ -21,7 +21,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { URLBuilder } from "../utils/url-builder/base";
-import { ThunderInterceptor } from "./ThunderInterceptor";
+import { ThunderInterceptor } from "./ThunderScansInterceptor";
 
 const baseUrl = "https://en-thunderscans.com";
 
