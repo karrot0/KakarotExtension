@@ -1851,7 +1851,7 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.LabelRow = LabelRow;
+      exports.LabelRow = LabelRow2;
       exports.InputRow = InputRow2;
       exports.ToggleRow = ToggleRow2;
       exports.SelectRow = SelectRow;
@@ -1859,7 +1859,7 @@ var source = (() => {
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
-      function LabelRow(id, props) {
+      function LabelRow2(id, props) {
         return { ...props, id, type: "labelRow", isHidden: props.isHidden ?? false };
       }
       function InputRow2(id, props) {
@@ -8453,80 +8453,80 @@ var source = (() => {
 
   // node_modules/parse5/dist/tokenizer/index.js
   var State;
-  (function(State4) {
-    State4[State4["DATA"] = 0] = "DATA";
-    State4[State4["RCDATA"] = 1] = "RCDATA";
-    State4[State4["RAWTEXT"] = 2] = "RAWTEXT";
-    State4[State4["SCRIPT_DATA"] = 3] = "SCRIPT_DATA";
-    State4[State4["PLAINTEXT"] = 4] = "PLAINTEXT";
-    State4[State4["TAG_OPEN"] = 5] = "TAG_OPEN";
-    State4[State4["END_TAG_OPEN"] = 6] = "END_TAG_OPEN";
-    State4[State4["TAG_NAME"] = 7] = "TAG_NAME";
-    State4[State4["RCDATA_LESS_THAN_SIGN"] = 8] = "RCDATA_LESS_THAN_SIGN";
-    State4[State4["RCDATA_END_TAG_OPEN"] = 9] = "RCDATA_END_TAG_OPEN";
-    State4[State4["RCDATA_END_TAG_NAME"] = 10] = "RCDATA_END_TAG_NAME";
-    State4[State4["RAWTEXT_LESS_THAN_SIGN"] = 11] = "RAWTEXT_LESS_THAN_SIGN";
-    State4[State4["RAWTEXT_END_TAG_OPEN"] = 12] = "RAWTEXT_END_TAG_OPEN";
-    State4[State4["RAWTEXT_END_TAG_NAME"] = 13] = "RAWTEXT_END_TAG_NAME";
-    State4[State4["SCRIPT_DATA_LESS_THAN_SIGN"] = 14] = "SCRIPT_DATA_LESS_THAN_SIGN";
-    State4[State4["SCRIPT_DATA_END_TAG_OPEN"] = 15] = "SCRIPT_DATA_END_TAG_OPEN";
-    State4[State4["SCRIPT_DATA_END_TAG_NAME"] = 16] = "SCRIPT_DATA_END_TAG_NAME";
-    State4[State4["SCRIPT_DATA_ESCAPE_START"] = 17] = "SCRIPT_DATA_ESCAPE_START";
-    State4[State4["SCRIPT_DATA_ESCAPE_START_DASH"] = 18] = "SCRIPT_DATA_ESCAPE_START_DASH";
-    State4[State4["SCRIPT_DATA_ESCAPED"] = 19] = "SCRIPT_DATA_ESCAPED";
-    State4[State4["SCRIPT_DATA_ESCAPED_DASH"] = 20] = "SCRIPT_DATA_ESCAPED_DASH";
-    State4[State4["SCRIPT_DATA_ESCAPED_DASH_DASH"] = 21] = "SCRIPT_DATA_ESCAPED_DASH_DASH";
-    State4[State4["SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN"] = 22] = "SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN";
-    State4[State4["SCRIPT_DATA_ESCAPED_END_TAG_OPEN"] = 23] = "SCRIPT_DATA_ESCAPED_END_TAG_OPEN";
-    State4[State4["SCRIPT_DATA_ESCAPED_END_TAG_NAME"] = 24] = "SCRIPT_DATA_ESCAPED_END_TAG_NAME";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPE_START"] = 25] = "SCRIPT_DATA_DOUBLE_ESCAPE_START";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPED"] = 26] = "SCRIPT_DATA_DOUBLE_ESCAPED";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPED_DASH"] = 27] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH"] = 28] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN"] = 29] = "SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN";
-    State4[State4["SCRIPT_DATA_DOUBLE_ESCAPE_END"] = 30] = "SCRIPT_DATA_DOUBLE_ESCAPE_END";
-    State4[State4["BEFORE_ATTRIBUTE_NAME"] = 31] = "BEFORE_ATTRIBUTE_NAME";
-    State4[State4["ATTRIBUTE_NAME"] = 32] = "ATTRIBUTE_NAME";
-    State4[State4["AFTER_ATTRIBUTE_NAME"] = 33] = "AFTER_ATTRIBUTE_NAME";
-    State4[State4["BEFORE_ATTRIBUTE_VALUE"] = 34] = "BEFORE_ATTRIBUTE_VALUE";
-    State4[State4["ATTRIBUTE_VALUE_DOUBLE_QUOTED"] = 35] = "ATTRIBUTE_VALUE_DOUBLE_QUOTED";
-    State4[State4["ATTRIBUTE_VALUE_SINGLE_QUOTED"] = 36] = "ATTRIBUTE_VALUE_SINGLE_QUOTED";
-    State4[State4["ATTRIBUTE_VALUE_UNQUOTED"] = 37] = "ATTRIBUTE_VALUE_UNQUOTED";
-    State4[State4["AFTER_ATTRIBUTE_VALUE_QUOTED"] = 38] = "AFTER_ATTRIBUTE_VALUE_QUOTED";
-    State4[State4["SELF_CLOSING_START_TAG"] = 39] = "SELF_CLOSING_START_TAG";
-    State4[State4["BOGUS_COMMENT"] = 40] = "BOGUS_COMMENT";
-    State4[State4["MARKUP_DECLARATION_OPEN"] = 41] = "MARKUP_DECLARATION_OPEN";
-    State4[State4["COMMENT_START"] = 42] = "COMMENT_START";
-    State4[State4["COMMENT_START_DASH"] = 43] = "COMMENT_START_DASH";
-    State4[State4["COMMENT"] = 44] = "COMMENT";
-    State4[State4["COMMENT_LESS_THAN_SIGN"] = 45] = "COMMENT_LESS_THAN_SIGN";
-    State4[State4["COMMENT_LESS_THAN_SIGN_BANG"] = 46] = "COMMENT_LESS_THAN_SIGN_BANG";
-    State4[State4["COMMENT_LESS_THAN_SIGN_BANG_DASH"] = 47] = "COMMENT_LESS_THAN_SIGN_BANG_DASH";
-    State4[State4["COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH"] = 48] = "COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH";
-    State4[State4["COMMENT_END_DASH"] = 49] = "COMMENT_END_DASH";
-    State4[State4["COMMENT_END"] = 50] = "COMMENT_END";
-    State4[State4["COMMENT_END_BANG"] = 51] = "COMMENT_END_BANG";
-    State4[State4["DOCTYPE"] = 52] = "DOCTYPE";
-    State4[State4["BEFORE_DOCTYPE_NAME"] = 53] = "BEFORE_DOCTYPE_NAME";
-    State4[State4["DOCTYPE_NAME"] = 54] = "DOCTYPE_NAME";
-    State4[State4["AFTER_DOCTYPE_NAME"] = 55] = "AFTER_DOCTYPE_NAME";
-    State4[State4["AFTER_DOCTYPE_PUBLIC_KEYWORD"] = 56] = "AFTER_DOCTYPE_PUBLIC_KEYWORD";
-    State4[State4["BEFORE_DOCTYPE_PUBLIC_IDENTIFIER"] = 57] = "BEFORE_DOCTYPE_PUBLIC_IDENTIFIER";
-    State4[State4["DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED"] = 58] = "DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED";
-    State4[State4["DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED"] = 59] = "DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED";
-    State4[State4["AFTER_DOCTYPE_PUBLIC_IDENTIFIER"] = 60] = "AFTER_DOCTYPE_PUBLIC_IDENTIFIER";
-    State4[State4["BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS"] = 61] = "BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS";
-    State4[State4["AFTER_DOCTYPE_SYSTEM_KEYWORD"] = 62] = "AFTER_DOCTYPE_SYSTEM_KEYWORD";
-    State4[State4["BEFORE_DOCTYPE_SYSTEM_IDENTIFIER"] = 63] = "BEFORE_DOCTYPE_SYSTEM_IDENTIFIER";
-    State4[State4["DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED"] = 64] = "DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED";
-    State4[State4["DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED"] = 65] = "DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED";
-    State4[State4["AFTER_DOCTYPE_SYSTEM_IDENTIFIER"] = 66] = "AFTER_DOCTYPE_SYSTEM_IDENTIFIER";
-    State4[State4["BOGUS_DOCTYPE"] = 67] = "BOGUS_DOCTYPE";
-    State4[State4["CDATA_SECTION"] = 68] = "CDATA_SECTION";
-    State4[State4["CDATA_SECTION_BRACKET"] = 69] = "CDATA_SECTION_BRACKET";
-    State4[State4["CDATA_SECTION_END"] = 70] = "CDATA_SECTION_END";
-    State4[State4["CHARACTER_REFERENCE"] = 71] = "CHARACTER_REFERENCE";
-    State4[State4["AMBIGUOUS_AMPERSAND"] = 72] = "AMBIGUOUS_AMPERSAND";
+  (function(State3) {
+    State3[State3["DATA"] = 0] = "DATA";
+    State3[State3["RCDATA"] = 1] = "RCDATA";
+    State3[State3["RAWTEXT"] = 2] = "RAWTEXT";
+    State3[State3["SCRIPT_DATA"] = 3] = "SCRIPT_DATA";
+    State3[State3["PLAINTEXT"] = 4] = "PLAINTEXT";
+    State3[State3["TAG_OPEN"] = 5] = "TAG_OPEN";
+    State3[State3["END_TAG_OPEN"] = 6] = "END_TAG_OPEN";
+    State3[State3["TAG_NAME"] = 7] = "TAG_NAME";
+    State3[State3["RCDATA_LESS_THAN_SIGN"] = 8] = "RCDATA_LESS_THAN_SIGN";
+    State3[State3["RCDATA_END_TAG_OPEN"] = 9] = "RCDATA_END_TAG_OPEN";
+    State3[State3["RCDATA_END_TAG_NAME"] = 10] = "RCDATA_END_TAG_NAME";
+    State3[State3["RAWTEXT_LESS_THAN_SIGN"] = 11] = "RAWTEXT_LESS_THAN_SIGN";
+    State3[State3["RAWTEXT_END_TAG_OPEN"] = 12] = "RAWTEXT_END_TAG_OPEN";
+    State3[State3["RAWTEXT_END_TAG_NAME"] = 13] = "RAWTEXT_END_TAG_NAME";
+    State3[State3["SCRIPT_DATA_LESS_THAN_SIGN"] = 14] = "SCRIPT_DATA_LESS_THAN_SIGN";
+    State3[State3["SCRIPT_DATA_END_TAG_OPEN"] = 15] = "SCRIPT_DATA_END_TAG_OPEN";
+    State3[State3["SCRIPT_DATA_END_TAG_NAME"] = 16] = "SCRIPT_DATA_END_TAG_NAME";
+    State3[State3["SCRIPT_DATA_ESCAPE_START"] = 17] = "SCRIPT_DATA_ESCAPE_START";
+    State3[State3["SCRIPT_DATA_ESCAPE_START_DASH"] = 18] = "SCRIPT_DATA_ESCAPE_START_DASH";
+    State3[State3["SCRIPT_DATA_ESCAPED"] = 19] = "SCRIPT_DATA_ESCAPED";
+    State3[State3["SCRIPT_DATA_ESCAPED_DASH"] = 20] = "SCRIPT_DATA_ESCAPED_DASH";
+    State3[State3["SCRIPT_DATA_ESCAPED_DASH_DASH"] = 21] = "SCRIPT_DATA_ESCAPED_DASH_DASH";
+    State3[State3["SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN"] = 22] = "SCRIPT_DATA_ESCAPED_LESS_THAN_SIGN";
+    State3[State3["SCRIPT_DATA_ESCAPED_END_TAG_OPEN"] = 23] = "SCRIPT_DATA_ESCAPED_END_TAG_OPEN";
+    State3[State3["SCRIPT_DATA_ESCAPED_END_TAG_NAME"] = 24] = "SCRIPT_DATA_ESCAPED_END_TAG_NAME";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPE_START"] = 25] = "SCRIPT_DATA_DOUBLE_ESCAPE_START";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED"] = 26] = "SCRIPT_DATA_DOUBLE_ESCAPED";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_DASH"] = 27] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH"] = 28] = "SCRIPT_DATA_DOUBLE_ESCAPED_DASH_DASH";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN"] = 29] = "SCRIPT_DATA_DOUBLE_ESCAPED_LESS_THAN_SIGN";
+    State3[State3["SCRIPT_DATA_DOUBLE_ESCAPE_END"] = 30] = "SCRIPT_DATA_DOUBLE_ESCAPE_END";
+    State3[State3["BEFORE_ATTRIBUTE_NAME"] = 31] = "BEFORE_ATTRIBUTE_NAME";
+    State3[State3["ATTRIBUTE_NAME"] = 32] = "ATTRIBUTE_NAME";
+    State3[State3["AFTER_ATTRIBUTE_NAME"] = 33] = "AFTER_ATTRIBUTE_NAME";
+    State3[State3["BEFORE_ATTRIBUTE_VALUE"] = 34] = "BEFORE_ATTRIBUTE_VALUE";
+    State3[State3["ATTRIBUTE_VALUE_DOUBLE_QUOTED"] = 35] = "ATTRIBUTE_VALUE_DOUBLE_QUOTED";
+    State3[State3["ATTRIBUTE_VALUE_SINGLE_QUOTED"] = 36] = "ATTRIBUTE_VALUE_SINGLE_QUOTED";
+    State3[State3["ATTRIBUTE_VALUE_UNQUOTED"] = 37] = "ATTRIBUTE_VALUE_UNQUOTED";
+    State3[State3["AFTER_ATTRIBUTE_VALUE_QUOTED"] = 38] = "AFTER_ATTRIBUTE_VALUE_QUOTED";
+    State3[State3["SELF_CLOSING_START_TAG"] = 39] = "SELF_CLOSING_START_TAG";
+    State3[State3["BOGUS_COMMENT"] = 40] = "BOGUS_COMMENT";
+    State3[State3["MARKUP_DECLARATION_OPEN"] = 41] = "MARKUP_DECLARATION_OPEN";
+    State3[State3["COMMENT_START"] = 42] = "COMMENT_START";
+    State3[State3["COMMENT_START_DASH"] = 43] = "COMMENT_START_DASH";
+    State3[State3["COMMENT"] = 44] = "COMMENT";
+    State3[State3["COMMENT_LESS_THAN_SIGN"] = 45] = "COMMENT_LESS_THAN_SIGN";
+    State3[State3["COMMENT_LESS_THAN_SIGN_BANG"] = 46] = "COMMENT_LESS_THAN_SIGN_BANG";
+    State3[State3["COMMENT_LESS_THAN_SIGN_BANG_DASH"] = 47] = "COMMENT_LESS_THAN_SIGN_BANG_DASH";
+    State3[State3["COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH"] = 48] = "COMMENT_LESS_THAN_SIGN_BANG_DASH_DASH";
+    State3[State3["COMMENT_END_DASH"] = 49] = "COMMENT_END_DASH";
+    State3[State3["COMMENT_END"] = 50] = "COMMENT_END";
+    State3[State3["COMMENT_END_BANG"] = 51] = "COMMENT_END_BANG";
+    State3[State3["DOCTYPE"] = 52] = "DOCTYPE";
+    State3[State3["BEFORE_DOCTYPE_NAME"] = 53] = "BEFORE_DOCTYPE_NAME";
+    State3[State3["DOCTYPE_NAME"] = 54] = "DOCTYPE_NAME";
+    State3[State3["AFTER_DOCTYPE_NAME"] = 55] = "AFTER_DOCTYPE_NAME";
+    State3[State3["AFTER_DOCTYPE_PUBLIC_KEYWORD"] = 56] = "AFTER_DOCTYPE_PUBLIC_KEYWORD";
+    State3[State3["BEFORE_DOCTYPE_PUBLIC_IDENTIFIER"] = 57] = "BEFORE_DOCTYPE_PUBLIC_IDENTIFIER";
+    State3[State3["DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED"] = 58] = "DOCTYPE_PUBLIC_IDENTIFIER_DOUBLE_QUOTED";
+    State3[State3["DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED"] = 59] = "DOCTYPE_PUBLIC_IDENTIFIER_SINGLE_QUOTED";
+    State3[State3["AFTER_DOCTYPE_PUBLIC_IDENTIFIER"] = 60] = "AFTER_DOCTYPE_PUBLIC_IDENTIFIER";
+    State3[State3["BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS"] = 61] = "BETWEEN_DOCTYPE_PUBLIC_AND_SYSTEM_IDENTIFIERS";
+    State3[State3["AFTER_DOCTYPE_SYSTEM_KEYWORD"] = 62] = "AFTER_DOCTYPE_SYSTEM_KEYWORD";
+    State3[State3["BEFORE_DOCTYPE_SYSTEM_IDENTIFIER"] = 63] = "BEFORE_DOCTYPE_SYSTEM_IDENTIFIER";
+    State3[State3["DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED"] = 64] = "DOCTYPE_SYSTEM_IDENTIFIER_DOUBLE_QUOTED";
+    State3[State3["DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED"] = 65] = "DOCTYPE_SYSTEM_IDENTIFIER_SINGLE_QUOTED";
+    State3[State3["AFTER_DOCTYPE_SYSTEM_IDENTIFIER"] = 66] = "AFTER_DOCTYPE_SYSTEM_IDENTIFIER";
+    State3[State3["BOGUS_DOCTYPE"] = 67] = "BOGUS_DOCTYPE";
+    State3[State3["CDATA_SECTION"] = 68] = "CDATA_SECTION";
+    State3[State3["CDATA_SECTION_BRACKET"] = 69] = "CDATA_SECTION_BRACKET";
+    State3[State3["CDATA_SECTION_END"] = 70] = "CDATA_SECTION_END";
+    State3[State3["CHARACTER_REFERENCE"] = 71] = "CHARACTER_REFERENCE";
+    State3[State3["AMBIGUOUS_AMPERSAND"] = 72] = "AMBIGUOUS_AMPERSAND";
   })(State || (State = {}));
   var TokenizerMode = {
     DATA: State.DATA,
@@ -15413,33 +15413,33 @@ var source = (() => {
     CharCodes3[CharCodes3["OpeningSquareBracket"] = 91] = "OpeningSquareBracket";
   })(CharCodes2 || (CharCodes2 = {}));
   var State2;
-  (function(State4) {
-    State4[State4["Text"] = 1] = "Text";
-    State4[State4["BeforeTagName"] = 2] = "BeforeTagName";
-    State4[State4["InTagName"] = 3] = "InTagName";
-    State4[State4["InSelfClosingTag"] = 4] = "InSelfClosingTag";
-    State4[State4["BeforeClosingTagName"] = 5] = "BeforeClosingTagName";
-    State4[State4["InClosingTagName"] = 6] = "InClosingTagName";
-    State4[State4["AfterClosingTagName"] = 7] = "AfterClosingTagName";
-    State4[State4["BeforeAttributeName"] = 8] = "BeforeAttributeName";
-    State4[State4["InAttributeName"] = 9] = "InAttributeName";
-    State4[State4["AfterAttributeName"] = 10] = "AfterAttributeName";
-    State4[State4["BeforeAttributeValue"] = 11] = "BeforeAttributeValue";
-    State4[State4["InAttributeValueDq"] = 12] = "InAttributeValueDq";
-    State4[State4["InAttributeValueSq"] = 13] = "InAttributeValueSq";
-    State4[State4["InAttributeValueNq"] = 14] = "InAttributeValueNq";
-    State4[State4["BeforeDeclaration"] = 15] = "BeforeDeclaration";
-    State4[State4["InDeclaration"] = 16] = "InDeclaration";
-    State4[State4["InProcessingInstruction"] = 17] = "InProcessingInstruction";
-    State4[State4["BeforeComment"] = 18] = "BeforeComment";
-    State4[State4["CDATASequence"] = 19] = "CDATASequence";
-    State4[State4["InSpecialComment"] = 20] = "InSpecialComment";
-    State4[State4["InCommentLike"] = 21] = "InCommentLike";
-    State4[State4["BeforeSpecialS"] = 22] = "BeforeSpecialS";
-    State4[State4["BeforeSpecialT"] = 23] = "BeforeSpecialT";
-    State4[State4["SpecialStartSequence"] = 24] = "SpecialStartSequence";
-    State4[State4["InSpecialTag"] = 25] = "InSpecialTag";
-    State4[State4["InEntity"] = 26] = "InEntity";
+  (function(State3) {
+    State3[State3["Text"] = 1] = "Text";
+    State3[State3["BeforeTagName"] = 2] = "BeforeTagName";
+    State3[State3["InTagName"] = 3] = "InTagName";
+    State3[State3["InSelfClosingTag"] = 4] = "InSelfClosingTag";
+    State3[State3["BeforeClosingTagName"] = 5] = "BeforeClosingTagName";
+    State3[State3["InClosingTagName"] = 6] = "InClosingTagName";
+    State3[State3["AfterClosingTagName"] = 7] = "AfterClosingTagName";
+    State3[State3["BeforeAttributeName"] = 8] = "BeforeAttributeName";
+    State3[State3["InAttributeName"] = 9] = "InAttributeName";
+    State3[State3["AfterAttributeName"] = 10] = "AfterAttributeName";
+    State3[State3["BeforeAttributeValue"] = 11] = "BeforeAttributeValue";
+    State3[State3["InAttributeValueDq"] = 12] = "InAttributeValueDq";
+    State3[State3["InAttributeValueSq"] = 13] = "InAttributeValueSq";
+    State3[State3["InAttributeValueNq"] = 14] = "InAttributeValueNq";
+    State3[State3["BeforeDeclaration"] = 15] = "BeforeDeclaration";
+    State3[State3["InDeclaration"] = 16] = "InDeclaration";
+    State3[State3["InProcessingInstruction"] = 17] = "InProcessingInstruction";
+    State3[State3["BeforeComment"] = 18] = "BeforeComment";
+    State3[State3["CDATASequence"] = 19] = "CDATASequence";
+    State3[State3["InSpecialComment"] = 20] = "InSpecialComment";
+    State3[State3["InCommentLike"] = 21] = "InCommentLike";
+    State3[State3["BeforeSpecialS"] = 22] = "BeforeSpecialS";
+    State3[State3["BeforeSpecialT"] = 23] = "BeforeSpecialT";
+    State3[State3["SpecialStartSequence"] = 24] = "SpecialStartSequence";
+    State3[State3["InSpecialTag"] = 25] = "InSpecialTag";
+    State3[State3["InEntity"] = 26] = "InEntity";
   })(State2 || (State2 = {}));
   function isWhitespace3(c) {
     return c === CharCodes2.Space || c === CharCodes2.NewLine || c === CharCodes2.Tab || c === CharCodes2.FormFeed || c === CharCodes2.CarriageReturn;
@@ -16600,34 +16600,23 @@ var source = (() => {
   // src/utils/importer.ts
   init_buffer();
   var xml2 = {
-    parseMAL: (xmlContent) => {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-      if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
-        throw new Error("Invalid XML format");
+    parseMAL(rawXml) {
+      if (!rawXml || !rawXml.includes("<myanimelist>")) {
+        throw new Error("Invalid or empty MAL XML content");
       }
-      const mangaNodes = xmlDoc.getElementsByTagName("manga");
+      const $2 = load(rawXml, {
+        xml: true,
+        xmlMode: true
+      });
       const mangaList = [];
-      for (let i = 0; i < mangaNodes.length; i++) {
-        const manga = mangaNodes[i];
-        const title = manga.getElementsByTagName("manga_title")[0]?.textContent?.trim() || "";
-        const chapters = parseFloat(
-          manga.getElementsByTagName("my_read_chapters")[0]?.textContent || "0"
-        );
-        const volumes = parseFloat(
-          manga.getElementsByTagName("my_read_volumes")[0]?.textContent || "0"
-        );
-        const status = parseInt(
-          manga.getElementsByTagName("my_status")[0]?.textContent || "0"
-        );
+      $2("manga").each((_, element) => {
+        const title = $2(element).find("manga_title").text().trim();
         if (title) {
-          mangaList.push({
-            title,
-            chapters,
-            volumes,
-            status
-          });
+          mangaList.push({ title });
         }
+      });
+      if (mangaList.length === 0) {
+        throw new Error("No manga entries found in XML");
       }
       return mangaList;
     }
@@ -16635,12 +16624,6 @@ var source = (() => {
 
   // src/utils/rawTextFetcher.ts
   init_buffer();
-  var SUPPORTED_DOMAINS = [
-    "pastebin.com",
-    "raw.githubusercontent.com",
-    "gist.githubusercontent.com",
-    "gitlab.com"
-  ];
   async function fetchRawText(url) {
     try {
       if (url.includes("pastebin.com") && !url.includes("raw")) {
@@ -16668,67 +16651,48 @@ var source = (() => {
       );
     }
   }
-  function isValidDataUrl(url) {
-    try {
-      const parsedUrl = new URL(url);
-      return SUPPORTED_DOMAINS.some(
-        (domain) => parsedUrl.hostname.includes(domain)
-      );
-    } catch {
-      return false;
-    }
-  }
 
   // src/MangaFire/MangaFireSettings.ts
-  var baseUrl = "https://mangafire.to";
-  var State3 = class {
-    constructor(form, value) {
-      this.form = form;
-      this._value = value;
-    }
-    _value;
-    get value() {
-      return this._value;
-    }
-    get selector() {
-      return Application.Selector(this, "updateValue");
-    }
-    async updateValue(value) {
-      this._value = value;
-      this.form.reloadForm();
-    }
-  };
+  var baseUrl = "https://mangafire.to/";
   var MangaFireSettingsForm = class extends import_types3.Form {
-    inputValue = new State3(this, "");
-    rowsVisible = new State3(this, false);
     getSections() {
       return [
-        (0, import_types3.Section)("hideImporter", [
-          (0, import_types3.ToggleRow)("toggle", {
-            title: "Show MAL Importer",
-            value: this.rowsVisible.value,
-            onValueChange: this.rowsVisible.selector
+        (0, import_types3.Section)("importerSection", [
+          (0, import_types3.LabelRow)("importer", {
+            title: "MAL Importer"
+          }),
+          (0, import_types3.LabelRow)("importerStatus", {
+            title: "Import your MAL list to your library (Not Implemented in Paperback)",
+            subtitle: "Status: " + (Application.getState("importStatus") ?? "Ready to import")
           })
-        ]),
-        ...(() => this.rowsVisible.value ? [
-          (0, import_types3.Section)("MangaFire Importer", [
-            (0, import_types3.InputRow)("mangafireurl", {
-              title: "Import URL (Pastebin/Raw)",
-              value: this.inputValue.value,
-              onValueChange: this.inputValue.selector
-            }),
-            (0, import_types3.ButtonRow)("import_button", {
-              title: "Import MangaFire Collection",
-              onSelect: async () => {
-                const url = this.inputValue.value.toString();
-                if (typeof url === "string") {
-                  await this.addToCollection(url);
-                }
-              }
-            })
-          ])
-        ] : [])()
+          // InputRow("importerUrl", {
+          //   title: "Pastebin/Raw Text URL",
+          //   value: "",
+          //   onValueChange: Application.Selector(
+          //     this as MangaFireSettingsForm,
+          //     "importUrl",
+          //   ),
+          // }),
+          // ButtonRow("importerButton", {
+          //   title: "Import",
+          //   onSelect: Application.Selector(
+          //     this as MangaFireSettingsForm,
+          //     "importerButton",
+          //   ),
+          // }),
+        ])
       ];
+    }
+    async updateImportStatus(status) {
+      Application.setState(status, "importStatus");
+      this.reloadForm();
+    }
+    async importerButton() {
+      const url = Application.getState("importerUrl") ?? "";
+      await this.addToCollection(url);
+    }
+    async importUrl(url) {
+      Application.setState(url, "importerUrl");
     }
     async getManga(page = 1) {
       const searchUrl = new URLBuilder(baseUrl).addPath("filter");
@@ -16850,29 +16814,31 @@ var source = (() => {
     }
     async addToCollection(url) {
       try {
-        if (!isValidDataUrl(url)) {
-          throw new Error(
-            "Invalid URL format. Please use Pastebin or raw text URL"
-          );
-        }
+        await this.updateImportStatus("Fetching content...");
         const rawText = await fetchRawText(url);
         if (!rawText) {
           throw new Error("No data found");
         }
+        await this.updateImportStatus("Parsing XML content...");
         const mangaList = xml2.parseMAL(rawText);
         if (mangaList.length === 0) {
           throw new Error("No manga found in the XML file");
         }
         let addedCount = 0;
         let failedCount = 0;
-        const collectionName = "MAL Import";
+        const collectionName = "MAL Collection";
+        await this.updateImportStatus("Getting collection...");
         const collections = await Application.getManagedLibraryCollections();
         const collection = collections.find((c) => c.title === collectionName);
         if (!collection) {
           throw new Error("Collection not found");
         }
+        const total = mangaList.length;
         for (const manga of mangaList) {
           try {
+            await this.updateImportStatus(
+              `Importing ${addedCount + 1}/${total}...`
+            );
             const searchResults = await this.searchManga(manga.title);
             const match = await this.findBestMatch(manga.title, searchResults);
             if (match) {
@@ -16892,13 +16858,15 @@ var source = (() => {
             console.error(`Failed to import: ${manga.title}`, err);
           }
         }
-        console.log(
-          `Import completed. Added: ${addedCount}, Failed: ${failedCount}`
-        );
+        const finalStatus = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
+        await this.updateImportStatus(finalStatus);
+        console.log(finalStatus);
       } catch (error) {
-        console.error(
-          `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+        const errorMsg = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+        await this.updateImportStatus(errorMsg);
+        console.error(errorMsg);
+        await Application.sleep(3);
+        await this.updateImportStatus("Ready to import");
       }
     }
     checkCloudflareStatus(status) {
@@ -16920,17 +16888,6 @@ var source = (() => {
     async initialise() {
       this.requestManager.registerInterceptor();
       Application.registerSearchFilter({
-        id: "sortBy",
-        type: "dropdown",
-        options: [
-          { id: "relevance", value: "Relevance" },
-          { id: "latest", value: "Latest" },
-          { id: "oldest", value: "Oldest" }
-        ],
-        value: "relevance",
-        title: "Sort By Filter"
-      });
-      Application.registerSearchFilter({
         id: "type",
         type: "dropdown",
         options: [
@@ -16946,7 +16903,6 @@ var source = (() => {
         id: "genres",
         type: "multiselect",
         options: [
-          { id: "all", value: "All" },
           { id: "1", value: "Action" },
           { id: "78", value: "Adventure" },
           { id: "3", value: "Avant Garde" },
@@ -17000,8 +16956,11 @@ var source = (() => {
         type: "dropdown",
         options: [
           { id: "all", value: "All" },
-          { id: "ongoing", value: "Ongoing" },
-          { id: "completed", value: "Completed" }
+          { id: "completed", value: "Completed" },
+          { id: "releasing", value: "Releasing" },
+          { id: "hiatus", value: "On Hiatus" },
+          { id: "discontinued", value: "Discontinued" },
+          { id: "not_published", value: "Not Yet Published" }
         ],
         value: "all",
         title: "Status Filter"
@@ -17057,37 +17016,40 @@ var source = (() => {
       const type = getFilterValue("type");
       const genres = getFilterValue("genres");
       const status = getFilterValue("status");
-      const sortBy = getFilterValue("sortBy");
       if (type && type != "all") {
         searchUrl.addQuery("type[]", type);
       }
       if (genres && typeof genres === "object") {
         Object.entries(genres).forEach(([id, value]) => {
-          if (id !== "all") {
-            searchUrl.addQuery("genre[]", value === "excluded" ? `-${id}` : id);
+          if (value === "included") {
+            searchUrl.addQuery("genre[]", id);
+          } else if (value === "excluded") {
+            searchUrl.addQuery("genre[]", `-${id}`);
           }
         });
       }
       if (status && status != "all") {
-        searchUrl.addQuery(
-          "status[]",
-          status === "ongoing" ? "releasing" : "completed"
-        );
-      }
-      if (sortBy) {
-        let sort = "most_relevance";
-        switch (sortBy) {
-          case "relevance":
-            sort = "most_relevance";
+        let statusValue;
+        switch (status) {
+          case "completed":
+            statusValue = "completed";
             break;
-          case "latest":
-            sort = "recently_updated";
+          case "releasing":
+            statusValue = "releasing";
             break;
-          case "oldest":
-            sort = "oldest";
+          case "hiatus":
+            statusValue = "hiatus";
             break;
+          case "discontinued":
+            statusValue = "discontinued";
+            break;
+          case "not_published":
+            statusValue = "not_published";
+            break;
+          default:
+            statusValue = "releasing";
         }
-        searchUrl.addQuery("sort", sort);
+        searchUrl.addQuery("status[]", statusValue);
       }
       const request = {
         url: searchUrl.build(),
@@ -17101,6 +17063,9 @@ var source = (() => {
         const title = infoLink.text().trim();
         const image = unit.find("img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        if (!title || !mangaId) {
+          return;
+        }
         searchResults.push({
           mangaId,
           imageUrl: image,
@@ -17134,7 +17099,15 @@ var source = (() => {
           });
         }
       });
-      const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
+      let status = "UNKNOWN";
+      const statusText = $2(".manga-detail .info .min-info").text().toLowerCase();
+      if (statusText.includes("releasing")) {
+        status = "ONGOING";
+      } else if (statusText.includes("completed")) {
+        status = "COMPLETED";
+      } else if (statusText.includes("hiatus") || statusText.includes("discontinued") || statusText.includes("not yet published")) {
+        status = "UNKNOWN";
+      }
       const tags = [];
       const genres = [];
       let rating = 1;
@@ -17390,13 +17363,29 @@ var source = (() => {
           type: "genresCarouselItem",
           searchQuery: {
             title: "",
-            filters: [{ id: item.type, value: item.id }]
+            filters: [
+              {
+                id: item.type,
+                value: item.type === "genres" ? { [item.id]: "included" } : item.id
+              }
+            ]
           },
           name: item.name,
           metadata: void 0
         })),
         metadata: void 0
       };
+    }
+    async getManagedLibraryCollections() {
+      return [
+        {
+          id: "mal",
+          title: "MAL Collection"
+        }
+      ];
+    }
+    async commitManagedCollectionChanges(changeset) {
+      console.log(changeset);
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {

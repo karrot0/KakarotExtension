@@ -16750,7 +16750,7 @@ var source = (() => {
           sourceManga,
           chapNum: chapterNum ? parseFloat(chapterNum) : 0,
           volume: void 0,
-          langCode: "GB"
+          langCode: "\u{1F1EC}\u{1F1E7}"
         });
       });
       return chapters;
@@ -16763,7 +16763,7 @@ var source = (() => {
         };
         const $2 = await this.fetchCheerio(request);
         const pages = [];
-        $2("img.ts-main-image").each((_, img) => {
+        $2("#readerarea img.ts-main-image").each((_, img) => {
           const src = $2(img).attr("src");
           if (!src) return;
           pages.push(src);
@@ -16774,24 +16774,8 @@ var source = (() => {
           pages
         };
       } catch (error) {
-        const errorDetails = error instanceof Error ? error.message : String(error);
-        const errorStack = error instanceof Error ? error.stack : void 0;
-        const errorContext = {
-          error: errorDetails,
-          stack: errorStack,
-          source: "MangaNeloExtension.getChapterDetails",
-          chapterId: chapter.chapterId,
-          mangaId: chapter.sourceManga.mangaId,
-          requestUrl: `${chapter.chapterId}`,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        console.error(
-          "Chapter details fetch failed:",
-          JSON.stringify(errorContext, null, 2)
-        );
-        throw new Error(
-          `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`
-        );
+        console.log(error);
+        throw error;
       }
     }
     async getUpdatedSectionItems(section, metadata) {
