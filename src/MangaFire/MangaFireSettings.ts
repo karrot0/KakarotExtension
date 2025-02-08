@@ -4,6 +4,7 @@ import {
   ContentRating,
   Form,
   InputRow,
+  LabelRow,
   ManagedCollectionProviding,
   Request,
   SearchResultItem,
@@ -15,70 +16,61 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { xml } from "../utils/importer";
-import { fetchRawText, isValidDataUrl } from "../utils/rawTextFetcher";
+import { fetchRawText } from "../utils/rawTextFetcher";
 import { URLBuilder } from "../utils/url-builder/base";
 
-const baseUrl = "https://mangafire.to";
+const baseUrl = "https://mangafire.to/";
 
-class State<T> {
-  private _value: T;
-  public get value(): T {
-    return this._value;
-  }
-
-  public get selector(): SelectorID<(value: T) => Promise<void>> {
-    return Application.Selector(this as State<T>, "updateValue");
-  }
-
-  constructor(
-    private form: Form,
-    value: T,
-  ) {
-    this._value = value;
-  }
-
-  public async updateValue(value: T): Promise<void> {
-    this._value = value;
-    this.form.reloadForm();
-  }
+export function getImportStatus(): string {
+  return (Application.getState("importStatus") as string) ?? "Ready to import";
 }
 
 export class MangaFireSettingsForm extends Form {
-  inputValue = new State(this, "");
-  rowsVisible = new State(this, false);
-
   override getSections(): Application.FormSectionElement[] {
     return [
-      Section("hideImporter", [
-        ToggleRow("toggle", {
-          title: "Show MAL Importer",
-          value: this.rowsVisible.value,
-          onValueChange: this.rowsVisible.selector,
+      Section("importerSection", [
+        LabelRow("importer", {
+          title: "MAL Importer",
         }),
+        LabelRow("importerStatus", {
+          title:
+            "Import your MAL list to your library (Not Implemented in Paperback)",
+          subtitle:
+            "Status: " +
+            ((Application.getState("importStatus") as string) ??
+              "Ready to import"),
+        }),
+        // InputRow("importerUrl", {
+        //   title: "Pastebin/Raw Text URL",
+        //   value: "",
+        //   onValueChange: Application.Selector(
+        //     this as MangaFireSettingsForm,
+        //     "importUrl",
+        //   ),
+        // }),
+        // ButtonRow("importerButton", {
+        //   title: "Import",
+        //   onSelect: Application.Selector(
+        //     this as MangaFireSettingsForm,
+        //     "importerButton",
+        //   ),
+        // }),
       ]),
-
-      ...(() =>
-        this.rowsVisible.value
-          ? [
-              Section("MangaFire Importer", [
-                InputRow("mangafireurl", {
-                  title: "Import URL (Pastebin/Raw)",
-                  value: this.inputValue.value,
-                  onValueChange: this.inputValue.selector,
-                }),
-                ButtonRow("import_button", {
-                  title: "Import MangaFire Collection",
-                  onSelect: async () => {
-                    const url = this.inputValue.value.toString();
-                    if (typeof url === "string") {
-                      await this.addToCollection(url);
-                    }
-                  },
-                }),
-              ]),
-            ]
-          : [])(),
     ];
+  }
+
+  async updateImportStatus(status: string): Promise<void> {
+    Application.setState(status, "importStatus");
+    this.reloadForm();
+  }
+
+  async importerButton(): Promise<void> {
+    const url = (Application.getState("importerUrl") as string) ?? "";
+    await this.addToCollection(url);
+  }
+
+  async importUrl(url: string): Promise<void> {
+    Application.setState(url, "importerUrl");
   }
 
   async getManga(page: number = 1) {
@@ -247,18 +239,13 @@ export class MangaFireSettingsForm extends Form {
 
   async addToCollection(url: string) {
     try {
-      if (!isValidDataUrl(url)) {
-        throw new Error(
-          "Invalid URL format. Please use Pastebin or raw text URL",
-        );
-      }
-
+      await this.updateImportStatus("Fetching content...");
       const rawText = await fetchRawText(url);
       if (!rawText) {
         throw new Error("No data found");
       }
 
-      // Parse XML content
+      await this.updateImportStatus("Parsing XML content...");
       const mangaList = xml.parseMAL(rawText);
       if (mangaList.length === 0) {
         throw new Error("No manga found in the XML file");
@@ -266,9 +253,9 @@ export class MangaFireSettingsForm extends Form {
 
       let addedCount = 0;
       let failedCount = 0;
-      const collectionName = "MAL Import";
+      const collectionName = "MAL Collection";
 
-      // Get or create managed collection
+      await this.updateImportStatus("Getting collection...");
       const collections = await (
         Application as unknown as ManagedCollectionProviding
       ).getManagedLibraryCollections();
@@ -278,13 +265,16 @@ export class MangaFireSettingsForm extends Form {
         throw new Error("Collection not found");
       }
 
+      const total = mangaList.length;
       for (const manga of mangaList) {
         try {
+          await this.updateImportStatus(
+            `Importing ${addedCount + 1}/${total}...`,
+          );
           const searchResults = await this.searchManga(manga.title);
           const match = await this.findBestMatch(manga.title, searchResults);
 
           if (match) {
-            // Get full manga details instead of basic info
             const sourceManga = await this.getMangaDetails(match.mangaId);
 
             await (
@@ -295,8 +285,6 @@ export class MangaFireSettingsForm extends Form {
               deletions: [],
             });
             addedCount++;
-
-            // Add small delay to prevent rate limiting
             await Application.sleep(0.5);
           } else {
             failedCount++;
@@ -307,13 +295,17 @@ export class MangaFireSettingsForm extends Form {
         }
       }
 
-      console.log(
-        `Import completed. Added: ${addedCount}, Failed: ${failedCount}`,
-      );
+      const finalStatus = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
+      await this.updateImportStatus(finalStatus);
+      console.log(finalStatus);
     } catch (error) {
-      console.error(
-        `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      const errorMsg = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
+      await this.updateImportStatus(errorMsg);
+      console.error(errorMsg);
+
+      // Reset status after 3 seconds
+      await Application.sleep(3);
+      await this.updateImportStatus("Ready to import");
     }
   }
 

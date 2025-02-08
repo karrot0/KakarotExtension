@@ -10,6 +10,8 @@ import {
   DiscoverSectionType,
   Extension,
   Form,
+  ManagedCollection,
+  ManagedCollectionChangeset,
   MangaProviding,
   PagedResults,
   Request,
@@ -42,18 +44,6 @@ export class MangaFireExtension implements MangaFireImplementation {
     this.requestManager.registerInterceptor();
 
     Application.registerSearchFilter({
-      id: "sortBy",
-      type: "dropdown",
-      options: [
-        { id: "relevance", value: "Relevance" },
-        { id: "latest", value: "Latest" },
-        { id: "oldest", value: "Oldest" },
-      ],
-      value: "relevance",
-      title: "Sort By Filter",
-    });
-
-    Application.registerSearchFilter({
       id: "type",
       type: "dropdown",
       options: [
@@ -70,7 +60,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       id: "genres",
       type: "multiselect",
       options: [
-        { id: "all", value: "All" },
         { id: "1", value: "Action" },
         { id: "78", value: "Adventure" },
         { id: "3", value: "Avant Garde" },
@@ -125,8 +114,11 @@ export class MangaFireExtension implements MangaFireImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        { id: "ongoing", value: "Ongoing" },
         { id: "completed", value: "Completed" },
+        { id: "releasing", value: "Releasing" },
+        { id: "hiatus", value: "On Hiatus" },
+        { id: "discontinued", value: "Discontinued" },
+        { id: "not_published", value: "Not Yet Published" },
       ],
       value: "all",
       title: "Status Filter",
@@ -207,7 +199,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       | Record<string, "included" | "excluded">
       | undefined;
     const status = getFilterValue("status");
-    const sortBy = getFilterValue("sortBy");
 
     if (type && type != "all") {
       searchUrl.addQuery("type[]", type);
@@ -216,34 +207,36 @@ export class MangaFireExtension implements MangaFireImplementation {
     // Handle included and excluded genres
     if (genres && typeof genres === "object") {
       Object.entries(genres).forEach(([id, value]) => {
-        if (id !== "all") {
-          // For excluded genres, add a minus sign before the ID
-          searchUrl.addQuery("genre[]", value === "excluded" ? `-${id}` : id);
+        if (value === "included") {
+          searchUrl.addQuery("genre[]", id);
+        } else if (value === "excluded") {
+          searchUrl.addQuery("genre[]", `-${id}`);
         }
       });
     }
 
     if (status && status != "all") {
-      searchUrl.addQuery(
-        "status[]",
-        status === "ongoing" ? "releasing" : "completed",
-      );
-    }
-
-    if (sortBy) {
-      let sort = "most_relevance";
-      switch (sortBy) {
-        case "relevance":
-          sort = "most_relevance";
+      let statusValue: string;
+      switch (status) {
+        case "completed":
+          statusValue = "completed";
           break;
-        case "latest":
-          sort = "recently_updated";
+        case "releasing":
+          statusValue = "releasing";
           break;
-        case "oldest":
-          sort = "oldest";
+        case "hiatus":
+          statusValue = "hiatus";
           break;
+        case "discontinued":
+          statusValue = "discontinued";
+          break;
+        case "not_published":
+          statusValue = "not_published";
+          break;
+        default:
+          statusValue = "releasing";
       }
-      searchUrl.addQuery("sort", sort);
+      searchUrl.addQuery("status[]", statusValue);
     }
 
     const request = {
@@ -260,6 +253,10 @@ export class MangaFireExtension implements MangaFireImplementation {
       const title = infoLink.text().trim();
       const image = unit.find("img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+
+      if (!title || !mangaId) {
+        return;
+      }
 
       searchResults.push({
         mangaId: mangaId,
@@ -303,11 +300,19 @@ export class MangaFireExtension implements MangaFireImplementation {
           });
       }
     });
-    const status = $(".manga-detail .info .min-info")
-      .text()
-      .includes("Releasing")
-      ? "ONGOING"
-      : "COMPLETED";
+    let status = "UNKNOWN";
+    const statusText = $(".manga-detail .info .min-info").text().toLowerCase();
+    if (statusText.includes("releasing")) {
+      status = "ONGOING";
+    } else if (statusText.includes("completed")) {
+      status = "COMPLETED";
+    } else if (
+      statusText.includes("hiatus") ||
+      statusText.includes("discontinued") ||
+      statusText.includes("not yet published")
+    ) {
+      status = "UNKNOWN";
+    }
 
     // Extract tags
     const tags: TagSection[] = [];
@@ -663,13 +668,34 @@ export class MangaFireExtension implements MangaFireImplementation {
         type: "genresCarouselItem",
         searchQuery: {
           title: "",
-          filters: [{ id: item.type, value: item.id }],
+          filters: [
+            {
+              id: item.type,
+              value:
+                item.type === "genres" ? { [item.id]: "included" } : item.id,
+            },
+          ],
         },
         name: item.name,
         metadata: undefined,
       })),
       metadata: undefined,
     };
+  }
+
+  async getManagedLibraryCollections(): Promise<ManagedCollection[]> {
+    return [
+      {
+        id: "mal",
+        title: "MAL Collection",
+      },
+    ];
+  }
+
+  async commitManagedCollectionChanges(
+    changeset: ManagedCollectionChangeset,
+  ): Promise<void> {
+    console.log(changeset);
   }
 
   checkCloudflareStatus(status: number): void {

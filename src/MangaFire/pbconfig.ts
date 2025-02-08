@@ -8,9 +8,9 @@ export default {
   language: "en",
   contentRating: ContentRating.EVERYONE,
   badges: [
-    { label: "ALL MANGA", textColor: "#FFFFFF", backgroundColor: "#F64B4B" },
-    { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#03C04A" },
-    { label: "AGGREGATOR", textColor: "#FFFFFF", backgroundColor: "#007AFF" },
+    { label: "ALL MANGA", textColor: "#FFFFFF", backgroundColor: "#FF1493" }, // Hot pink
+    { label: "BEST QUALITY", textColor: "#FFFFFF", backgroundColor: "#008B8B" }, // Dark cyan
+    { label: "AGGREGATOR", textColor: "#FFFFFF", backgroundColor: "#9400D3" }, // Dark violet
   ],
   capabilities: [
     SourceIntents.SETTINGS_UI,

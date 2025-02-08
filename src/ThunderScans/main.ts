@@ -76,7 +76,7 @@ export class ThunderExtension implements ThunderImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: MangaFire.Metadata | undefined,
+    metadata: Thunder.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       // case "featured_section":
@@ -242,7 +242,7 @@ export class ThunderExtension implements ThunderImplementation {
         sourceManga: sourceManga,
         chapNum: chapterNum ? parseFloat(chapterNum) : 0,
         volume: undefined,
-        langCode: "GB",
+        langCode: "🇬🇧",
       });
     });
 
@@ -259,11 +259,9 @@ export class ThunderExtension implements ThunderImplementation {
       const $ = await this.fetchCheerio(request);
 
       const pages: string[] = [];
-      $("img.ts-main-image").each((_, img) => {
+      $("#readerarea img.ts-main-image").each((_, img) => {
         const src = $(img).attr("src");
         if (!src) return;
-
-        // Extract image URL and push to pages array
         pages.push(src);
       });
 
@@ -273,29 +271,8 @@ export class ThunderExtension implements ThunderImplementation {
         pages: pages,
       };
     } catch (error) {
-      const errorDetails =
-        error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-
-      // Create detailed error context
-      const errorContext = {
-        error: errorDetails,
-        stack: errorStack,
-        source: "MangaNeloExtension.getChapterDetails",
-        chapterId: chapter.chapterId,
-        mangaId: chapter.sourceManga.mangaId,
-        requestUrl: `${chapter.chapterId}`,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.error(
-        "Chapter details fetch failed:",
-        JSON.stringify(errorContext, null, 2),
-      );
-
-      throw new Error(
-        `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`,
-      );
+      console.log(error);
+      throw error;
     }
   }
 

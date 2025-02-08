@@ -1,12 +1,5 @@
 import { Request } from "@paperback/types";
 
-const SUPPORTED_DOMAINS = [
-  "pastebin.com",
-  "raw.githubusercontent.com",
-  "gist.githubusercontent.com",
-  "gitlab.com",
-];
-
 export async function fetchRawText(url: string): Promise<string> {
   try {
     // Convert pastebin URLs to raw format
@@ -40,16 +33,5 @@ export async function fetchRawText(url: string): Promise<string> {
     throw new Error(
       `Failed to fetch text: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
-  }
-}
-
-export function isValidDataUrl(url: string): boolean {
-  try {
-    const parsedUrl = new URL(url);
-    return SUPPORTED_DOMAINS.some((domain) =>
-      parsedUrl.hostname.includes(domain),
-    );
-  } catch {
-    return false;
   }
 }

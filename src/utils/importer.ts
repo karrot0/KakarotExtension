@@ -1,3 +1,5 @@
+import * as cheerio from "cheerio";
+
 // xml example
 
 // <myanimelist>
@@ -15,7 +17,7 @@
 // <update_on_import>1</update_on_import>
 // </manga>
 // <manga>
-// <manga_mangadb_id>92149</manga_mangadb_id>
+// <manga_mangadb_id>92149</mangadb_id>
 // <manga_title>
 // <![CDATA[ Tomo-chan is a Girl! ]]>
 // </manga_title>
@@ -25,7 +27,7 @@
 // <update_on_import>1</update_on_import>
 // </manga>
 // <manga>
-// <manga_mangadb_id>155430</manga_mangadb_id>
+// <manga_mangadb_id>155430</mangadb_id>
 // <manga_title>
 // <![CDATA[ Demon King of the Royal Class ]]>
 // </manga_title>
@@ -51,40 +53,32 @@ export const json = {
   // ... existing json importer functions ...
 };
 
-export const xml = {
-  parseMAL: (xmlContent: string): MangaItem[] => {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+interface MALManga {
+  title: string;
+}
 
-    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
-      throw new Error("Invalid XML format");
+export const xml = {
+  parseMAL(rawXml: string): MALManga[] {
+    if (!rawXml || !rawXml.includes("<myanimelist>")) {
+      throw new Error("Invalid or empty MAL XML content");
     }
 
-    const mangaNodes = xmlDoc.getElementsByTagName("manga");
-    const mangaList: MangaItem[] = [];
+    const $ = cheerio.load(rawXml, {
+      xml: true,
+      xmlMode: true,
+    });
 
-    for (let i = 0; i < mangaNodes.length; i++) {
-      const manga = mangaNodes[i];
-      const title =
-        manga.getElementsByTagName("manga_title")[0]?.textContent?.trim() || "";
-      const chapters = parseFloat(
-        manga.getElementsByTagName("my_read_chapters")[0]?.textContent || "0",
-      );
-      const volumes = parseFloat(
-        manga.getElementsByTagName("my_read_volumes")[0]?.textContent || "0",
-      );
-      const status = parseInt(
-        manga.getElementsByTagName("my_status")[0]?.textContent || "0",
-      );
+    const mangaList: MALManga[] = [];
 
+    $("manga").each((_, element) => {
+      const title = $(element).find("manga_title").text().trim();
       if (title) {
-        mangaList.push({
-          title,
-          chapters,
-          volumes,
-          status,
-        });
+        mangaList.push({ title });
       }
+    });
+
+    if (mangaList.length === 0) {
+      throw new Error("No manga entries found in XML");
     }
 
     return mangaList;

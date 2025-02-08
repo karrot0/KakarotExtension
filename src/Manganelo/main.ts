@@ -36,6 +36,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+
     Application.registerSearchFilter({
       id: "sortBy",
       type: "dropdown",
@@ -46,6 +47,72 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       ],
       value: "relevance",
       title: "Sort By Filter",
+    });
+
+    Application.registerSearchFilter({
+      id: "genres",
+      type: "multiselect",
+      options: [
+        { id: "2", value: "Action" },
+        { id: "3", value: "Adult" },
+        { id: "4", value: "Adventure" },
+        { id: "6", value: "Comedy" },
+        { id: "7", value: "Cooking" },
+        { id: "9", value: "Doujinshi" },
+        { id: "10", value: "Drama" },
+        { id: "11", value: "Ecchi" },
+        { id: "48", value: "Erotica" },
+        { id: "12", value: "Fantasy" },
+        { id: "13", value: "Gender bender" },
+        { id: "14", value: "Harem" },
+        { id: "15", value: "Historical" },
+        { id: "16", value: "Horror" },
+        { id: "45", value: "Isekai" },
+        { id: "17", value: "Josei" },
+        { id: "44", value: "Manhua" },
+        { id: "43", value: "Manhwa" },
+        { id: "19", value: "Martial arts" },
+        { id: "20", value: "Mature" },
+        { id: "21", value: "Mecha" },
+        { id: "22", value: "Medical" },
+        { id: "24", value: "Mystery" },
+        { id: "25", value: "One shot" },
+        { id: "47", value: "Pornographic" },
+        { id: "26", value: "Psychological" },
+        { id: "27", value: "Romance" },
+        { id: "28", value: "School life" },
+        { id: "29", value: "Sci fi" },
+        { id: "30", value: "Seinen" },
+        { id: "31", value: "Shoujo" },
+        { id: "32", value: "Shoujo ai" },
+        { id: "33", value: "Shounen" },
+        { id: "34", value: "Shounen ai" },
+        { id: "35", value: "Slice of life" },
+        { id: "36", value: "Smut" },
+        { id: "37", value: "Sports" },
+        { id: "38", value: "Supernatural" },
+        { id: "39", value: "Tragedy" },
+        { id: "40", value: "Webtoons" },
+        { id: "41", value: "Yaoi" },
+        { id: "42", value: "Yuri" },
+      ],
+      allowExclusion: true,
+      value: {},
+      title: "Genre Filter",
+      allowEmptySelection: false,
+      maximum: undefined,
+    });
+
+    Application.registerSearchFilter({
+      id: "status",
+      type: "dropdown",
+      options: [
+        { id: "all", value: "All" },
+        { id: "ongoing", value: "Ongoing" },
+        { id: "completed", value: "Completed" },
+      ],
+      value: "all",
+      title: "Status Filter",
     });
   }
 
@@ -76,7 +143,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: MangaFire.Metadata | undefined,
+    metadata: Nelo.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       // case "featured_section":
@@ -87,6 +154,8 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         return this.getUpdatedSectionItems(section, metadata);
       case "new_manga_section":
         return this.getNewMangaSectionItems(section, metadata);
+      case "genres":
+        return this.getGenreSectionItems(section, metadata);
       default:
         return { items: [] };
     }
@@ -98,15 +167,72 @@ export class MangaNeloExtension implements MangaNeloImplementation {
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
     // Example URL: https://m.manganelo.com/advanced_search?s=all&page=1&keyw=it_starts_with_a_kingpin_account
+    // With Genres: https://m.manganelo.com/advanced_search?s=all&g_i=_2_3_4_6_7_&page=1&keyw=it_starts_with_a_kingpin_account
+    // With Status: https://m.manganelo.com/advanced_search?s=all&g_i=_2_3_4_6_7_&sts=completed&page=1&keyw=it_starts_with_a_kingpin_account
+
+    // Covert the title to format
+    query.title = query.title
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, "_")
+      .toLowerCase();
+
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("advanced_search")
       .addQuery("s", "all")
       .addQuery("page", page.toString())
-      .addQuery("keyw", query.title)
-      .build();
+      .addQuery("keyw", query.title);
+
+    // Get filter values
+    const getFilterValue = (id: string) =>
+      query.filters.find((filter) => filter.id == id)?.value;
+
+    const genres = getFilterValue("genres") as
+      | Record<string, "included" | "excluded">
+      | undefined;
+    const sortBy = getFilterValue("sortBy");
+
+    // Add genres filter if present
+    if (genres && typeof genres === "object") {
+      const includedGenres = Object.entries(genres)
+        .filter(([_, value]) => value === "included")
+        .map(([id]) => `_${id}_`)
+        .join("");
+      const excludedGenres = Object.entries(genres)
+        .filter(([_, value]) => value === "excluded")
+        .map(([id]) => `_${id}_`)
+        .join("");
+
+      if (includedGenres) {
+        // example: g_i=_2_3_4_ (for Action, Adult, Adventure)
+        searchUrl.addQuery("g_i", includedGenres);
+      }
+      if (excludedGenres) {
+        searchUrl.addQuery("g_e", excludedGenres);
+      }
+    }
+
+    // Add sort filter
+    if (sortBy) {
+      switch (sortBy) {
+        case "latest":
+          searchUrl.addQuery("orby", "newest");
+          break;
+        case "oldest":
+          searchUrl.addQuery("orby", "oldest");
+          break;
+      }
+    }
+
+    // Add status filter
+    const status = getFilterValue("status");
+    if (status === "completed") {
+      searchUrl.addQuery("sts", "completed");
+    } else if (status === "ongoing") {
+      searchUrl.addQuery("sts", "ongoing");
+    }
 
     const request = {
-      url: searchUrl,
+      url: searchUrl.build(),
       method: "GET",
     };
 
@@ -118,14 +244,15 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const infoLink = unit.find(".genres-item-name");
       const title = infoLink.text().trim();
       const image = unit.find(".genres-item-img img").attr("src") || "";
-      const mangaId =
-        infoLink.attr("href")?.replace(/.*?manga-([^/]+).*/, "$1") || "";
+      const mangaId = infoLink.attr("href");
+      const latestChapter = unit.find(".genres-item-chap").text().trim() || "";
+      if (!mangaId) return;
 
       searchResults.push({
         mangaId: mangaId,
         imageUrl: image,
         title: title,
-        subtitle: undefined,
+        subtitle: latestChapter,
         metadata: undefined,
       });
     });
@@ -250,7 +377,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
         sourceManga: sourceManga,
         chapNum: chapterNumber,
         volume: undefined,
-        langCode: "GB",
+        langCode: "🇬🇧",
       });
     });
 
@@ -437,6 +564,9 @@ export class MangaNeloExtension implements MangaNeloImplementation {
       const image = unit.find(".genres-item-img img").attr("src") || "";
       // Example URL: https://m.manganelo.com/manga-af123456
       const mangaId = infoLink.attr("href");
+      const chapterText = unit.find(".genres-item-chap").text().trim() || "";
+      const chapterMatch = chapterText.match(/Chapter\s+(\d+(\.\d+)?)/i);
+      const latest_chapter = chapterMatch ? `Ch. ${chapterMatch[1]}` : "";
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -445,6 +575,7 @@ export class MangaNeloExtension implements MangaNeloImplementation {
             id: mangaId,
             image: image,
             title: title,
+            subtitle: latest_chapter,
             type: "simpleCarouselItem",
           }),
         );
@@ -460,8 +591,75 @@ export class MangaNeloExtension implements MangaNeloImplementation {
     };
   }
 
+  async getGenreSectionItems(
+    section: DiscoverSection,
+    metadata: { page?: number; collectedIds?: string[] } | undefined,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const items = [
+      { id: "2", name: "Action" },
+      { id: "3", name: "Adult" },
+      { id: "4", name: "Adventure" },
+      { id: "6", name: "Comedy" },
+      { id: "7", name: "Cooking" },
+      { id: "9", name: "Doujinshi" },
+      { id: "10", name: "Drama" },
+      { id: "11", name: "Ecchi" },
+      { id: "48", name: "Erotica" },
+      { id: "12", name: "Fantasy" },
+      { id: "13", name: "Gender bender" },
+      { id: "14", name: "Harem" },
+      { id: "15", name: "Historical" },
+      { id: "16", name: "Horror" },
+      { id: "45", name: "Isekai" },
+      { id: "17", name: "Josei" },
+      { id: "44", name: "Manhua" },
+      { id: "43", name: "Manhwa" },
+      { id: "19", name: "Martial arts" },
+      { id: "20", name: "Mature" },
+      { id: "21", name: "Mecha" },
+      { id: "22", name: "Medical" },
+      { id: "24", name: "Mystery" },
+      { id: "25", name: "One shot" },
+      { id: "47", name: "Pornographic" },
+      { id: "26", name: "Psychological" },
+      { id: "27", name: "Romance" },
+      { id: "28", name: "School life" },
+      { id: "29", name: "Sci fi" },
+      { id: "30", name: "Seinen" },
+      { id: "31", name: "Shoujo" },
+      { id: "32", name: "Shoujo ai" },
+      { id: "33", name: "Shounen" },
+      { id: "34", name: "Shounen ai" },
+      { id: "35", name: "Slice of life" },
+      { id: "36", name: "Smut" },
+      { id: "37", name: "Sports" },
+      { id: "38", name: "Supernatural" },
+      { id: "39", name: "Tragedy" },
+      { id: "40", name: "Webtoons" },
+      { id: "41", name: "Yaoi" },
+      { id: "42", name: "Yuri" },
+    ];
+
+    return {
+      items: items.map((item) => ({
+        type: "genresCarouselItem",
+        searchQuery: {
+          title: "",
+          filters: [
+            {
+              id: "genres",
+              value: { [item.id]: "included" },
+            },
+          ],
+        },
+        name: item.name,
+        metadata: metadata ? { page: metadata.page } : undefined,
+      })),
+    };
+  }
+
   checkCloudflareStatus(status: number): void {
-    if (status == 503 || status == 403) {
+    if (status === 503 || status === 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
     }
   }
