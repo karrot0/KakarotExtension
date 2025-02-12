@@ -9,8 +9,6 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
-  ManagedCollection,
-  ManagedCollectionChangeset,
   MangaProviding,
   PagedResults,
   Request,
@@ -395,14 +393,15 @@ export class MangaFireExtension implements MangaFireImplementation {
       const title = link.find("span").first().text().trim();
       // Extract chapter number from data-number attribute
       const chapterNumber = parseFloat(link.attr("data-number") || "0");
-      const timestamp =
-        parseInt(li.find("span").last().attr("data-date") || "0") * 1000;
+      //const timestamp = parseInt(li.find('span').last().attr('data-date') || '0') * 1000;
+      //const creationDate = new Date(timestamp).toISOString()
+
       chapters.push({
         chapterId: chapterId,
         title: title,
         sourceManga: sourceManga,
         chapNum: chapterNumber,
-        creationDate: new Date(timestamp),
+        //creationDate: new Date(creationDate),
         volume: undefined,
         langCode: "🇬🇧",
       });
