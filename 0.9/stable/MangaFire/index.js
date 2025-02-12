@@ -1828,7 +1828,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Form = void 0;
-      var Form3 = class {
+      var Form = class {
         reloadForm() {
           const formId = this["__underlying_formId"];
           if (!formId)
@@ -1841,7 +1841,7 @@ var source = (() => {
           return false;
         }
       };
-      exports.Form = Form3;
+      exports.Form = Form;
     }
   });
 
@@ -1851,27 +1851,27 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.LabelRow = LabelRow2;
-      exports.InputRow = InputRow2;
-      exports.ToggleRow = ToggleRow2;
+      exports.LabelRow = LabelRow;
+      exports.InputRow = InputRow;
+      exports.ToggleRow = ToggleRow;
       exports.SelectRow = SelectRow;
-      exports.ButtonRow = ButtonRow2;
+      exports.ButtonRow = ButtonRow;
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
-      function LabelRow2(id, props) {
+      function LabelRow(id, props) {
         return { ...props, id, type: "labelRow", isHidden: props.isHidden ?? false };
       }
-      function InputRow2(id, props) {
+      function InputRow(id, props) {
         return { ...props, id, type: "inputRow", isHidden: props.isHidden ?? false };
       }
-      function ToggleRow2(id, props) {
+      function ToggleRow(id, props) {
         return { ...props, id, type: "toggleRow", isHidden: props.isHidden ?? false };
       }
       function SelectRow(id, props) {
         return { ...props, id, type: "selectRow", isHidden: props.isHidden ?? false };
       }
-      function ButtonRow2(id, props) {
+      function ButtonRow(id, props) {
         return { ...props, id, type: "buttonRow", isHidden: props.isHidden ?? false };
       }
       function NavigationRow(id, props) {
@@ -1902,8 +1902,8 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.Section = Section2;
-      function Section2(params, items) {
+      exports.Section = Section;
+      function Section(params, items) {
         let info;
         if (typeof params === "string") {
           info = { id: params };
@@ -2191,7 +2191,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CloudflareError = void 0;
-      var CloudflareError3 = class extends Error {
+      var CloudflareError2 = class extends Error {
         resolutionRequest;
         type = "cloudflareError";
         constructor(resolutionRequest, message = "Cloudflare bypass is required") {
@@ -2199,7 +2199,7 @@ var source = (() => {
           this.resolutionRequest = resolutionRequest;
         }
       };
-      exports.CloudflareError = CloudflareError3;
+      exports.CloudflareError = CloudflareError2;
     }
   });
 
@@ -2569,12 +2569,12 @@ var source = (() => {
         SourceIntents2[SourceIntents2["SETTINGS_UI"] = 32] = "SETTINGS_UI";
         SourceIntents2[SourceIntents2["MANGA_SEARCH"] = 64] = "MANGA_SEARCH";
       })(SourceIntents || (exports.SourceIntents = SourceIntents = {}));
-      var ContentRating3;
-      (function(ContentRating4) {
-        ContentRating4["EVERYONE"] = "SAFE";
-        ContentRating4["MATURE"] = "MATURE";
-        ContentRating4["ADULT"] = "ADULT";
-      })(ContentRating3 || (exports.ContentRating = ContentRating3 = {}));
+      var ContentRating2;
+      (function(ContentRating3) {
+        ContentRating3["EVERYONE"] = "SAFE";
+        ContentRating3["MATURE"] = "MATURE";
+        ContentRating3["ADULT"] = "ADULT";
+      })(ContentRating2 || (exports.ContentRating = ContentRating2 = {}));
     }
   });
 
@@ -2684,7 +2684,7 @@ var source = (() => {
     MangaFireExtension: () => MangaFireExtension
   });
   init_buffer();
-  var import_types4 = __toESM(require_lib(), 1);
+  var import_types3 = __toESM(require_lib(), 1);
 
   // node_modules/cheerio/dist/browser/index.js
   init_buffer();
@@ -16533,8 +16533,8 @@ var source = (() => {
     baseUrl;
     queryParams = {};
     pathSegments = [];
-    constructor(baseUrl3) {
-      this.baseUrl = baseUrl3.replace(/\/+$/, "");
+    constructor(baseUrl2) {
+      this.baseUrl = baseUrl2.replace(/\/+$/, "");
     }
     formatArrayQuery(key, value) {
       return value.length > 0 ? value.map((v) => `${key}[]=${v}`) : [];
@@ -16584,7 +16584,8 @@ var source = (() => {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        referer: `https://mangafire.to/`
+        referer: `https://mangafire.to/`,
+        "user-agent": await Application.getDefaultUserAgent()
       };
       return request;
     }
@@ -16593,296 +16594,8 @@ var source = (() => {
     }
   };
 
-  // src/MangaFire/MangaFireSettings.ts
-  init_buffer();
-  var import_types3 = __toESM(require_lib(), 1);
-
-  // src/utils/importer.ts
-  init_buffer();
-  var xml2 = {
-    parseMAL(rawXml) {
-      if (!rawXml || !rawXml.includes("<myanimelist>")) {
-        throw new Error("Invalid or empty MAL XML content");
-      }
-      const $2 = load(rawXml, {
-        xml: true,
-        xmlMode: true
-      });
-      const mangaList = [];
-      $2("manga").each((_, element) => {
-        const title = $2(element).find("manga_title").text().trim();
-        if (title) {
-          mangaList.push({ title });
-        }
-      });
-      if (mangaList.length === 0) {
-        throw new Error("No manga entries found in XML");
-      }
-      return mangaList;
-    }
-  };
-
-  // src/utils/rawTextFetcher.ts
-  init_buffer();
-  async function fetchRawText(url) {
-    try {
-      if (url.includes("pastebin.com") && !url.includes("raw")) {
-        url = url.replace("pastebin.com/", "pastebin.com/raw/");
-      }
-      if (url.includes("gist.github.com") && !url.includes("raw")) {
-        url = url.replace("gist.github.com", "gist.githubusercontent.com/raw");
-      }
-      const request = {
-        url,
-        method: "GET"
-      };
-      const [response, data2] = await Application.scheduleRequest(request);
-      if (response.status !== 200) {
-        throw new Error(`Failed to fetch data: HTTP ${response.status}`);
-      }
-      const text3 = Application.arrayBufferToUTF8String(data2);
-      if (!text3 || text3.trim().length === 0) {
-        throw new Error("Received empty response");
-      }
-      return text3;
-    } catch (error) {
-      throw new Error(
-        `Failed to fetch text: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  }
-
-  // src/MangaFire/MangaFireSettings.ts
-  var baseUrl = "https://mangafire.to/";
-  var MangaFireSettingsForm = class extends import_types3.Form {
-    getSections() {
-      return [
-        (0, import_types3.Section)("importerSection", [
-          (0, import_types3.LabelRow)("importer", {
-            title: "MAL Importer"
-          }),
-          (0, import_types3.LabelRow)("importerStatus", {
-            title: "Import your MAL list to your library (Not Implemented in Paperback)",
-            subtitle: "Status: " + (Application.getState("importStatus") ?? "Ready to import")
-          })
-          // InputRow("importerUrl", {
-          //   title: "Pastebin/Raw Text URL",
-          //   value: "",
-          //   onValueChange: Application.Selector(
-          //     this as MangaFireSettingsForm,
-          //     "importUrl",
-          //   ),
-          // }),
-          // ButtonRow("importerButton", {
-          //   title: "Import",
-          //   onSelect: Application.Selector(
-          //     this as MangaFireSettingsForm,
-          //     "importerButton",
-          //   ),
-          // }),
-        ])
-      ];
-    }
-    async updateImportStatus(status) {
-      Application.setState(status, "importStatus");
-      this.reloadForm();
-    }
-    async importerButton() {
-      const url = Application.getState("importerUrl") ?? "";
-      await this.addToCollection(url);
-    }
-    async importUrl(url) {
-      Application.setState(url, "importerUrl");
-    }
-    async getManga(page = 1) {
-      const searchUrl = new URLBuilder(baseUrl).addPath("filter");
-      const request = {
-        url: searchUrl.build(),
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const searchResults = [];
-      $2(".original.card-lg .unit .inner").each((_, element) => {
-        const unit = $2(element);
-        const infoLink = unit.find(".info > a");
-        const title = infoLink.text().trim();
-        const image = unit.find("img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
-        searchResults.push({
-          mangaId,
-          imageUrl: image,
-          title,
-          subtitle: void 0,
-          metadata: void 0
-        });
-      });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
-      return {
-        items: searchResults,
-        metadata: hasNextPage ? { page: page + 1 } : void 0
-      };
-    }
-    async searchManga(title) {
-      const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", title).build();
-      const request = {
-        url: searchUrl,
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const results = [];
-      $2(".original.card-lg .unit .inner").each((_, element) => {
-        const unit = $2(element);
-        const infoLink = unit.find(".info > a");
-        const title2 = infoLink.text().trim();
-        const image = unit.find("img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
-        results.push({
-          mangaId,
-          imageUrl: image,
-          title: title2,
-          subtitle: void 0,
-          metadata: void 0
-        });
-      });
-      return results;
-    }
-    async findBestMatch(title, results) {
-      const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "");
-      return results.find((result) => {
-        const normalizedResult = result.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-        return normalizedResult === normalizedTitle;
-      }) || null;
-    }
-    async getMangaDetails(mangaId) {
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
-        method: "GET"
-      };
-      const $2 = await this.fetchCheerio(request);
-      const title = $2(".manga-detail .info h1").text().trim();
-      const altTitles = [$2(".manga-detail .info h6").text().trim()];
-      const image = $2(".manga-detail .poster img").attr("src") || "";
-      const description = $2(".manga-detail .info .description").text().trim();
-      const authors = [];
-      $2("#info-rating .meta div").each((_, element) => {
-        const label = $2(element).find("span").first().text().trim();
-        if (label === "Author:") {
-          $2(element).find("a").each((_2, authorElement) => {
-            authors.push($2(authorElement).text().trim());
-          });
-        }
-      });
-      const status = $2(".manga-detail .info .min-info").text().includes("Releasing") ? "ONGOING" : "COMPLETED";
-      const tags = [];
-      const genres = [];
-      let rating = 1;
-      $2("#info-rating .meta div").each((_, element) => {
-        const label = $2(element).find("span").first().text().trim();
-        if (label === "Genres:") {
-          $2(element).find("a").each((_2, genreElement) => {
-            genres.push($2(genreElement).text().trim());
-          });
-        }
-      });
-      const ratingValue = $2("#info-rating .score .live-score").text().trim();
-      if (ratingValue) {
-        rating = parseFloat(ratingValue) / 2;
-      }
-      if (genres.length > 0) {
-        tags.push({
-          id: "genres",
-          title: "Genres",
-          tags: genres.map((genre) => ({
-            id: genre.toLowerCase(),
-            title: genre
-          }))
-        });
-      }
-      return {
-        mangaId,
-        mangaInfo: {
-          primaryTitle: title,
-          secondaryTitles: altTitles,
-          thumbnailUrl: image,
-          synopsis: description,
-          rating,
-          contentRating: import_types3.ContentRating.EVERYONE,
-          status,
-          tagGroups: tags
-        }
-      };
-    }
-    async addToCollection(url) {
-      try {
-        await this.updateImportStatus("Fetching content...");
-        const rawText = await fetchRawText(url);
-        if (!rawText) {
-          throw new Error("No data found");
-        }
-        await this.updateImportStatus("Parsing XML content...");
-        const mangaList = xml2.parseMAL(rawText);
-        if (mangaList.length === 0) {
-          throw new Error("No manga found in the XML file");
-        }
-        let addedCount = 0;
-        let failedCount = 0;
-        const collectionName = "MAL Collection";
-        await this.updateImportStatus("Getting collection...");
-        const collections = await Application.getManagedLibraryCollections();
-        const collection = collections.find((c) => c.title === collectionName);
-        if (!collection) {
-          throw new Error("Collection not found");
-        }
-        const total = mangaList.length;
-        for (const manga of mangaList) {
-          try {
-            await this.updateImportStatus(
-              `Importing ${addedCount + 1}/${total}...`
-            );
-            const searchResults = await this.searchManga(manga.title);
-            const match = await this.findBestMatch(manga.title, searchResults);
-            if (match) {
-              const sourceManga = await this.getMangaDetails(match.mangaId);
-              await Application.commitManagedCollectionChanges({
-                collection,
-                additions: [sourceManga],
-                deletions: []
-              });
-              addedCount++;
-              await Application.sleep(0.5);
-            } else {
-              failedCount++;
-            }
-          } catch (err) {
-            failedCount++;
-            console.error(`Failed to import: ${manga.title}`, err);
-          }
-        }
-        const finalStatus = `Import completed. Added: ${addedCount}, Failed: ${failedCount}`;
-        await this.updateImportStatus(finalStatus);
-        console.log(finalStatus);
-      } catch (error) {
-        const errorMsg = `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`;
-        await this.updateImportStatus(errorMsg);
-        console.error(errorMsg);
-        await Application.sleep(3);
-        await this.updateImportStatus("Ready to import");
-      }
-    }
-    checkCloudflareStatus(status) {
-      if (status == 503 || status == 403) {
-        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
-      }
-    }
-    async fetchCheerio(request) {
-      const [response, data2] = await Application.scheduleRequest(request);
-      this.checkCloudflareStatus(response.status);
-      return load(Application.arrayBufferToUTF8String(data2));
-    }
-  };
-
   // src/MangaFire/main.ts
-  var baseUrl2 = "https://mangafire.to";
+  var baseUrl = "https://mangafire.to";
   var MangaFireExtension = class {
     requestManager = new FireInterceptor("main");
     async initialise() {
@@ -16966,30 +16679,27 @@ var source = (() => {
         title: "Status Filter"
       });
     }
-    async getSettingsForm() {
-      return new MangaFireSettingsForm();
-    }
     async getDiscoverSections() {
       return [
         {
           id: "popular_section",
           title: "Popular",
-          type: import_types4.DiscoverSectionType.featured
+          type: import_types3.DiscoverSectionType.featured
         },
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types4.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
           id: "new_manga_section",
           title: "New Manga",
-          type: import_types4.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
           id: "genres_section",
           title: "Genres",
-          type: import_types4.DiscoverSectionType.genres
+          type: import_types3.DiscoverSectionType.genres
         }
       ];
     }
@@ -17011,7 +16721,7 @@ var source = (() => {
     }
     async getSearchResults(query, metadata) {
       const page = metadata?.page ?? 1;
-      const searchUrl = new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
+      const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
       const type = getFilterValue("type");
       const genres = getFilterValue("genres");
@@ -17063,6 +16773,9 @@ var source = (() => {
         const title = infoLink.text().trim();
         const image = unit.find("img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const latestChapter = unit.find(".content[data-name='chap'] a").first().find("span").first().text().trim();
+        const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
+        const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
         if (!title || !mangaId) {
           return;
         }
@@ -17070,7 +16783,7 @@ var source = (() => {
           mangaId,
           imageUrl: image,
           title,
-          subtitle: void 0,
+          subtitle,
           metadata: void 0
         });
       });
@@ -17082,7 +16795,7 @@ var source = (() => {
     }
     async getMangaDetails(mangaId) {
       const request = {
-        url: new URLBuilder(baseUrl2).addPath("manga").addPath(mangaId).build(),
+        url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17141,7 +16854,7 @@ var source = (() => {
           thumbnailUrl: image,
           synopsis: description,
           rating,
-          contentRating: import_types4.ContentRating.EVERYONE,
+          contentRating: import_types3.ContentRating.EVERYONE,
           status,
           tagGroups: tags
         }
@@ -17149,7 +16862,7 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const request = {
-        url: new URLBuilder(baseUrl2).addPath("ajax").addPath("read").addPath(sourceManga.mangaId.split(".")[1]).addPath("chapter").addPath("en").build(),
+        url: new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath(sourceManga.mangaId.split(".")[1]).addPath("chapter").addPath("en").build(),
         method: "GET"
       };
       const [_, buffer] = await Application.scheduleRequest(request);
@@ -17164,12 +16877,13 @@ var source = (() => {
         const chapterId = link.attr("data-id") || "0";
         const title = link.find("span").first().text().trim();
         const chapterNumber = parseFloat(link.attr("data-number") || "0");
+        const timestamp = parseInt(li.find("span").last().attr("data-date") || "0") * 1e3;
         chapters.push({
           chapterId,
           title,
           sourceManga,
           chapNum: chapterNumber,
-          // creationDate: new Date(date),
+          creationDate: new Date(timestamp),
           volume: void 0,
           langCode: "\u{1F1EC}\u{1F1E7}"
         });
@@ -17179,7 +16893,7 @@ var source = (() => {
     async getChapterDetails(chapter) {
       console.log(`Parsing chapter ${chapter.chapterId}`);
       try {
-        const url = new URLBuilder(baseUrl2).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
+        const url = new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
         console.log(url);
         const request = {
           url,
@@ -17208,11 +16922,14 @@ var source = (() => {
         );
       }
     }
+    getMangaShareUrl(mangaId) {
+      return `${baseUrl}/manga/${mangaId}`;
+    }
     async getUpdatedSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
+        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17249,7 +16966,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl2).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
+        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17282,7 +16999,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl2).addPath("added").build(),
+        url: new URLBuilder(baseUrl).addPath("added").build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17376,20 +17093,9 @@ var source = (() => {
         metadata: void 0
       };
     }
-    async getManagedLibraryCollections() {
-      return [
-        {
-          id: "mal",
-          title: "MAL Collection"
-        }
-      ];
-    }
-    async commitManagedCollectionChanges(changeset) {
-      console.log(changeset);
-    }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
-        throw new import_types4.CloudflareError({ url: baseUrl2, method: "GET" });
+        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
       }
     }
     async fetchCheerio(request) {

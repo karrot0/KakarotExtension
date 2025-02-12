@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-02-08T04:29:18.660Z",
+  "buildTime": "2025-02-12T21:34:26.208Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -11,31 +11,59 @@
   "sources": [
     {
       "name": "MangaFire",
-      "description": "A paperback extension for MangaFire",
-      "version": "0.9.0",
+      "description": "Extension that pulls content from mangafire.to.",
+      "version": "1.0.0",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
       "badges": [
         {
-          "label": "ALL MANGA",
+          "label": "Content Providing",
           "textColor": "#FFFFFF",
-          "backgroundColor": "#FF1493"
+          "backgroundColor": "#FF0000"
         },
         {
-          "label": "BEST QUALITY",
+          "label": "Aggregator",
           "textColor": "#FFFFFF",
-          "backgroundColor": "#008B8B"
+          "backgroundColor": "#006400"
         },
         {
-          "label": "AGGREGATOR",
+          "label": "Safe",
+          "textColor": "#000000",
+          "backgroundColor": "#FFD700"
+        },
+        {
+          "label": "English",
+          "textColor": "#000000",
+          "backgroundColor": "#00ffff"
+        },
+        {
+          "label": "Manga",
           "textColor": "#FFFFFF",
-          "backgroundColor": "#9400D3"
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Webtoon",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Fast Release",
+          "textColor": "#000000",
+          "backgroundColor": "#00FF00"
+        },
+        {
+          "label": "Good Images",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#0000FF"
+        },
+        {
+          "label": "Good Translations",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#1E90FF"
         }
       ],
       "capabilities": [
-        32,
-        8,
         4,
         64,
         1
@@ -52,21 +80,56 @@
     },
     {
       "name": "Manganelo",
-      "description": "A paperback extension for Manganelo.com",
-      "version": "0.9.0",
+      "description": "Extension that pulls content from m.manganelo.com.",
+      "version": "1.0.0",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
       "badges": [
         {
-          "label": "GOOD MANGA",
+          "label": "Content Providing",
           "textColor": "#FFFFFF",
-          "backgroundColor": "#FF1493"
+          "backgroundColor": "#FF0000"
         },
         {
-          "label": "AGGREGATOR",
+          "label": "Aggregator",
           "textColor": "#FFFFFF",
-          "backgroundColor": "#9400D3"
+          "backgroundColor": "#006400"
+        },
+        {
+          "label": "Safe",
+          "textColor": "#000000",
+          "backgroundColor": "#FFD700"
+        },
+        {
+          "label": "English",
+          "textColor": "#000000",
+          "backgroundColor": "#00ffff"
+        },
+        {
+          "label": "Manga",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Webtoon",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Fast Release",
+          "textColor": "#000000",
+          "backgroundColor": "#00FF00"
+        },
+        {
+          "label": "Good Images",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#0000FF"
+        },
+        {
+          "label": "Good Translations",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#1E90FF"
         }
       ],
       "capabilities": [

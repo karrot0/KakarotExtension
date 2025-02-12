@@ -16584,7 +16584,8 @@ var source = (() => {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        referer: `https://m.manganelo.com`
+        referer: `https://m.manganelo.com`,
+        "user-agent": await Application.getDefaultUserAgent()
       };
       return request;
     }
@@ -17056,6 +17057,9 @@ var source = (() => {
           metadata: metadata ? { page: metadata.page } : void 0
         }))
       };
+    }
+    getMangaShareUrl(mangaId) {
+      return `${mangaId}`;
     }
     checkCloudflareStatus(status) {
       if (status === 503 || status === 403) {
