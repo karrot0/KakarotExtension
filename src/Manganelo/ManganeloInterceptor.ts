@@ -5,6 +5,7 @@ export class NeloInterceptor extends PaperbackInterceptor {
     request.headers = {
       ...request.headers,
       referer: `https://m.manganelo.com`,
+      "user-agent": await Application.getDefaultUserAgent(),
     };
     return request;
   }

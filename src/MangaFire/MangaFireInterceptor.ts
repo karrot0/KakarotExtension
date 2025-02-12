@@ -5,6 +5,7 @@ export class FireInterceptor extends PaperbackInterceptor {
     request.headers = {
       ...request.headers,
       referer: `https://mangafire.to/`,
+      "user-agent": await Application.getDefaultUserAgent(),
     };
     return request;
   }

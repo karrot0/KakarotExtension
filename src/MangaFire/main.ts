@@ -9,7 +9,6 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
-  Form,
   ManagedCollection,
   ManagedCollectionChangeset,
   MangaProviding,
@@ -18,7 +17,6 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
-  SettingsFormProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -26,7 +24,6 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
-import { MangaFireSettingsForm } from "./MangaFireSettings";
 
 const baseUrl = "https://mangafire.to";
 
@@ -34,7 +31,6 @@ type MangaFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
-  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MangaFireExtension implements MangaFireImplementation {
@@ -123,10 +119,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       value: "all",
       title: "Status Filter",
     });
-  }
-
-  async getSettingsForm(): Promise<Form> {
-    return new MangaFireSettingsForm();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -253,6 +245,17 @@ export class MangaFireExtension implements MangaFireImplementation {
       const title = infoLink.text().trim();
       const image = unit.find("img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+      const latestChapter = unit
+        .find(".content[data-name='chap'] a")
+        .first()
+        .find("span")
+        .first()
+        .text()
+        .trim();
+      const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
+      const subtitle = latestChapterMatch
+        ? `Ch. ${latestChapterMatch[1]}`
+        : undefined;
 
       if (!title || !mangaId) {
         return;
@@ -262,7 +265,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         mangaId: mangaId,
         imageUrl: image,
         title: title,
-        subtitle: undefined,
+        subtitle: subtitle,
         metadata: undefined,
       });
     });
@@ -364,13 +367,6 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    // const request = {
-    //   url: new URLBuilder(baseUrl)
-    //     .addPath("manga")
-    //     .addPath(sourceManga.mangaId)
-    //     .build(),
-    //   method: "GET",
-    // };
     // example https://mangafire.to/ajax/read/0w5k/chapter/en
     const request = {
       url: new URLBuilder(baseUrl)
@@ -393,20 +389,20 @@ export class MangaFireExtension implements MangaFireImplementation {
     const chapters: Chapter[] = [];
 
     $("li").each((_, element) => {
-      // console.log();
       const li = $(element);
       const link = li.find("a");
       const chapterId = link.attr("data-id") || "0";
       const title = link.find("span").first().text().trim();
       // Extract chapter number from data-number attribute
       const chapterNumber = parseFloat(link.attr("data-number") || "0");
-
+      const timestamp =
+        parseInt(li.find("span").last().attr("data-date") || "0") * 1000;
       chapters.push({
         chapterId: chapterId,
         title: title,
         sourceManga: sourceManga,
         chapNum: chapterNumber,
-        // creationDate: new Date(date),
+        creationDate: new Date(timestamp),
         volume: undefined,
         langCode: "🇬🇧",
       });
@@ -457,6 +453,10 @@ export class MangaFireExtension implements MangaFireImplementation {
         `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
       );
     }
+  }
+
+  getMangaShareUrl(mangaId: string): string {
+    return `${baseUrl}/manga/${mangaId}`;
   }
 
   async getUpdatedSectionItems(
@@ -681,21 +681,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       })),
       metadata: undefined,
     };
-  }
-
-  async getManagedLibraryCollections(): Promise<ManagedCollection[]> {
-    return [
-      {
-        id: "mal",
-        title: "MAL Collection",
-      },
-    ];
-  }
-
-  async commitManagedCollectionChanges(
-    changeset: ManagedCollectionChangeset,
-  ): Promise<void> {
-    console.log(changeset);
   }
 
   checkCloudflareStatus(status: number): void {
