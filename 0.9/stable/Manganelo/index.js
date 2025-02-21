@@ -2140,7 +2140,7 @@ var source = (() => {
       exports.BasicRateLimiter = void 0;
       var Lock_1 = require_Lock();
       var PaperbackInterceptor_1 = require_PaperbackInterceptor();
-      var BasicRateLimiter = class extends PaperbackInterceptor_1.PaperbackInterceptor {
+      var BasicRateLimiter2 = class extends PaperbackInterceptor_1.PaperbackInterceptor {
         options;
         promise;
         currentRequestsMade = 0;
@@ -2180,7 +2180,7 @@ var source = (() => {
           }
         }
       };
-      exports.BasicRateLimiter = BasicRateLimiter;
+      exports.BasicRateLimiter = BasicRateLimiter2;
     }
   });
 
@@ -16584,7 +16584,8 @@ var source = (() => {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        referer: `https://m.manganelo.com`,
+        referer: `https://m.manganelo.com/wwww`,
+        origin: `https://m.manganelo.com/wwww`,
         "user-agent": await Application.getDefaultUserAgent()
       };
       return request;
@@ -16598,8 +16599,14 @@ var source = (() => {
   var baseUrl = "https://m.manganelo.com";
   var MangaNeloExtension = class {
     requestManager = new NeloInterceptor("main");
+    globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
+      numberOfRequests: 4,
+      bufferInterval: 1,
+      ignoreImages: true
+    });
     async initialise() {
       this.requestManager.registerInterceptor();
+      this.globalRateLimiter.registerInterceptor();
     }
     async getDiscoverSections() {
       return [
@@ -16775,8 +16782,16 @@ var source = (() => {
       };
     }
     async getMangaDetails(mangaId) {
-      const request = { url: `${mangaId}`, method: "GET" };
-      const $2 = await this.fetchCheerio(request);
+      let $2;
+      try {
+        $2 = await this.fetchCheerio({ url: mangaId, method: "GET" });
+      } catch (error) {
+        const alternativeUrl = mangaId.replace(
+          "https://m.manganelo.com",
+          "https://chapmanganelo.com"
+        );
+        $2 = await this.fetchCheerio({ url: alternativeUrl, method: "GET" });
+      }
       const title = $2(".story-info-right h1").text().trim();
       const altTitles = $2(".variations-tableInfo .table-value h2").first().text().trim().split(";").map((t) => t.trim());
       const image = $2(".info-image img").attr("src") || "";
@@ -16825,10 +16840,11 @@ var source = (() => {
       $2(".a-h").each((_, element) => {
         const li = $2(element);
         const link = li.find("a.chapter-name");
+        if (!link.hasClass("chapter-name")) return;
         const href = link.attr("href") || "";
         const chapterId = href;
         const title = link.attr("title")?.trim() || link.text().trim();
-        const chapterMatch = title.match(/Chapter\s+(\d+\.?\d*)/i);
+        const chapterMatch = href.match(/chapter-(\d+\.?\d*)/i);
         const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
         chapters.push({
           chapterId,
@@ -16857,24 +16873,12 @@ var source = (() => {
           pages
         };
       } catch (error) {
-        const errorDetails = error instanceof Error ? error.message : String(error);
-        const errorStack = error instanceof Error ? error.stack : void 0;
-        const errorContext = {
-          error: errorDetails,
-          stack: errorStack,
-          source: "MangaNeloExtension.getChapterDetails",
-          chapterId: chapter.chapterId,
+        console.error("Error fetching chapter details:", error);
+        return {
+          id: chapter.chapterId,
           mangaId: chapter.sourceManga.mangaId,
-          requestUrl: `${chapter.chapterId}`,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          pages: []
         };
-        console.error(
-          "Chapter details fetch failed:",
-          JSON.stringify(errorContext, null, 2)
-        );
-        throw new Error(
-          `Failed to fetch chapter details. ChapterId: ${chapter.chapterId}, Error: ${errorDetails}`
-        );
       }
     }
     async getUpdatedSectionItems(section, metadata) {
@@ -17044,15 +17048,32 @@ var source = (() => {
     getMangaShareUrl(mangaId) {
       return `${mangaId}`;
     }
+    async getCloudflareBypassRequestAsync() {
+      return {
+        url: `${baseUrl}/`,
+        method: "GET",
+        headers: {
+          referer: `${baseUrl}/`,
+          origin: `${baseUrl}/`,
+          "user-agent": await Application.getDefaultUserAgent()
+        }
+      };
+    }
+    async fetchCheerio(request) {
+      const bypassRequest = await this.getCloudflareBypassRequestAsync();
+      const [response, data2] = await Application.scheduleRequest(request);
+      if (response.status !== 200) {
+        throw new Error(`Failed to fetch data from ${request.url}`);
+      }
+      this.checkCloudflareStatus(response.status);
+      const htmlStr = Application.arrayBufferToUTF8String(data2);
+      const dom = parseDocument(htmlStr);
+      return load(dom);
+    }
     checkCloudflareStatus(status) {
       if (status === 503 || status === 403) {
         throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
       }
-    }
-    async fetchCheerio(request) {
-      const [response, data2] = await Application.scheduleRequest(request);
-      this.checkCloudflareStatus(response.status);
-      return load(Application.arrayBufferToUTF8String(data2));
     }
   };
   function createDiscoverSectionItem(options) {
