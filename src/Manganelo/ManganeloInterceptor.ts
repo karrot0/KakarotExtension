@@ -4,7 +4,8 @@ export class NeloInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
       ...request.headers,
-      referer: `https://m.manganelo.com`,
+      referer: `https://m.manganelo.com/wwww`,
+      origin: `https://m.manganelo.com/wwww`,
       "user-agent": await Application.getDefaultUserAgent(),
     };
     return request;

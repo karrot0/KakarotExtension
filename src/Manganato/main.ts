@@ -1,4 +1,5 @@
 import {
+  BasicRateLimiter,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -21,6 +22,8 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
+//import { postToDiscordWebhook } from "../utils/discord_debugging";
+import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
 import { NatoInterceptor } from "./ManganatoInterceptor";
 
@@ -34,9 +37,15 @@ type MangaNatoImplementation = Extension &
 
 export class MangaNatoExtension implements MangaNatoImplementation {
   requestManager = new NatoInterceptor("main");
+  globalRateLimiter = new BasicRateLimiter("rateLimiter", {
+    numberOfRequests: 4,
+    bufferInterval: 1,
+    ignoreImages: true,
+  });
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+    this.globalRateLimiter.registerInterceptor();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -269,10 +278,24 @@ export class MangaNatoExtension implements MangaNatoImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    // Example URL: https://manganato.com/manga-af123456
-    const request = { url: `${mangaId}`, method: "GET" };
+    // Manga ID: https://m.manganelo.com/manga-af123456
+    // ID: manga-af123456
 
-    const $ = await this.fetchCheerio(request);
+    // Extract the ID from the URL, why? Because there are 2 forms of links
+    // 1. https://m.manganelo.com/manga-ne128350
+    // 2. https://chapmanganelo.com/manga-pz130119
+
+    // Try fetching with primary URL, if fails try alternative
+    let $;
+    try {
+      $ = await this.fetchCheerio({ url: mangaId, method: "GET" });
+    } catch (error) {
+      const alternativeUrl = mangaId.replace(
+        "https://manganato.com",
+        "https://chapmanganato.to",
+      );
+      $ = await this.fetchCheerio({ url: alternativeUrl, method: "GET" });
+    }
 
     // Extract basic manga details
     const title = $(".story-info-right h1").text().trim();
@@ -358,13 +381,15 @@ export class MangaNatoExtension implements MangaNatoImplementation {
     $(".a-h").each((_, element) => {
       const li = $(element);
       const link = li.find("a.chapter-name");
+      if (!link.hasClass("chapter-name")) return;
+
       const href = link.attr("href") || "";
       //const chapterId = href.replace("https://chapmanganato.to", "");
       const chapterId = href;
       const title = link.attr("title")?.trim() || link.text().trim();
 
-      // Extract chapter number from title using regex
-      const chapterMatch = title.match(/Chapter\s+(\d+\.?\d*)/i);
+      // Extract chapter number from href using regex
+      const chapterMatch = href.match(/chapter-(\d+\.?\d*)/i);
       const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
 
       chapters.push({
@@ -629,16 +654,34 @@ export class MangaNatoExtension implements MangaNatoImplementation {
     return `${mangaId}`;
   }
 
+  async getCloudflareBypassRequestAsync(): Promise<Request> {
+    return {
+      url: `${baseUrl}/`,
+      method: "GET",
+      headers: {
+        referer: `${baseUrl}/`,
+        origin: `${baseUrl}/`,
+        "user-agent": await Application.getDefaultUserAgent(),
+      },
+    };
+  }
+
+  async fetchCheerio(request: Request): Promise<CheerioAPI> {
+    const bypassRequest = await this.getCloudflareBypassRequestAsync();
+    const [response, data] = await Application.scheduleRequest(request);
+    if (response.status !== 200) {
+      throw new Error(`Failed to fetch data from ${request.url}`);
+    }
+    this.checkCloudflareStatus(response.status);
+    const htmlStr = Application.arrayBufferToUTF8String(data);
+    const dom = htmlparser2.parseDocument(htmlStr);
+    return cheerio.load(dom);
+  }
+
   checkCloudflareStatus(status: number): void {
     if (status === 503 || status === 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
     }
-  }
-
-  async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus(response.status);
-    return cheerio.load(Application.arrayBufferToUTF8String(data));
   }
 }
 
