@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-02-21T14:18:07.383Z",
+  "buildTime": "2025-02-22T23:10:19.894Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.33",
     "types": "1.0.0-alpha.33"
@@ -9,6 +9,67 @@
     "name": "Paperback Extension Repository"
   },
   "sources": [
+    {
+      "name": "Batcave",
+      "description": "Extension that pulls content from batcave.biz.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [
+        {
+          "label": "Content Providing",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#FF0000"
+        },
+        {
+          "label": "Aggregator",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#006400"
+        },
+        {
+          "label": "Safe",
+          "textColor": "#000000",
+          "backgroundColor": "#FFD700"
+        },
+        {
+          "label": "English",
+          "textColor": "#000000",
+          "backgroundColor": "#00ffff"
+        },
+        {
+          "label": "Western Comics",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Fast Release",
+          "textColor": "#000000",
+          "backgroundColor": "#00FF00"
+        },
+        {
+          "label": "Good Images",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#0000FF"
+        },
+        {
+          "label": "Good Translations",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#1E90FF"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Batcave"
+    },
     {
       "name": "MangaFire",
       "description": "Extension that pulls content from mangafire.to.",

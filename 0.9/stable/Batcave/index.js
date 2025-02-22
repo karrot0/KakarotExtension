@@ -2677,11 +2677,11 @@ var source = (() => {
     }
   });
 
-  // src/MangaFire/main.ts
+  // src/Batcave/main.ts
   var main_exports = {};
   __export(main_exports, {
-    MangaFire: () => MangaFire,
-    MangaFireExtension: () => MangaFireExtension
+    Batcave: () => Batcave,
+    BatcaveExtension: () => BatcaveExtension
   });
   init_buffer();
   var import_types3 = __toESM(require_lib(), 1);
@@ -16527,6 +16527,28 @@ var source = (() => {
   var parse5 = getParse((content, options, isDocument2, context) => options._useHtmlParser2 ? parseDocument(content, options) : parseWithParse5(content, options, isDocument2, context));
   var load = getLoad(parse5, (dom, options) => options._useHtmlParser2 ? esm_default(dom, options) : renderWithParse5(dom));
 
+  // src/utils/discord_debugging.ts
+  init_buffer();
+  async function postToDiscordWebhook(message) {
+    const webhookUrl = "https://discord.com/api/webhooks/1342907329342869646/uDJiNkb5iIc-BXrWhHUzAn_KtlU7_7zM0HH6pPZJX1_CaX_zGpXNscHIj0uo8Y1yC2Jy";
+    const payload = { content: message };
+    const request = {
+      url: webhookUrl,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    };
+    try {
+      const [response, data2] = await Application.scheduleRequest(request);
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Discord webhook error: ${response.status}`);
+      }
+      console.log("Successfully posted to Discord webhook");
+    } catch (error) {
+      console.error("Error posting to Discord webhook:", error);
+    }
+  }
+
   // src/utils/url-builder/base.ts
   init_buffer();
   var URLBuilder = class {
@@ -16577,15 +16599,20 @@ var source = (() => {
     }
   };
 
-  // src/MangaFire/MangaFireInterceptor.ts
+  // src/Batcave/BatcaveInterceptor.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
-  var FireInterceptor = class extends import_types2.PaperbackInterceptor {
+  var CaveInterceptor = class extends import_types2.PaperbackInterceptor {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        referer: `https://mangafire.to/`,
-        "user-agent": await Application.getDefaultUserAgent()
+        origin: `https://batcave.biz`,
+        referer: `https://batcave.biz`,
+        "user-agent": await Application.getDefaultUserAgent(),
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.5",
+        "accept-encoding": "gzip, deflate, br",
+        "x-requested-with": "com.batcave.android"
       };
       return request;
     }
@@ -16594,10 +16621,10 @@ var source = (() => {
     }
   };
 
-  // src/MangaFire/main.ts
-  var baseUrl = "https://mangafire.to";
-  var MangaFireExtension = class {
-    requestManager = new FireInterceptor("main");
+  // src/Batcave/main.ts
+  var baseUrl = "https://batcave.biz";
+  var BatcaveExtension = class {
+    requestManager = new CaveInterceptor("main");
     async initialise() {
       this.requestManager.registerInterceptor();
     }
@@ -16609,234 +16636,124 @@ var source = (() => {
           type: import_types3.DiscoverSectionType.featured
         },
         {
-          id: "updated_section",
-          title: "Recently Updated",
+          id: "catalogue_section",
+          title: "Catalogue",
           type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
-          id: "new_manga_section",
-          title: "New Manga",
+          id: "new_comic_section",
+          title: "New Comics",
           type: import_types3.DiscoverSectionType.simpleCarousel
         },
-        {
-          id: "genres_section",
-          title: "Genres",
-          type: import_types3.DiscoverSectionType.genres
-        }
+        { id: "genres", title: "Genres", type: import_types3.DiscoverSectionType.genres }
       ];
     }
     async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
-        // case "featured_section":
-        //   return this.getFeaturedSectionItems(section, metadata);
         case "popular_section":
           return this.getPopularSectionItems(section, metadata);
-        case "updated_section":
-          return this.getUpdatedSectionItems(section, metadata);
-        case "new_manga_section":
-          return this.getNewMangaSectionItems(section, metadata);
-        case "genres_section":
-          return this.getFilterSection();
+        case "catalogue_section":
+          return this.getCatalogueSectionItems(section, metadata);
+        case "new_comic_section":
+          return this.getNewComicsSectionItems(section, metadata);
+        case "genres":
+          return this.getGenreSectionItems(section, metadata);
         default:
           return { items: [] };
       }
     }
     async getSearchFilters() {
       const filters2 = [];
-      filters2.push({
-        id: "type",
-        type: "dropdown",
-        options: [
-          { id: "all", value: "All" },
-          { id: "manhua", value: "Manhua" },
-          { id: "manhwa", value: "Manhwa" },
-          { id: "manga", value: "Manga" }
-        ],
-        value: "all",
-        title: "Type Filter"
-      });
-      filters2.push({
-        id: "genres",
-        type: "multiselect",
-        options: [
-          { id: "1", value: "Action" },
-          { id: "78", value: "Adventure" },
-          { id: "3", value: "Avant Garde" },
-          { id: "4", value: "Boys Love" },
-          { id: "5", value: "Comedy" },
-          { id: "77", value: "Demons" },
-          { id: "6", value: "Drama" },
-          { id: "7", value: "Ecchi" },
-          { id: "79", value: "Fantasy" },
-          { id: "9", value: "Girls Love" },
-          { id: "10", value: "Gourmet" },
-          { id: "11", value: "Harem" },
-          { id: "530", value: "Horror" },
-          { id: "13", value: "Isekai" },
-          { id: "531", value: "Iyashikei" },
-          { id: "15", value: "Josei" },
-          { id: "532", value: "Kids" },
-          { id: "539", value: "Magic" },
-          { id: "533", value: "Mahou Shoujo" },
-          { id: "534", value: "Martial Arts" },
-          { id: "19", value: "Mecha" },
-          { id: "535", value: "Military" },
-          { id: "21", value: "Music" },
-          { id: "22", value: "Mystery" },
-          { id: "23", value: "Parody" },
-          { id: "536", value: "Psychological" },
-          { id: "25", value: "Reverse Harem" },
-          { id: "26", value: "Romance" },
-          { id: "73", value: "School" },
-          { id: "28", value: "Sci-Fi" },
-          { id: "537", value: "Seinen" },
-          { id: "30", value: "Shoujo" },
-          { id: "31", value: "Shounen" },
-          { id: "538", value: "Slice of Life" },
-          { id: "33", value: "Space" },
-          { id: "34", value: "Sports" },
-          { id: "75", value: "Super Power" },
-          { id: "76", value: "Supernatural" },
-          { id: "37", value: "Suspense" },
-          { id: "38", value: "Thriller" },
-          { id: "39", value: "Vampire" }
-        ],
-        allowExclusion: true,
-        value: {},
-        title: "Genre Filter",
-        allowEmptySelection: false,
-        maximum: void 0
-      });
-      filters2.push({
-        id: "status",
-        type: "dropdown",
-        options: [
-          { id: "all", value: "All" },
-          { id: "completed", value: "Completed" },
-          { id: "releasing", value: "Releasing" },
-          { id: "hiatus", value: "On Hiatus" },
-          { id: "discontinued", value: "Discontinued" },
-          { id: "not_published", value: "Not Yet Published" }
-        ],
-        value: "all",
-        title: "Status Filter"
-      });
       return filters2;
     }
     async getSearchResults(query, metadata) {
       const page = metadata?.page ?? 1;
-      const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
+      const genreFilter = query.filters.find((filter4) => filter4.id === "genres");
+      if (genreFilter && Object.keys(genreFilter.value).length > 0) {
+        const genreId = Object.keys(genreFilter.value)[0];
+        return this.getGenreSearchQuery(genreId, metadata);
+      }
+      if (!query.title) {
+        const catalogueResults = await this.getCatalogueSectionItems(
+          {
+            id: "catalogue_section",
+            title: "",
+            type: import_types3.DiscoverSectionType.simpleCarousel
+          },
+          metadata
+        );
+        return {
+          items: catalogueResults.items.map((item) => {
+            if (item.type === "simpleCarouselItem") {
+              const searchItem = {
+                mangaId: item.mangaId,
+                title: item.title,
+                imageUrl: item.imageUrl,
+                subtitle: item.subtitle,
+                metadata: item.metadata
+              };
+              return searchItem;
+            }
+            return null;
+          }).filter((item) => item !== null),
+          metadata: catalogueResults.metadata
+        };
+      }
+      const urlBuilder = new URLBuilder(baseUrl).addPath("search").addPath(query.title);
+      if (page > 1) {
+        urlBuilder.addPath("page").addPath(page.toString());
+      }
+      const searchUrl = urlBuilder;
+      postToDiscordWebhook(`Search URL: ${searchUrl.build()}`);
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
-      const type = getFilterValue("type");
-      const genres = getFilterValue("genres");
-      const status = getFilterValue("status");
-      if (type && type != "all") {
-        searchUrl.addQuery("type[]", type);
-      }
-      if (genres && typeof genres === "object") {
-        Object.entries(genres).forEach(([id, value]) => {
-          if (value === "included") {
-            searchUrl.addQuery("genre[]", id);
-          } else if (value === "excluded") {
-            searchUrl.addQuery("genre[]", `-${id}`);
-          }
-        });
-      }
-      if (status && status != "all") {
-        let statusValue;
-        switch (status) {
-          case "completed":
-            statusValue = "completed";
-            break;
-          case "releasing":
-            statusValue = "releasing";
-            break;
-          case "hiatus":
-            statusValue = "hiatus";
-            break;
-          case "discontinued":
-            statusValue = "discontinued";
-            break;
-          case "not_published":
-            statusValue = "not_published";
-            break;
-          default:
-            statusValue = "releasing";
-        }
-        searchUrl.addQuery("status[]", statusValue);
-      }
       const request = { url: searchUrl.build(), method: "GET" };
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
-      $2(".original.card-lg .unit .inner").each((_, element) => {
+      $2(".readed").each((_, element) => {
         const unit = $2(element);
-        const infoLink = unit.find(".info > a");
+        const infoLink = unit.find(".readed__title a");
         const title = infoLink.text().trim();
-        const image = unit.find("img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
-        const latestChapter = unit.find(".content[data-name='chap'] a").first().find("span").first().text().trim();
-        const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
-        const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
-        if (!title || !mangaId) {
-          return;
-        }
+        const rawImage = unit.find("img").attr("data-src") || "";
+        const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+        const rawMangaId = infoLink.attr("href");
+        const mangaId = rawMangaId?.split("/").pop();
+        const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
+        const latestChapter = latestChapterText.replace("Last issue:", "").trim().replace(/.*#(\d+).*/, "#$1");
+        if (!mangaId) return;
         searchResults.push({
           mangaId,
           imageUrl: image,
           title,
-          subtitle,
+          subtitle: latestChapter,
           metadata: void 0
         });
       });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      const currentPage = parseInt($2(".pagination__pages > span").first().text()) || 1;
+      const hasNextPage = $2(".pagination__pages > a").filter((_, el) => {
+        const pageNum = parseInt($2(el).text());
+        return !isNaN(pageNum) && pageNum > currentPage;
+      }).length > 0;
       return {
         items: searchResults,
         metadata: hasNextPage ? { page: page + 1 } : void 0
       };
     }
     async getMangaDetails(mangaId) {
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
-        method: "GET"
-      };
+      const request = { url: `${baseUrl}/${mangaId}`, method: "GET" };
       const $2 = await this.fetchCheerio(request);
-      const title = $2(".manga-detail .info h1").text().trim();
-      const altTitles = [$2(".manga-detail .info h6").text().trim()];
-      const image = $2(".manga-detail .poster img").attr("src") || "";
-      const description = $2(".manga-detail .info .description").text().trim();
-      const authors = [];
-      $2("#info-rating .meta div").each((_, element) => {
-        const label = $2(element).find("span").first().text().trim();
-        if (label === "Author:") {
-          $2(element).find("a").each((_2, authorElement) => {
-            authors.push($2(authorElement).text().trim());
-          });
-        }
-      });
-      let status = "UNKNOWN";
-      const statusText = $2(".manga-detail .info .min-info").text().toLowerCase();
-      if (statusText.includes("releasing")) {
-        status = "ONGOING";
-      } else if (statusText.includes("completed")) {
-        status = "COMPLETED";
-      } else if (statusText.includes("hiatus") || statusText.includes("discontinued") || statusText.includes("not yet published")) {
-        status = "UNKNOWN";
-      }
+      const title = $2("h1").first().text().trim();
+      const rawImage = $2(".page__poster img").attr("src") || "";
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+      const description = $2(".page__text").text().trim();
+      const ratingMatch = $2(".page__rating-votes").text().match(/(\d+(\.\d+)?)/);
+      const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
+      const statusText = $2(".page__list li").filter((_, el) => $2(el).text().includes("Release type")).first().text().toLowerCase();
+      const status = statusText.includes("completed") ? "COMPLETED" : statusText.includes("ongoing") ? "ONGOING" : "UNKNOWN";
       const tags = [];
       const genres = [];
-      let rating = 1;
-      $2("#info-rating .meta div").each((_, element) => {
-        const label = $2(element).find("span").first().text().trim();
-        if (label === "Genres:") {
-          $2(element).find("a").each((_2, genreElement) => {
-            genres.push($2(genreElement).text().trim());
-          });
-        }
+      $2(".page__tags a").each((_, element) => {
+        genres.push($2(element).text().trim());
       });
-      const ratingValue = $2("#info-rating .score .live-score").text().trim();
-      if (ratingValue) {
-        rating = parseFloat(ratingValue) / 2;
-      }
       if (genres.length > 0) {
         tags.push({
           id: "genres",
@@ -16851,7 +16768,7 @@ var source = (() => {
         mangaId,
         mangaInfo: {
           primaryTitle: title,
-          secondaryTitles: altTitles,
+          secondaryTitles: [],
           thumbnailUrl: image,
           synopsis: description,
           rating,
@@ -16862,103 +16779,110 @@ var source = (() => {
       };
     }
     async getChapters(sourceManga) {
-      const mangaId = sourceManga.mangaId.split(".")[1];
-      const requests = ["read", "manga"].map((type) => ({
-        url: new URLBuilder(baseUrl).addPath("ajax").addPath(type).addPath(mangaId).addPath("chapter").addPath("en").build(),
-        method: "GET"
-      }));
-      const [buffer1, buffer2] = await Promise.all(
-        requests.map(
-          (req) => Application.scheduleRequest(req).then(([, buffer]) => buffer)
-        )
-      );
-      const r1 = JSON.parse(
-        Application.arrayBufferToUTF8String(buffer1)
-      );
-      const r2 = JSON.parse(
-        Application.arrayBufferToUTF8String(buffer2)
-      );
-      const loadHTML = (html3) => load(parseDocument(html3));
-      const $1 = loadHTML(r1.result.html);
-      const $r2 = loadHTML(
-        typeof r2.result === "string" ? r2.result : r2.result.html
-      );
-      const timestampMap = /* @__PURE__ */ new Map();
-      $r2("li").each((_, el) => {
-        const li = $r2(el);
-        const chapterNumber = li.attr("data-number") || "0";
-        const dateText = li.find("span").last().text().trim();
-        timestampMap.set(chapterNumber, dateText);
-      });
+      const request = { url: `${baseUrl}/${sourceManga.mangaId}`, method: "GET" };
+      const $2 = await this.fetchCheerio(request);
       const chapters = [];
-      $1("li").each((_, el) => {
-        const li = $1(el);
-        const link = li.find("a");
-        const chapterNumber = link.attr("data-number") || "0";
-        chapters.push({
-          chapterId: link.attr("data-id") || "0",
-          title: link.find("span").first().text().trim(),
-          sourceManga,
-          chapNum: parseFloat(chapterNumber),
-          publishDate: new Date(
-            convertToISO8601(timestampMap.get(chapterNumber) || "")
-          ),
-          volume: void 0,
-          langCode: "\u{1F1EC}\u{1F1E7}"
-        });
-      });
+      const chapterScript = $2(".page__chapters-list script").filter((_, el) => {
+        const content = $2(el).html();
+        return content ? content.includes("__DATA__") : false;
+      }).first().html() || "";
+      const jsonMatch = chapterScript.match(
+        /window\.__DATA__\s*=\s*({[\s\S]*?});/
+      );
+      const jsonData = jsonMatch ? jsonMatch[1] : null;
+      try {
+        if (!jsonData) throw new Error("No JSON data found");
+        const parsedData = JSON.parse(jsonData);
+        if (parsedData.chapters) {
+          parsedData.chapters.forEach((chapter) => {
+            if (chapter.id && typeof chapter.id === "number") {
+              const [day, month, year] = chapter.date.split(".").map(Number);
+              const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+              chapters.push({
+                chapterId: `${sourceManga.mangaId.split("-")[0]}/${chapter.id}`,
+                title: chapter.title || `Chapter ${chapter.posi}`,
+                sourceManga,
+                chapNum: chapter.posi,
+                publishDate: new Date(isoDate),
+                volume: void 0,
+                langCode: "\u{1F1EC}\u{1F1E7}"
+              });
+            } else {
+              console.error(`Invalid Chapter`);
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error parsing JSON data:", err);
+      }
       return chapters;
     }
     async getChapterDetails(chapter) {
-      console.log(`Parsing chapter ${chapter.chapterId}`);
       try {
-        const url = new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
-        console.log(url);
-        const request = { url, method: "GET" };
-        const [_, buffer] = await Application.scheduleRequest(request);
-        const json = JSON.parse(
-          Application.arrayBufferToUTF8String(buffer)
-        );
+        const request = {
+          url: `${baseUrl}/reader/${chapter.chapterId}`,
+          method: "GET"
+        };
+        const $2 = await this.fetchCheerio(request);
         const pages = [];
-        json.result.images.forEach((value) => {
-          pages.push(value[0]);
-        });
+        const scriptData = $2("script").filter((_, el) => $2(el).html()?.includes("__DATA__") ?? false).first().html();
+        if (scriptData) {
+          const jsonMatch = scriptData.match(
+            /window\.__DATA__\s*=\s*({[\s\S]*?})\s*;/
+          );
+          if (jsonMatch) {
+            try {
+              const data2 = JSON.parse(jsonMatch[1]);
+              if (data2.images && Array.isArray(data2.images)) {
+                data2.images = data2.images.map(
+                  (img) => img.replace(/\\\//g, "/")
+                );
+                pages.push(...data2.images);
+              } else {
+                console.error("Images not found in JSON data");
+              }
+            } catch (error) {
+              console.error("Failed to parse JSON:", error);
+            }
+          }
+        }
         return {
-          mangaId: chapter.sourceManga.mangaId,
           id: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
           pages
         };
       } catch (error) {
-        console.error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-          error
-        );
-        throw new Error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`
-        );
+        console.error("Error fetching chapter details:", error);
+        return {
+          id: chapter.chapterId,
+          mangaId: chapter.sourceManga.mangaId,
+          pages: []
+        };
       }
     }
-    getMangaShareUrl(mangaId) {
-      return `${baseUrl}/manga/${mangaId}`;
-    }
-    async getUpdatedSectionItems(section, metadata) {
+    async getCatalogueSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
+      const urlBuilder = new URLBuilder(baseUrl).addPath("comix");
+      if (page > 1) {
+        urlBuilder.addPath("page").addPath(page.toString());
+      }
       const request = {
-        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "recently_updated").addQuery("page", page.toString()).build(),
+        url: urlBuilder.build(),
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const items = [];
-      $2(".unit .inner").each((_, element) => {
+      $2("#dle-content .readed").each((_, element) => {
         const unit = $2(element);
-        const infoLink = unit.find(".info > a").last();
+        const infoLink = unit.find(".readed__title a");
         const title = infoLink.text().trim();
-        const image = unit.find(".poster img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
-        const latest_chapter = unit.find(".content[data-name='chap']").find("a").eq(0).text().trim();
-        const latestChapterMatch = latest_chapter.match(/Chap (\d+)/);
-        const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
+        const rawImage = unit.find("img").attr("data-src") || "";
+        const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+        const rawMangaId = infoLink.attr("href");
+        const mangaId = rawMangaId?.split("/").pop();
+        const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
+        const latestChapter = latestChapterText.replace("Last issue:", "").trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -16966,13 +16890,16 @@ var source = (() => {
               id: mangaId,
               image,
               title,
-              subtitle,
+              subtitle: latestChapter,
               type: "simpleCarouselItem"
             })
           );
         }
       });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      const currentPage = $2(".pagination__pages > span").first().text();
+      const hasNextPage = $2(".pagination__pages > a").filter(
+        (_, el) => parseInt($2(el).text()) > parseInt(currentPage)
+      ).length > 0;
       return {
         items,
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
@@ -16982,50 +16909,53 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", "").addQuery("language[]", "en").addQuery("sort", "most_viewed").addQuery("page", page.toString()).build(),
+        url: baseUrl,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const items = [];
-      $2(".unit .inner").each((_, element) => {
+      $2(".poster.grid-item").each((_, element) => {
         const unit = $2(element);
-        const infoLink = unit.find(".info > a").last();
-        const title = infoLink.text().trim();
-        const image = unit.find(".poster img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const title = unit.find(".poster__title").text().trim();
+        const rawImage = (unit.find(".poster__img img").attr("data-src") || "").trim();
+        const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+        const rawMangaId = unit.attr("href");
+        const mangaId = rawMangaId?.split("/").pop();
+        const rating = unit.find(".poster__label--rate").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
-          items.push(
-            createDiscoverSectionItem({
-              id: mangaId,
-              image,
-              title,
-              type: "simpleCarouselItem"
-            })
-          );
+          items.push({
+            mangaId,
+            imageUrl: image,
+            title,
+            supertitle: `Rating: ${rating}`,
+            type: "featuredCarouselItem"
+          });
         }
       });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      const hasNextPage = !!$2(".panel-page-number .page-blue").next().length;
       return {
         items,
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
       };
     }
-    async getNewMangaSectionItems(section, metadata) {
+    async getNewComicsSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: new URLBuilder(baseUrl).addPath("added").build(),
+        url: baseUrl,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const items = [];
-      $2(".unit .inner").each((_, element) => {
+      $2(".sect--latest .latest.grid-item").each((_, element) => {
         const unit = $2(element);
-        const infoLink = unit.find(".info > a").last();
-        const title = infoLink.text().trim();
-        const image = unit.find(".poster img").attr("src") || "";
-        const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const title = unit.find(".latest__title").clone().children().remove().end().text().trim();
+        const rawImage = unit.find(".latest__img img").attr("src") || "";
+        const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+        const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
+        const mangaId = rawMangaId?.split("/").pop();
+        const latestChapter = unit.find(".latest__chapter a").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -17033,93 +16963,156 @@ var source = (() => {
               id: mangaId,
               image,
               title,
+              subtitle: latestChapter,
               type: "simpleCarouselItem"
             })
           );
         }
       });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      const hasNextPage = !!$2(".pagination__btn-loader a").length;
       return {
         items,
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
       };
     }
-    async getFilterSection() {
+    async getGenreSectionItems(section, metadata) {
       const items = [
-        { id: "manhua", name: "Manhua", type: "type" },
-        { id: "manhwa", name: "Manhwa", type: "type" },
-        { id: "manga", name: "Manga", type: "type" },
-        { id: "1", name: "Action", type: "genres" },
-        { id: "78", name: "Adventure", type: "genres" },
-        { id: "3", name: "Avant Garde", type: "genres" },
-        { id: "4", name: "Boys Love", type: "genres" },
-        { id: "5", name: "Comedy", type: "genres" },
-        { id: "77", name: "Demons", type: "genres" },
-        { id: "6", name: "Drama", type: "genres" },
-        { id: "7", name: "Ecchi", type: "genres" },
-        { id: "79", name: "Fantasy", type: "genres" },
-        { id: "9", name: "Girls Love", type: "genres" },
-        { id: "10", name: "Gourmet", type: "genres" },
-        { id: "11", name: "Harem", type: "genres" },
-        { id: "530", name: "Horror", type: "genres" },
-        { id: "13", name: "Isekai", type: "genres" },
-        { id: "531", name: "Iyashikei", type: "genres" },
-        { id: "15", name: "Josei", type: "genres" },
-        { id: "532", name: "Kids", type: "genres" },
-        { id: "539", name: "Magic", type: "genres" },
-        { id: "533", name: "Mahou Shoujo", type: "genres" },
-        { id: "534", name: "Martial Arts", type: "genres" },
-        { id: "19", name: "Mecha", type: "genres" },
-        { id: "535", name: "Military", type: "genres" },
-        { id: "21", name: "Music", type: "genres" },
-        { id: "22", name: "Mystery", type: "genres" },
-        { id: "23", name: "Parody", type: "genres" },
-        { id: "536", name: "Psychological", type: "genres" },
-        { id: "25", name: "Reverse Harem", type: "genres" },
-        { id: "26", name: "Romance", type: "genres" },
-        { id: "73", name: "School", type: "genres" },
-        { id: "28", name: "Sci-Fi", type: "genres" },
-        { id: "537", name: "Seinen", type: "genres" },
-        { id: "30", name: "Shoujo", type: "genres" },
-        { id: "31", name: "Shounen", type: "genres" },
-        { id: "538", name: "Slice of Life", type: "genres" },
-        { id: "33", name: "Space", type: "genres" },
-        { id: "34", name: "Sports", type: "genres" },
-        { id: "75", name: "Super Power", type: "genres" },
-        { id: "76", name: "Supernatural", type: "genres" },
-        { id: "37", name: "Suspense", type: "genres" },
-        { id: "38", name: "Thriller", type: "genres" },
-        { id: "39", name: "Vampire", type: "genres" }
+        { id: "https://batcave.biz/genres/Action", value: "Action" },
+        { id: "https://batcave.biz/genres/Adventure", value: "Adventure" },
+        { id: "https://batcave.biz/genres/Anthology", value: "Anthology" },
+        {
+          id: "https://batcave.biz/genres/Anthropomorphic",
+          value: "Anthropomorphic"
+        },
+        { id: "https://batcave.biz/genres/Biography", value: "Biography" },
+        { id: "https://batcave.biz/genres/Children", value: "Children" },
+        { id: "https://batcave.biz/genres/Comedy", value: "Comedy" },
+        { id: "https://batcave.biz/genres/Crime", value: "Crime" },
+        { id: "https://batcave.biz/genres/Drama", value: "Drama" },
+        { id: "https://batcave.biz/genres/Family", value: "Family" },
+        { id: "https://batcave.biz/genres/Fantasy", value: "Fantasy" },
+        { id: "https://batcave.biz/genres/Fighting", value: "Fighting" },
+        {
+          id: "https://batcave.biz/genres/Graphic%20Novels",
+          value: "Graphic Novels"
+        },
+        { id: "https://batcave.biz/genres/Historical", value: "Historical" },
+        { id: "https://batcave.biz/genres/Horror", value: "Horror" },
+        {
+          id: "https://batcave.biz/genres/Leading%20Ladies",
+          value: "Leading Ladies"
+        },
+        { id: "https://batcave.biz/genres/LGBTQ", value: "LGBTQ" },
+        { id: "https://batcave.biz/genres/Literature", value: "Literature" },
+        { id: "https://batcave.biz/genres/Manga", value: "Manga" },
+        {
+          id: "https://batcave.biz/genres/Martial%20Arts",
+          value: "Martial Arts"
+        },
+        { id: "https://batcave.biz/genres/Mature", value: "Mature" },
+        { id: "https://batcave.biz/genres/Military", value: "Military" },
+        { id: "https://batcave.biz/genres/Mini-Series", value: "Mini-Series" },
+        {
+          id: "https://batcave.biz/genres/Movies%20%26amp%3B%20TV",
+          value: "Movies & TV"
+        },
+        { id: "https://batcave.biz/genres/Music", value: "Music" },
+        { id: "https://batcave.biz/genres/Mystery", value: "Mystery" },
+        { id: "https://batcave.biz/genres/Mythology", value: "Mythology" },
+        { id: "https://batcave.biz/genres/Personal", value: "Personal" },
+        { id: "https://batcave.biz/genres/Political", value: "Political" },
+        {
+          id: "https://batcave.biz/genres/Post-Apocalyptic",
+          value: "Post-Apocalyptic"
+        },
+        {
+          id: "https://batcave.biz/genres/Psychological",
+          value: "Psychological"
+        },
+        { id: "https://batcave.biz/genres/Pulp", value: "Pulp" },
+        { id: "https://batcave.biz/genres/Religious", value: "Religious" },
+        { id: "https://batcave.biz/genres/Robots", value: "Robots" },
+        { id: "https://batcave.biz/genres/Romance", value: "Romance" },
+        { id: "https://batcave.biz/genres/School%20Life", value: "School Life" },
+        { id: "https://batcave.biz/genres/Sci-Fi", value: "Sci-Fi" },
+        {
+          id: "https://batcave.biz/genres/Slice%20of%20Life",
+          value: "Slice of Life"
+        },
+        { id: "https://batcave.biz/genres/Sport", value: "Sport" },
+        { id: "https://batcave.biz/genres/Spy", value: "Spy" },
+        { id: "https://batcave.biz/genres/Superhero", value: "Superhero" },
+        { id: "https://batcave.biz/genres/Supernatural", value: "Supernatural" },
+        { id: "https://batcave.biz/genres/Suspense", value: "Suspense" },
+        { id: "https://batcave.biz/genres/Thriller", value: "Thriller" },
+        { id: "https://batcave.biz/genres/Vampires", value: "Vampires" },
+        { id: "https://batcave.biz/genres/Video%20Games", value: "Video Games" },
+        { id: "https://batcave.biz/genres/War", value: "War" },
+        { id: "https://batcave.biz/genres/Western", value: "Western" },
+        { id: "https://batcave.biz/genres/Zombies", value: "Zombies" }
       ];
       return {
         items: items.map((item) => ({
           type: "genresCarouselItem",
           searchQuery: {
             title: "",
-            filters: [
-              {
-                id: item.type,
-                value: item.type === "genres" ? { [item.id]: "included" } : item.id
-              }
-            ]
+            filters: [{ id: "genres", value: { [item.id]: "included" } }]
           },
-          name: item.name,
-          metadata: void 0
-        })),
-        metadata: void 0
+          name: item.value,
+          metadata: metadata ? { page: metadata.page } : void 0
+        }))
       };
     }
+    async getGenreSearchQuery(genreId, metadata) {
+      const page = metadata?.page ?? 1;
+      const request = {
+        url: genreId,
+        method: "GET"
+      };
+      postToDiscordWebhook(`Genre URL: ${request.url}`);
+      const $2 = await this.fetchCheerio(request);
+      const searchResults = [];
+      $2(".readed").each((_, element) => {
+        const unit = $2(element);
+        const infoLink = unit.find(".readed__title a");
+        const title = infoLink.text().trim();
+        const rawImage = unit.find("img").attr("data-src") || "";
+        const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+        const rawMangaId = infoLink.attr("href");
+        const mangaId = rawMangaId?.split("/").pop();
+        const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
+        const latestChapter = latestChapterText.replace("Last issue:", "").trim().replace(/.*#(\d+).*/, "#$1");
+        if (!mangaId) return;
+        searchResults.push({
+          mangaId,
+          imageUrl: image,
+          title,
+          subtitle: latestChapter,
+          metadata: void 0
+        });
+      });
+      const currentPage = parseInt($2(".pagination__pages > span").first().text()) || 1;
+      const hasNextPage = $2(".pagination__pages > a").filter((_, el) => {
+        const pageNum = parseInt($2(el).text());
+        return !isNaN(pageNum) && pageNum > currentPage;
+      }).length > 0;
+      return {
+        items: searchResults,
+        metadata: hasNextPage ? { page: page + 1 } : void 0
+      };
+    }
+    getMangaShareUrl(mangaId) {
+      return `${baseUrl}/${mangaId}`;
+    }
     checkCloudflareStatus(status) {
-      if (status == 503 || status == 403) {
+      if (status === 503 || status === 403) {
         throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
       }
     }
     async fetchCheerio(request) {
       const [response, data2] = await Application.scheduleRequest(request);
       this.checkCloudflareStatus(response.status);
-      const htmlStr = Application.arrayBufferToUTF8String(data2);
-      const dom = parseDocument(htmlStr);
-      return load(dom);
+      return load(Application.arrayBufferToUTF8String(data2));
     }
   };
   function createDiscoverSectionItem(options) {
@@ -17132,38 +17125,7 @@ var source = (() => {
       metadata: void 0
     };
   }
-  function convertToISO8601(dateText) {
-    const now = /* @__PURE__ */ new Date();
-    if (!dateText?.trim()) return now.toISOString();
-    if (/^yesterday$/i.test(dateText)) {
-      now.setDate(now.getDate() - 1);
-      return now.toISOString();
-    }
-    const relativeMatch = dateText.match(
-      /(\d+)\s+(second|minute|hour|day)s?\s+ago/i
-    );
-    if (relativeMatch) {
-      const [_, value, unit] = relativeMatch;
-      switch (unit.toLowerCase()) {
-        case "second":
-          now.setSeconds(now.getSeconds() - +value);
-          break;
-        case "minute":
-          now.setMinutes(now.getMinutes() - +value);
-          break;
-        case "hour":
-          now.setHours(now.getHours() - +value);
-          break;
-        case "day":
-          now.setDate(now.getDate() - +value);
-          break;
-      }
-      return now.toISOString();
-    }
-    const parsedDate = new Date(dateText);
-    return isNaN(parsedDate.getTime()) ? now.toISOString() : parsedDate.toISOString();
-  }
-  var MangaFire = new MangaFireExtension();
+  var Batcave = new BatcaveExtension();
   return __toCommonJS(main_exports);
 })();
 /*! Bundled license information:
