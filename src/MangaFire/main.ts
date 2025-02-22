@@ -21,6 +21,8 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
+import * as htmlparser2 from "htmlparser2";
+import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
 
@@ -368,43 +370,64 @@ export class MangaFireExtension implements MangaFireImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    // example https://mangafire.to/ajax/read/0w5k/chapter/en
-    const request = {
+    const mangaId = sourceManga.mangaId.split(".")[1];
+
+    const requests = ["read", "manga"].map((type) => ({
       url: new URLBuilder(baseUrl)
         .addPath("ajax")
-        .addPath("read")
-        .addPath(sourceManga.mangaId.split(".")[1])
+        .addPath(type)
+        .addPath(mangaId)
         .addPath("chapter")
         .addPath("en")
         .build(),
       method: "GET",
-    };
+    }));
 
-    const [_, buffer] = await Application.scheduleRequest(request);
+    const [buffer1, buffer2] = await Promise.all(
+      requests.map((req) =>
+        Application.scheduleRequest(req).then(([, buffer]) => buffer),
+      ),
+    );
 
-    const r: MangaFire.Result = JSON.parse(
-      Application.arrayBufferToUTF8String(buffer),
-    ) as MangaFire.Result;
-    const $ = cheerio.load(r.result.html);
+    const r1: MangaFire.Result = JSON.parse(
+      Application.arrayBufferToUTF8String(buffer1),
+    );
+    const r2: MangaFire.Result = JSON.parse(
+      Application.arrayBufferToUTF8String(buffer2),
+    );
+
+    const loadHTML = (html: string) =>
+      cheerio.load(htmlparser2.parseDocument(html));
+
+    const $1 = loadHTML(r1.result.html);
+    const $r2 = loadHTML(
+      typeof r2.result === "string" ? r2.result : r2.result.html,
+    );
+
+    const timestampMap = new Map<string, string>();
+
+    $r2("li").each((_, el) => {
+      const li = $r2(el);
+      const chapterNumber = li.attr("data-number") || "0";
+      const dateText = li.find("span").last().text().trim();
+      timestampMap.set(chapterNumber, dateText);
+    });
 
     const chapters: Chapter[] = [];
 
-    $("li").each((_, element) => {
-      const li = $(element);
+    $1("li").each((_, el) => {
+      const li = $1(el);
       const link = li.find("a");
-      const chapterId = link.attr("data-id") || "0";
-      const title = link.find("span").first().text().trim();
-      // Extract chapter number from data-number attribute
-      const chapterNumber = parseFloat(link.attr("data-number") || "0");
-      //const timestamp = parseInt(li.find('span').last().attr('data-date') || '0') * 1000;
-      //const creationDate = new Date(timestamp).toISOString()
+      const chapterNumber = link.attr("data-number") || "0";
 
       chapters.push({
-        chapterId: chapterId,
-        title: title,
-        sourceManga: sourceManga,
-        chapNum: chapterNumber,
-        //creationDate: new Date(creationDate),
+        chapterId: link.attr("data-id") || "0",
+        title: link.find("span").first().text().trim(),
+        sourceManga,
+        chapNum: parseFloat(chapterNumber),
+        publishDate: new Date(
+          convertToISO8601(timestampMap.get(chapterNumber) || ""),
+        ),
         volume: undefined,
         langCode: "🇬🇧",
       });
@@ -691,7 +714,9 @@ export class MangaFireExtension implements MangaFireImplementation {
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
     this.checkCloudflareStatus(response.status);
-    return cheerio.load(Application.arrayBufferToUTF8String(data));
+    const htmlStr = Application.arrayBufferToUTF8String(data);
+    const dom = htmlparser2.parseDocument(htmlStr);
+    return cheerio.load(dom);
   }
 }
 
@@ -710,6 +735,44 @@ function createDiscoverSectionItem(options: {
     subtitle: options.subtitle,
     metadata: undefined,
   };
+}
+
+function convertToISO8601(dateText: string): string {
+  const now = new Date();
+
+  if (!dateText?.trim()) return now.toISOString(); // Handle empty input
+
+  if (/^yesterday$/i.test(dateText)) {
+    now.setDate(now.getDate() - 1);
+    return now.toISOString();
+  }
+
+  const relativeMatch = dateText.match(
+    /(\d+)\s+(second|minute|hour|day)s?\s+ago/i,
+  );
+  if (relativeMatch) {
+    const [_, value, unit] = relativeMatch;
+    switch (unit.toLowerCase()) {
+      case "second":
+        now.setSeconds(now.getSeconds() - +value);
+        break;
+      case "minute":
+        now.setMinutes(now.getMinutes() - +value);
+        break;
+      case "hour":
+        now.setHours(now.getHours() - +value);
+        break;
+      case "day":
+        now.setDate(now.getDate() - +value);
+        break;
+    }
+    return now.toISOString();
+  }
+
+  const parsedDate = new Date(dateText);
+  return isNaN(parsedDate.getTime())
+    ? now.toISOString()
+    : parsedDate.toISOString();
 }
 
 export const MangaFire = new MangaFireExtension();
