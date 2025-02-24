@@ -1,18 +1,18 @@
 {
-  "buildTime": "2025-02-22T23:10:19.894Z",
+  "buildTime": "2025-02-24T10:06:15.065Z",
   "builtWith": {
-    "toolchain": "1.0.0-alpha.33",
-    "types": "1.0.0-alpha.33"
+    "toolchain": "1.0.0-alpha.39",
+    "types": "1.0.0-alpha.39"
   },
   "repository": {
-    "description": "An extension repository for Paperback",
-    "name": "Paperback Extension Repository"
+    "name": "KakarotExtension",
+    "description": "Mangafire extension"
   },
   "sources": [
     {
       "name": "Batcave",
       "description": "Extension that pulls content from batcave.biz.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -73,7 +73,7 @@
     {
       "name": "MangaFire",
       "description": "Extension that pulls content from mangafire.to.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -142,7 +142,7 @@
     {
       "name": "Manganato",
       "description": "Extension that pulls content from manganato.com.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
