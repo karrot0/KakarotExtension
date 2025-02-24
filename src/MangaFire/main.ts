@@ -1,4 +1,5 @@
 import {
+  BasicRateLimiter,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -22,7 +23,7 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import { postToDiscordWebhook } from "../utils/discord_debugging";
+//import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
 
@@ -36,9 +37,15 @@ type MangaFireImplementation = Extension &
 
 export class MangaFireExtension implements MangaFireImplementation {
   requestManager = new FireInterceptor("main");
+  globalRateLimiter = new BasicRateLimiter("rateLimiter", {
+    numberOfRequests: 15,
+    bufferInterval: 1,
+    ignoreImages: true,
+  });
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+    this.globalRateLimiter.registerInterceptor();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {

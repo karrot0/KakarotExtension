@@ -1,4 +1,5 @@
 import {
+  BasicRateLimiter,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -12,6 +13,7 @@ import {
   MangaProviding,
   PagedResults,
   Request,
+  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
@@ -33,20 +35,33 @@ type ThunderImplementation = Extension &
 
 export class ThunderExtension implements ThunderImplementation {
   requestManager = new ThunderInterceptor("main");
+  globalRateLimiter = new BasicRateLimiter("rateLimiter", {
+    numberOfRequests: 15,
+    bufferInterval: 1,
+    ignoreImages: true,
+  });
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
-    Application.registerSearchFilter({
-      id: "sortBy",
+    this.globalRateLimiter.registerInterceptor();
+  }
+
+  async getSearchFilters(): Promise<SearchFilter[]> {
+    const filters: SearchFilter[] = [];
+    filters.push({
+      id: "type",
       type: "dropdown",
       options: [
-        { id: "relevance", value: "Relevance" },
-        { id: "latest", value: "Latest" },
-        { id: "oldest", value: "Oldest" },
+        { id: "all", value: "All" },
+        { id: "manhua", value: "Manhua" },
+        { id: "manhwa", value: "Manhwa" },
+        { id: "manga", value: "Manga" },
       ],
-      value: "relevance",
-      title: "Sort By Filter",
+      value: "all",
+      title: "Type Filter",
     });
+
+    return filters;
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -259,11 +274,43 @@ export class ThunderExtension implements ThunderImplementation {
       const $ = await this.fetchCheerio(request);
 
       const pages: string[] = [];
-      $("#readerarea img.ts-main-image").each((_, img) => {
-        const src = $(img).attr("src");
-        if (!src) return;
-        pages.push(src);
+
+      const readerScript = $("script").filter((i, el) => {
+        return $(el).html()?.includes("ts_reader.run") ?? false;
       });
+
+      if (!readerScript) {
+        throw new Error(`Failed to find get reader script`);
+      }
+
+      const scriptMatch = readerScript
+        .html()
+        ?.match(/ts_reader\.run\((.*?(?=\);|},))/);
+
+      let scriptObj: any = "";
+
+      if (scriptMatch && scriptMatch[1]) {
+        scriptObj = scriptMatch[1];
+      }
+
+      if (!scriptObj) {
+        throw new Error(`Failed to parse script`);
+      }
+
+      if (!scriptObj.endsWith("}")) {
+        scriptObj = scriptObj + "}";
+      }
+
+      scriptObj = JSON.parse(scriptObj);
+
+      if (!scriptObj?.sources) {
+        throw new Error(`Failed to find sources property`);
+      }
+
+      for (const index of scriptObj.sources) {
+        if (index?.images.length == 0) continue;
+        index.images.map((p: string) => pages.push(encodeURI(p.trim())));
+      }
 
       return {
         id: chapter.chapterId,
@@ -351,15 +398,14 @@ export class ThunderExtension implements ThunderImplementation {
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
-        items.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image: image,
-            title: title,
-            subtitle: `Rating: ${rating}`,
-            type: "simpleCarouselItem",
-          }),
-        );
+        items.push({
+          type: "featuredCarouselItem",
+          mangaId: mangaId,
+          imageUrl: image,
+          title: title,
+          supertitle: `Rating: ${rating}`,
+          metadata: undefined,
+        });
       }
     });
 
@@ -418,6 +464,18 @@ export class ThunderExtension implements ThunderImplementation {
     };
   }
 
+  async getCloudflareBypassRequestAsync(): Promise<Request> {
+    return {
+      url: `${baseUrl}/`,
+      method: "GET",
+      headers: {
+        referer: `${baseUrl}/`,
+        origin: `${baseUrl}/`,
+        "user-agent": await Application.getDefaultUserAgent(),
+      },
+    };
+  }
+
   checkCloudflareStatus(status: number): void {
     if (status == 503 || status == 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
@@ -425,6 +483,7 @@ export class ThunderExtension implements ThunderImplementation {
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
+    //this.getCloudflareBypassRequestAsync()
     const [response, data] = await Application.scheduleRequest(request);
     this.checkCloudflareStatus(response.status);
     return cheerio.load(Application.arrayBufferToUTF8String(data));

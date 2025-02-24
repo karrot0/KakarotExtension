@@ -139,7 +139,6 @@ export class BatcaveExtension implements BatcaveImplementation {
     }
 
     const searchUrl = urlBuilder;
-    postToDiscordWebhook(`Search URL: ${searchUrl.build()}`);
 
     // Get filter values
     const getFilterValue = (id: string) =>
