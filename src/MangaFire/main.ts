@@ -38,7 +38,7 @@ type MangaFireImplementation = Extension &
 export class MangaFireExtension implements MangaFireImplementation {
   requestManager = new FireInterceptor("main");
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
-    numberOfRequests: 15,
+    numberOfRequests: 10,
     bufferInterval: 1,
     ignoreImages: true,
   });
@@ -390,55 +390,80 @@ export class MangaFireExtension implements MangaFireImplementation {
       method: "GET",
     }));
 
-    const [buffer1, buffer2] = await Promise.all(
-      requests.map((req) =>
-        Application.scheduleRequest(req).then(([, buffer]) => buffer),
-      ),
-    );
+    let buffer1, buffer2;
+    try {
+      [buffer1, buffer2] = await Promise.all(
+        requests.map((req) =>
+          Application.scheduleRequest(req).then(([, buffer]) => buffer),
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to fetch chapter buffers:", error);
+      buffer1 = buffer2 = null;
+    }
 
-    const r1: MangaFire.Result = JSON.parse(
-      Application.arrayBufferToUTF8String(buffer1),
-    );
-    const r2: MangaFire.Result = JSON.parse(
-      Application.arrayBufferToUTF8String(buffer2),
-    );
+    let r1: MangaFire.Result | null = null;
+    let r2: MangaFire.Result | null = null;
+    let $r2;
+    let $1;
 
-    const loadHTML = (html: string) =>
-      cheerio.load(htmlparser2.parseDocument(html));
+    if (buffer1) {
+      try {
+        r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1));
+        if (r1?.result?.html) {
+          $1 = cheerio.load(r1.result.html);
+        }
+      } catch (error) {
+        console.error("Failed to parse buffer1:", error);
+      }
+    }
 
-    const $1 = loadHTML(r1.result.html);
-    const $r2 = loadHTML(
-      typeof r2.result === "string" ? r2.result : r2.result.html,
-    );
+    if (buffer2) {
+      try {
+        r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2));
+        const html =
+          typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+        if (html) {
+          $r2 = cheerio.load(html);
+        }
+      } catch (error) {
+        console.error("Failed to parse buffer2:", error);
+      }
+    }
 
     const timestampMap = new Map<string, string>();
 
-    $r2("li").each((_, el) => {
-      const li = $r2(el);
-      const chapterNumber = li.attr("data-number") || "0";
-      const dateText = li.find("span").last().text().trim();
-      timestampMap.set(chapterNumber, dateText);
-    });
+    if ($r2) {
+      $r2("li").each((_, el) => {
+        const li = $r2(el);
+        const chapterNumber = li.attr("data-number") || "0";
+        const dateText = li.find("span").last().text().trim();
+        timestampMap.set(chapterNumber, dateText);
+      });
+    }
 
     const chapters: Chapter[] = [];
 
-    $1("li").each((_, el) => {
-      const li = $1(el);
-      const link = li.find("a");
-      const chapterNumber = link.attr("data-number") || "0";
+    if ($1) {
+      $1("li").each((_, el) => {
+        const li = $1(el);
+        const link = li.find("a");
+        const chapterNumber = link.attr("data-number") || "0";
+        const timestamp = timestampMap.get(chapterNumber);
 
-      chapters.push({
-        chapterId: link.attr("data-id") || "0",
-        title: link.find("span").first().text().trim(),
-        sourceManga,
-        chapNum: parseFloat(chapterNumber),
-        publishDate: new Date(
-          convertToISO8601(timestampMap.get(chapterNumber) || ""),
-        ),
-        volume: undefined,
-        langCode: "🇬🇧",
+        chapters.push({
+          chapterId: link.attr("data-id") || "0",
+          title: link.find("span").first().text().trim(),
+          sourceManga,
+          chapNum: parseFloat(chapterNumber),
+          publishDate: timestamp
+            ? new Date(convertToISO8601(timestamp))
+            : new Date(),
+          volume: undefined,
+          langCode: "🇬🇧",
+        });
       });
-    });
+    }
 
     return chapters;
   }

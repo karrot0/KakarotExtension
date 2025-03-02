@@ -1,6 +1,5 @@
 export async function postToDiscordWebhook(message: string) {
-  const webhookUrl =
-    "https://discord.com/api/webhooks/1342907329342869646/uDJiNkb5iIc-BXrWhHUzAn_KtlU7_7zM0HH6pPZJX1_CaX_zGpXNscHIj0uo8Y1yC2Jy";
+  const webhookUrl = "";
   const payload = { content: message };
   const request = {
     url: webhookUrl,

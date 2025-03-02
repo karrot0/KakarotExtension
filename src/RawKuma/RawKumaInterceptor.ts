@@ -1,12 +1,10 @@
 import { PaperbackInterceptor, Request, Response } from "@paperback/types";
 
-export class NatoInterceptor extends PaperbackInterceptor {
+export class RawKumaInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
       ...request.headers,
-      referer: `https://m.manganelo.com/wwww`,
-      origin: `https://m.manganelo.com/wwww`,
-      "user-agent": await Application.getDefaultUserAgent(),
+      referer: `https://rawkuma.com/`,
     };
     return request;
   }
