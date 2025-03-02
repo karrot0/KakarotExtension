@@ -16951,7 +16951,7 @@ var source = (() => {
   var MangaFireExtension = class {
     requestManager = new FireInterceptor("main");
     globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
-      numberOfRequests: 15,
+      numberOfRequests: 10,
       bufferInterval: 1,
       ignoreImages: true
     });
@@ -17225,46 +17225,69 @@ var source = (() => {
         url: new URLBuilder(baseUrl).addPath("ajax").addPath(type).addPath(mangaId).addPath("chapter").addPath("en").build(),
         method: "GET"
       }));
-      const [buffer1, buffer2] = await Promise.all(
-        requests.map(
-          (req) => Application.scheduleRequest(req).then(([, buffer]) => buffer)
-        )
-      );
-      const r1 = JSON.parse(
-        Application.arrayBufferToUTF8String(buffer1)
-      );
-      const r2 = JSON.parse(
-        Application.arrayBufferToUTF8String(buffer2)
-      );
-      const loadHTML = (html3) => load(parseDocument(html3));
-      const $1 = loadHTML(r1.result.html);
-      const $r2 = loadHTML(
-        typeof r2.result === "string" ? r2.result : r2.result.html
-      );
+      let buffer1, buffer2;
+      try {
+        [buffer1, buffer2] = await Promise.all(
+          requests.map(
+            (req) => Application.scheduleRequest(req).then(([, buffer]) => buffer)
+          )
+        );
+      } catch (error) {
+        console.error("Failed to fetch chapter buffers:", error);
+        buffer1 = buffer2 = null;
+      }
+      let r1 = null;
+      let r2 = null;
+      let $r2;
+      let $1;
+      if (buffer1) {
+        try {
+          r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1));
+          if (r1?.result?.html) {
+            $1 = load(r1.result.html);
+          }
+        } catch (error) {
+          console.error("Failed to parse buffer1:", error);
+        }
+      }
+      if (buffer2) {
+        try {
+          r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2));
+          const html3 = typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+          if (html3) {
+            $r2 = load(html3);
+          }
+        } catch (error) {
+          console.error("Failed to parse buffer2:", error);
+        }
+      }
       const timestampMap = /* @__PURE__ */ new Map();
-      $r2("li").each((_, el) => {
-        const li = $r2(el);
-        const chapterNumber = li.attr("data-number") || "0";
-        const dateText = li.find("span").last().text().trim();
-        timestampMap.set(chapterNumber, dateText);
-      });
-      const chapters = [];
-      $1("li").each((_, el) => {
-        const li = $1(el);
-        const link = li.find("a");
-        const chapterNumber = link.attr("data-number") || "0";
-        chapters.push({
-          chapterId: link.attr("data-id") || "0",
-          title: link.find("span").first().text().trim(),
-          sourceManga,
-          chapNum: parseFloat(chapterNumber),
-          publishDate: new Date(
-            convertToISO8601(timestampMap.get(chapterNumber) || "")
-          ),
-          volume: void 0,
-          langCode: "\u{1F1EC}\u{1F1E7}"
+      if ($r2) {
+        $r2("li").each((_, el) => {
+          const li = $r2(el);
+          const chapterNumber = li.attr("data-number") || "0";
+          const dateText = li.find("span").last().text().trim();
+          timestampMap.set(chapterNumber, dateText);
         });
-      });
+      }
+      const chapters = [];
+      if ($1) {
+        $1("li").each((_, el) => {
+          const li = $1(el);
+          const link = li.find("a");
+          const chapterNumber = link.attr("data-number") || "0";
+          const timestamp = timestampMap.get(chapterNumber);
+          chapters.push({
+            chapterId: link.attr("data-id") || "0",
+            title: link.find("span").first().text().trim(),
+            sourceManga,
+            chapNum: parseFloat(chapterNumber),
+            publishDate: timestamp ? new Date(convertToISO8601(timestamp)) : /* @__PURE__ */ new Date(),
+            volume: void 0,
+            langCode: "\u{1F1EC}\u{1F1E7}"
+          });
+        });
+      }
       return chapters;
     }
     async getChapterDetails(chapter) {
