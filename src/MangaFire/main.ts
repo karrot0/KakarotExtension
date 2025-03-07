@@ -58,7 +58,7 @@ export class MangaFireExtension implements MangaFireImplementation {
       {
         id: "updated_section",
         title: "Recently Updated",
-        type: DiscoverSectionType.simpleCarousel,
+        type: DiscoverSectionType.chapterUpdates,
       },
       {
         id: "new_manga_section",
@@ -78,8 +78,6 @@ export class MangaFireExtension implements MangaFireImplementation {
     metadata: MangaFire.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
-      // case "featured_section":
-      //   return this.getFeaturedSectionItems(section, metadata);
       case "popular_section":
         return this.getPopularSectionItems(section, metadata);
       case "updated_section":
@@ -209,7 +207,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       searchUrl.addQuery("type[]", type);
     }
 
-    // Handle included and excluded genres
     if (genres && typeof genres === "object") {
       Object.entries(genres).forEach(([id, value]) => {
         if (value === "included") {
@@ -280,7 +277,6 @@ export class MangaFireExtension implements MangaFireImplementation {
       });
     });
 
-    // Check if there's a next page
     const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
 
     return {
@@ -297,7 +293,6 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     const $ = await this.fetchCheerio(request);
 
-    // Extract basic manga details
     const title = $(".manga-detail .info h1").text().trim();
     const altTitles = [$(".manga-detail .info h6").text().trim()];
     const image = $(".manga-detail .poster img").attr("src") || "";
@@ -327,12 +322,10 @@ export class MangaFireExtension implements MangaFireImplementation {
       status = "UNKNOWN";
     }
 
-    // Extract tags
     const tags: TagSection[] = [];
     const genres: string[] = [];
     let rating = 1;
 
-    // Parse info-rating section
     $("#info-rating .meta div").each((_, element) => {
       const label = $(element).find("span").first().text().trim();
       if (label === "Genres:") {
@@ -344,10 +337,9 @@ export class MangaFireExtension implements MangaFireImplementation {
       }
     });
 
-    // Get rating if available
     const ratingValue = $("#info-rating .score .live-score").text().trim();
     if (ratingValue) {
-      rating = parseFloat(ratingValue) / 2; // Convert 10-point scale to 5-point scale
+      rating = parseFloat(ratingValue);
     }
 
     if (genres.length > 0) {
@@ -355,7 +347,10 @@ export class MangaFireExtension implements MangaFireImplementation {
         id: "genres",
         title: "Genres",
         tags: genres.map((genre) => ({
-          id: genre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+          id: genre
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, ""),
           title: genre,
         })),
       });
@@ -390,7 +385,8 @@ export class MangaFireExtension implements MangaFireImplementation {
       method: "GET",
     }));
 
-    let buffer1, buffer2;
+    let buffer1: ArrayBuffer | null = null;
+    let buffer2: ArrayBuffer | null = null;
     try {
       [buffer1, buffer2] = await Promise.all(
         requests.map((req) =>
@@ -404,13 +400,13 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     let r1: MangaFire.Result | null = null;
     let r2: MangaFire.Result | null = null;
-    let $r2;
-    let $1;
+    let $r2: CheerioAPI | undefined;
+    let $1: CheerioAPI | undefined;
 
     if (buffer1) {
       try {
-        r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1));
-        if (r1?.result?.html) {
+        r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1)) as MangaFire.Result;
+        if (r1?.result && typeof r1.result !== 'string' && r1.result.html) {
           $1 = cheerio.load(r1.result.html);
         }
       } catch (error) {
@@ -420,9 +416,11 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     if (buffer2) {
       try {
-        r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2));
-        const html =
-          typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+        r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2)) as MangaFire.Result;
+        const html = typeof r2?.result === "string" 
+          ? r2.result 
+          : r2?.result?.html || "";
+        
         if (html) {
           $r2 = cheerio.load(html);
         }
@@ -455,7 +453,7 @@ export class MangaFireExtension implements MangaFireImplementation {
           chapterId: link.attr("data-id") || "0",
           title: link.find("span").first().text().trim(),
           sourceManga,
-          chapNum: parseFloat(chapterNumber),
+          chapNum: parseFloat(String(chapterNumber)),
           publishDate: timestamp
             ? new Date(convertToISO8601(timestamp))
             : new Date(),
@@ -496,16 +494,11 @@ export class MangaFireExtension implements MangaFireImplementation {
       return {
         mangaId: chapter.sourceManga.mangaId,
         id: chapter.chapterId,
-        pages,
+        pages: pages,
       };
     } catch (error) {
-      console.error(
-        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-        error,
-      );
-      throw new Error(
-        `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-      );
+      console.error("Error fetching chapter details:", error);
+      throw error;
     }
   }
 
@@ -537,7 +530,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     $(".unit .inner").each((_, element) => {
       const unit = $(element);
-      const infoLink = unit.find(".info > a").last(); // Get the manga title link
+      const infoLink = unit.find(".info > a").last();
       const title = infoLink.text().trim();
       const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
@@ -551,18 +544,21 @@ export class MangaFireExtension implements MangaFireImplementation {
       const subtitle = latestChapterMatch
         ? `Ch. ${latestChapterMatch[1]}`
         : undefined;
+      
+      const chapterLink = unit.find(".content[data-name='chap'] a").first();
+      const chapterId = chapterLink.attr("href")?.split("/").pop() || "";
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
-        items.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image: image,
-            title: title,
-            subtitle: subtitle,
-            type: "simpleCarouselItem",
-          }),
-        );
+        items.push({
+          type: "chapterUpdatesCarouselItem",
+          mangaId: mangaId,
+          chapterId: chapterId,
+          imageUrl: image,
+          title: title,
+          subtitle: subtitle,
+          metadata: undefined,
+        });
       }
     });
 
@@ -584,40 +580,51 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     const request = {
       url: new URLBuilder(baseUrl)
-        .addPath("filter")
+      .addPath("filter")
         .addQuery("keyword", "")
         .addQuery("language[]", "en")
         .addQuery("sort", "most_viewed")
-        .addQuery("page", page.toString())
-        .build(),
-      method: "GET",
+      .addQuery("page", page.toString())
+      .build(),
+      method: "GET"
     };
 
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-    $(".unit .inner").each((_, element) => {
+        $(".unit .inner").each((_, element) => {
       const unit = $(element);
-      const infoLink = unit.find(".info > a").last(); // Get the manga title link
+      const infoLink = unit.find(".info > a").last();
       const title = infoLink.text().trim();
-      const image = unit.find(".poster img").attr("src") || "";
+            const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+
+      const latestChapter = unit
+        .find(".content[data-name='chap'] a")
+        .filter((_, el) => $(el).find("b").text() === "EN")
+        .first()
+        .find("span")
+        .first()
+        .text()
+        .trim();
+
+      const chapterMatch = latestChapter.match(/Chap (\d+)/);
+      const supertitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : "";
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
-        items.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image: image,
-            title: title,
-            type: "simpleCarouselItem",
-          }),
-        );
+        items.push({
+          type: "featuredCarouselItem",
+          mangaId: mangaId,
+          imageUrl: image,
+          title: title,
+          supertitle: supertitle,
+          metadata: undefined,
+        });
       }
     });
 
-    // Check if there's a next page
-    const hasNextPage = !!$(".page-item.active + .page-item .page-link").length;
+    const hasNextPage = !!$(".hpage .r").length;
 
     return {
       items: items,
@@ -647,6 +654,18 @@ export class MangaFireExtension implements MangaFireImplementation {
       const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
 
+      const latestChapter = unit
+        .find(".content[data-name='chap'] a")
+        .first()
+        .find("span")
+        .first()
+        .text()
+        .trim();
+      const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
+      const subtitle = latestChapterMatch
+        ? `Ch. ${latestChapterMatch[1]}`
+        : undefined;
+
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
         items.push(
@@ -654,6 +673,7 @@ export class MangaFireExtension implements MangaFireImplementation {
             id: mangaId,
             image: image,
             title: title,
+            subtitle: subtitle,
             type: "simpleCarouselItem",
           }),
         );
@@ -772,7 +792,7 @@ function createDiscoverSectionItem(options: {
 function convertToISO8601(dateText: string): string {
   const now = new Date();
 
-  if (!dateText?.trim()) return now.toISOString(); // Handle empty input
+  if (!dateText?.trim()) return now.toISOString();
 
   if (/^yesterday$/i.test(dateText)) {
     now.setDate(now.getDate() - 1);

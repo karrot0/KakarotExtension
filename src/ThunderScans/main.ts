@@ -74,7 +74,7 @@ export class ThunderExtension implements ThunderImplementation {
       {
         id: "updated_section",
         title: "Recently Updated",
-        type: DiscoverSectionType.simpleCarousel,
+        type: DiscoverSectionType.chapterUpdates,
       },
       {
         id: "new_manga_section",
@@ -94,8 +94,6 @@ export class ThunderExtension implements ThunderImplementation {
     metadata: Thunder.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
-      // case "featured_section":
-      //   return this.getFeaturedSectionItems(section, metadata);
       case "popular_section":
         return this.getPopularSectionItems(section, metadata);
       case "updated_section":
@@ -204,7 +202,8 @@ export class ThunderExtension implements ThunderImplementation {
         id: "genres",
         title: "Genres",
         tags: genres.map((genre) => ({
-          id: genre.toLowerCase(),
+          // Format the genre ID to be alphanumeric (replace spaces with hyphens, remove other special chars)
+          id: genre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
           title: genre,
         })),
       });
@@ -239,7 +238,6 @@ export class ThunderExtension implements ThunderImplementation {
       const link = li.find("a");
       const href = link.attr("href");
 
-      // Skip locked chapters
       if (link.attr("data-bs-target") === "#lockedChapterModal") {
         return;
       }
@@ -345,7 +343,6 @@ export class ThunderExtension implements ThunderImplementation {
       const image = unit.find(".limit img").attr("src") || "";
       const mangaId = infoLink.attr("href");
 
-      // Get latest chapter from the first entry in chapter list
       const latestChapter = unit.find(".chapter-list .adds").first();
       const chapterText = latestChapter.find(".epxs").text().trim();
       const subtitle = chapterText || "";
@@ -506,5 +503,3 @@ function createDiscoverSectionItem(options: {
     metadata: undefined,
   };
 }
-
-export const ThunderScans = new ThunderExtension();

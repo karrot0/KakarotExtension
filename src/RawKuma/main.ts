@@ -96,8 +96,12 @@ export class RawKumaExtension implements KumaImplementation {
         const label = $(element).find("label").text().trim();
         const value = $(element).find("input[type=checkbox]").attr("value");
         if (label && value) {
+          const alphanumericId = value.toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+            
           genres.push({
-            id: value.toLowerCase(),
+            id: alphanumericId,
             value: label,
           });
         }
@@ -120,7 +124,7 @@ export class RawKumaExtension implements KumaImplementation {
       {
         id: "updated_section",
         title: "Recently Updated",
-        type: DiscoverSectionType.simpleCarousel,
+        type: DiscoverSectionType.chapterUpdates,
       },
       {
         id: "new_manga_section",
@@ -137,7 +141,7 @@ export class RawKumaExtension implements KumaImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: Thunder.Metadata | undefined,
+    metadata: Kuma.Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
@@ -146,6 +150,26 @@ export class RawKumaExtension implements KumaImplementation {
         return this.getUpdatedSectionItems(section, metadata);
       case "new_manga_section":
         return this.getNewMangaSectionItems(section, metadata);
+      case "genres": {
+        const genres = await this.getGenreList();
+        return {
+          items: genres.map((item) => ({
+            type: "genresCarouselItem",
+            searchQuery: {
+              title: "",
+              filters: [
+                {
+                  id: "genres",
+                  value: { [item.id]: "included" },
+                },
+              ],
+            },
+            name: item.value,
+            metadata: undefined,
+          })),
+          metadata: undefined,
+        };
+      }
       default:
         return { items: [] };
     }
@@ -186,16 +210,24 @@ export class RawKumaExtension implements KumaImplementation {
               urlBuilder.addQuery("yearx", filter.value);
             }
             break;
-          case "genres":
+          case "genres": {
             const genreRecord = filter.value as Record<
               string,
               "included" | "excluded"
             >;
+            
+            const genreList = await this.getGenreList();
+            const idToValueMap = new Map(genreList.map(g => [g.id, g.value]));
+            
             Object.entries(genreRecord).forEach(([genreId, state]) => {
-              const value = state === "excluded" ? `-${genreId}` : genreId;
-              urlBuilder.addQuery("genre[]", value);
+              const originalValue = idToValueMap.get(genreId);
+              if (originalValue) {
+                const value = state === "excluded" ? `-${originalValue}` : originalValue;
+                urlBuilder.addQuery("genre[]", value);
+              }
             });
             break;
+          }
         }
       }
     }
@@ -206,33 +238,6 @@ export class RawKumaExtension implements KumaImplementation {
       method: "GET",
     };
 
-    // Handle direct URL searches
-    if (query.title.startsWith("https://rawkuma.com/")) {
-      try {
-        const mangaId = query.title.split("/manga/")[1]?.replace(/\/$/, "");
-        if (!mangaId) {
-          return { items: [], metadata: undefined };
-        }
-
-        const manga = await this.getMangaDetails(mangaId);
-        return {
-          items: [
-            {
-              mangaId: mangaId,
-              imageUrl: manga.mangaInfo.thumbnailUrl,
-              title: manga.mangaInfo.primaryTitle,
-              metadata: undefined,
-            },
-          ],
-          metadata: undefined,
-        };
-      } catch (e) {
-        console.error(e);
-        return { items: [], metadata: undefined };
-      }
-    }
-
-    // Regular search
     const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
 
@@ -243,7 +248,7 @@ export class RawKumaExtension implements KumaImplementation {
       const image = unit.find(".limit img").attr("src") || "";
       const href = infoLink.attr("href");
       const mangaId = href
-        ? href.split("/manga/")[1]?.replace(/\/$/, "")
+        ? href.split("/manga/")[1]?.replace(/\/$/, "").replace(/[^a-zA-Z0-9-]/g, '')
         : undefined;
 
       if (title && mangaId) {
@@ -298,27 +303,24 @@ export class RawKumaExtension implements KumaImplementation {
         ? "COMPLETED"
         : "UNKNOWN";
 
-    // Extract tags
     const tags: TagSection[] = [];
     const genres: string[] = [];
-    let rating = 1;
+    let rating: number = 1;
 
-    // Parse genres
     $(".mgen a").each((_, element) => {
       genres.push($(element).text().trim());
     });
 
-    // Get rating if available
     const ratingText = $(".num").attr("content");
     if (ratingText) {
-      rating = parseFloat(ratingText) / 2; // Convert from 10 scale to 5 scale
+      rating = parseFloat(ratingText);
     }
 
     if (genres.length > 0) {
       tags.push({
         id: "genres",
         title: "Genres",
-        tags: genres.map((genre) => ({
+        tags: genres.map((genre: string) => ({
           id: genre.toLowerCase(),
           title: genre,
         })),
@@ -396,10 +398,10 @@ export class RawKumaExtension implements KumaImplementation {
         .join("\n");
 
       const imgSrcPattern = /var\s+imageList\s*=\s*(\[.*?\])/s;
+
       const imageListMatch = scriptContent.match(imgSrcPattern);
 
       const isValidChapterImage = (url: string): boolean => {
-        // Exclude website assets and icons
         if (
           url.includes("/wp-content/uploads/2024/") &&
           (url.includes("-Icon-") ||
@@ -409,7 +411,6 @@ export class RawKumaExtension implements KumaImplementation {
           return false;
         }
 
-        // Include cdn images that look like chapter images
         if (url.includes("cdn.kumacdn.club") && url.includes("/chapter-")) {
           return true;
         }
@@ -422,7 +423,7 @@ export class RawKumaExtension implements KumaImplementation {
           const cleanJson = imageListMatch[1]
             .replace(/'/g, '"')
             .replace(/,\s*]/g, "]");
-          const imageList = JSON.parse(cleanJson);
+          const imageList = JSON.parse(cleanJson) as string[];
           if (Array.isArray(imageList)) {
             pages = imageList
               .filter((img) => typeof img === "string")
@@ -493,20 +494,21 @@ export class RawKumaExtension implements KumaImplementation {
 
       const latestChapter = unit.find(".luf ul li").first();
       const chapterText = latestChapter.find("a").text().trim();
+      const chapterId = latestChapter.find("a").attr("href")?.replace(baseUrl, "").replace(/^\/|\/$/g, "");
+
       const timeAgo = latestChapter.find("span").text().trim();
       const subtitle = `${chapterText} - ${timeAgo}`;
 
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
+      if (title && mangaId && chapterId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
-        items.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image: image,
+        items.push({
+            mangaId: mangaId,
+            imageUrl: image,
+            chapterId: chapterId,
             title: title,
             subtitle: subtitle,
-            type: "simpleCarouselItem",
-          }),
-        );
+            type: "chapterUpdatesCarouselItem",
+          });
       }
     });
 
@@ -544,11 +546,6 @@ export class RawKumaExtension implements KumaImplementation {
         ? href.split("/manga/")[1]?.replace(/\/$/, "")
         : undefined;
       const rank = unit.find(".ctr").text().trim();
-      const genres = unit
-        .find("span a")
-        .map((_, el) => $(el).text())
-        .get()
-        .join(", ");
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -597,7 +594,6 @@ export class RawKumaExtension implements KumaImplementation {
         ? href.split("/manga/")[1]?.replace(/\/$/, "")
         : undefined;
       const latestChapter = unit.find(".epxs").text().trim();
-      const rating = unit.find(".numscore").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
