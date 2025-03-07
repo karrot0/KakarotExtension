@@ -503,3 +503,5 @@ function createDiscoverSectionItem(options: {
     metadata: undefined,
   };
 }
+
+export const ThunderScans = new ThunderExtension();
