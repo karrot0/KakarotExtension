@@ -3032,8 +3032,7 @@ var source = (() => {
   // src/ThunderScans/main.ts
   var main_exports = {};
   __export(main_exports, {
-    ThunderExtension: () => ThunderExtension,
-    ThunderScans: () => ThunderScans
+    ThunderExtension: () => ThunderExtension
   });
   init_buffer();
   var import_types3 = __toESM(require_lib(), 1);
@@ -16984,7 +16983,7 @@ var source = (() => {
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.chapterUpdates
         },
         {
           id: "new_manga_section",
@@ -17000,8 +16999,6 @@ var source = (() => {
     }
     async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
-        // case "featured_section":
-        //   return this.getFeaturedSectionItems(section, metadata);
         case "popular_section":
           return this.getPopularSectionItems(section, metadata);
         case "updated_section":
@@ -17069,7 +17066,8 @@ var source = (() => {
           id: "genres",
           title: "Genres",
           tags: genres.map((genre) => ({
-            id: genre.toLowerCase(),
+            // Format the genre ID to be alphanumeric (replace spaces with hyphens, remove other special chars)
+            id: genre.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
             title: genre
           }))
         });
@@ -17299,7 +17297,6 @@ var source = (() => {
       metadata: void 0
     };
   }
-  var ThunderScans = new ThunderExtension();
   return __toCommonJS(main_exports);
 })();
 /*! Bundled license information:

@@ -17000,8 +17000,9 @@ var source = (() => {
           const label = $2(element).find("label").text().trim();
           const value = $2(element).find("input[type=checkbox]").attr("value");
           if (label && value) {
+            const alphanumericId = value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
             genres.push({
-              id: value.toLowerCase(),
+              id: alphanumericId,
               value: label
             });
           }
@@ -17022,7 +17023,7 @@ var source = (() => {
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.chapterUpdates
         },
         {
           id: "new_manga_section",
@@ -17044,6 +17045,26 @@ var source = (() => {
           return this.getUpdatedSectionItems(section, metadata);
         case "new_manga_section":
           return this.getNewMangaSectionItems(section, metadata);
+        case "genres": {
+          const genres = await this.getGenreList();
+          return {
+            items: genres.map((item) => ({
+              type: "genresCarouselItem",
+              searchQuery: {
+                title: "",
+                filters: [
+                  {
+                    id: "genres",
+                    value: { [item.id]: "included" }
+                  }
+                ]
+              },
+              name: item.value,
+              metadata: void 0
+            })),
+            metadata: void 0
+          };
+        }
         default:
           return { items: [] };
       }
@@ -17075,13 +17096,19 @@ var source = (() => {
                 urlBuilder.addQuery("yearx", filter4.value);
               }
               break;
-            case "genres":
+            case "genres": {
               const genreRecord = filter4.value;
+              const genreList = await this.getGenreList();
+              const idToValueMap = new Map(genreList.map((g) => [g.id, g.value]));
               Object.entries(genreRecord).forEach(([genreId, state]) => {
-                const value = state === "excluded" ? `-${genreId}` : genreId;
-                urlBuilder.addQuery("genre[]", value);
+                const originalValue = idToValueMap.get(genreId);
+                if (originalValue) {
+                  const value = state === "excluded" ? `-${originalValue}` : originalValue;
+                  urlBuilder.addQuery("genre[]", value);
+                }
               });
               break;
+            }
           }
         }
       }
@@ -17090,29 +17117,6 @@ var source = (() => {
         url: searchUrl,
         method: "GET"
       };
-      if (query.title.startsWith("https://rawkuma.com/")) {
-        try {
-          const mangaId = query.title.split("/manga/")[1]?.replace(/\/$/, "");
-          if (!mangaId) {
-            return { items: [], metadata: void 0 };
-          }
-          const manga = await this.getMangaDetails(mangaId);
-          return {
-            items: [
-              {
-                mangaId,
-                imageUrl: manga.mangaInfo.thumbnailUrl,
-                title: manga.mangaInfo.primaryTitle,
-                metadata: void 0
-              }
-            ],
-            metadata: void 0
-          };
-        } catch (e) {
-          console.error(e);
-          return { items: [], metadata: void 0 };
-        }
-      }
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
       $2(".listupd .bs").each((_, element) => {
@@ -17121,7 +17125,7 @@ var source = (() => {
         const title = unit.find(".tt").text().trim();
         const image = unit.find(".limit img").attr("src") || "";
         const href = infoLink.attr("href");
-        const mangaId = href ? href.split("/manga/")[1]?.replace(/\/$/, "") : void 0;
+        const mangaId = href ? href.split("/manga/")[1]?.replace(/\/$/, "").replace(/[^a-zA-Z0-9-]/g, "") : void 0;
         if (title && mangaId) {
           searchResults.push({
             mangaId,
@@ -17159,7 +17163,7 @@ var source = (() => {
       });
       const ratingText = $2(".num").attr("content");
       if (ratingText) {
-        rating = parseFloat(ratingText) / 2;
+        rating = parseFloat(ratingText);
       }
       if (genres.length > 0) {
         tags.push({
@@ -17290,19 +17294,19 @@ var source = (() => {
         const mangaId = href ? href.split("/manga/")[1]?.replace(/\/$/, "") : void 0;
         const latestChapter = unit.find(".luf ul li").first();
         const chapterText = latestChapter.find("a").text().trim();
+        const chapterId = latestChapter.find("a").attr("href")?.replace(baseUrl, "").replace(/^\/|\/$/g, "");
         const timeAgo = latestChapter.find("span").text().trim();
         const subtitle = `${chapterText} - ${timeAgo}`;
-        if (title && mangaId && !collectedIds.includes(mangaId)) {
+        if (title && mangaId && chapterId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
-          items.push(
-            createDiscoverSectionItem({
-              id: mangaId,
-              image,
-              title,
-              subtitle,
-              type: "simpleCarouselItem"
-            })
-          );
+          items.push({
+            mangaId,
+            imageUrl: image,
+            chapterId,
+            title,
+            subtitle,
+            type: "chapterUpdatesCarouselItem"
+          });
         }
       });
       const hasNextPage = !!$2(".hpage .r").length;
@@ -17328,7 +17332,6 @@ var source = (() => {
         const href = infoLink.attr("href");
         const mangaId = href ? href.split("/manga/")[1]?.replace(/\/$/, "") : void 0;
         const rank = unit.find(".ctr").text().trim();
-        const genres = unit.find("span a").map((_2, el) => $2(el).text()).get().join(", ");
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push({
@@ -17364,7 +17367,6 @@ var source = (() => {
         const href = infoLink.attr("href");
         const mangaId = href ? href.split("/manga/")[1]?.replace(/\/$/, "") : void 0;
         const latestChapter = unit.find(".epxs").text().trim();
-        const rating = unit.find(".numscore").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(

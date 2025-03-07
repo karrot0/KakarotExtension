@@ -16969,7 +16969,7 @@ var source = (() => {
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types3.DiscoverSectionType.chapterUpdates
         },
         {
           id: "new_manga_section",
@@ -16985,8 +16985,6 @@ var source = (() => {
     }
     async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
-        // case "featured_section":
-        //   return this.getFeaturedSectionItems(section, metadata);
         case "popular_section":
           return this.getPopularSectionItems(section, metadata);
         case "updated_section":
@@ -17193,7 +17191,7 @@ var source = (() => {
       });
       const ratingValue = $2("#info-rating .score .live-score").text().trim();
       if (ratingValue) {
-        rating = parseFloat(ratingValue) / 2;
+        rating = parseFloat(ratingValue);
       }
       if (genres.length > 0) {
         tags.push({
@@ -17225,7 +17223,8 @@ var source = (() => {
         url: new URLBuilder(baseUrl).addPath("ajax").addPath(type).addPath(mangaId).addPath("chapter").addPath("en").build(),
         method: "GET"
       }));
-      let buffer1, buffer2;
+      let buffer1 = null;
+      let buffer2 = null;
       try {
         [buffer1, buffer2] = await Promise.all(
           requests.map(
@@ -17243,7 +17242,7 @@ var source = (() => {
       if (buffer1) {
         try {
           r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1));
-          if (r1?.result?.html) {
+          if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
             $1 = load(r1.result.html);
           }
         } catch (error) {
@@ -17281,7 +17280,7 @@ var source = (() => {
             chapterId: link.attr("data-id") || "0",
             title: link.find("span").first().text().trim(),
             sourceManga,
-            chapNum: parseFloat(chapterNumber),
+            chapNum: parseFloat(String(chapterNumber)),
             publishDate: timestamp ? new Date(convertToISO8601(timestamp)) : /* @__PURE__ */ new Date(),
             volume: void 0,
             langCode: "\u{1F1EC}\u{1F1E7}"
@@ -17310,13 +17309,8 @@ var source = (() => {
           pages
         };
       } catch (error) {
-        console.error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`,
-          error
-        );
-        throw new Error(
-          `Failed to fetch chapter details for chapterId: ${chapter.chapterId}`
-        );
+        console.error("Error fetching chapter details:", error);
+        throw error;
       }
     }
     getMangaShareUrl(mangaId) {
@@ -17340,17 +17334,19 @@ var source = (() => {
         const latest_chapter = unit.find(".content[data-name='chap']").find("a").eq(0).text().trim();
         const latestChapterMatch = latest_chapter.match(/Chap (\d+)/);
         const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
+        const chapterLink = unit.find(".content[data-name='chap'] a").first();
+        const chapterId = chapterLink.attr("href")?.split("/").pop() || "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
-          items.push(
-            createDiscoverSectionItem({
-              id: mangaId,
-              image,
-              title,
-              subtitle,
-              type: "simpleCarouselItem"
-            })
-          );
+          items.push({
+            type: "chapterUpdatesCarouselItem",
+            mangaId,
+            chapterId,
+            imageUrl: image,
+            title,
+            subtitle,
+            metadata: void 0
+          });
         }
       });
       const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
@@ -17374,19 +17370,22 @@ var source = (() => {
         const title = infoLink.text().trim();
         const image = unit.find(".poster img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const latestChapter = unit.find(".content[data-name='chap'] a").filter((_2, el) => $2(el).find("b").text() === "EN").first().find("span").first().text().trim();
+        const chapterMatch = latestChapter.match(/Chap (\d+)/);
+        const supertitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
-          items.push(
-            createDiscoverSectionItem({
-              id: mangaId,
-              image,
-              title,
-              type: "simpleCarouselItem"
-            })
-          );
+          items.push({
+            type: "featuredCarouselItem",
+            mangaId,
+            imageUrl: image,
+            title,
+            supertitle,
+            metadata: void 0
+          });
         }
       });
-      const hasNextPage = !!$2(".page-item.active + .page-item .page-link").length;
+      const hasNextPage = !!$2(".hpage .r").length;
       return {
         items,
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
@@ -17407,6 +17406,9 @@ var source = (() => {
         const title = infoLink.text().trim();
         const image = unit.find(".poster img").attr("src") || "";
         const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
+        const latestChapter = unit.find(".content[data-name='chap'] a").first().find("span").first().text().trim();
+        const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
+        const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
           items.push(
@@ -17414,6 +17416,7 @@ var source = (() => {
               id: mangaId,
               image,
               title,
+              subtitle,
               type: "simpleCarouselItem"
             })
           );
