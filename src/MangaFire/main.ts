@@ -38,7 +38,7 @@ type MangaFireImplementation = Extension &
 export class MangaFireExtension implements MangaFireImplementation {
   requestManager = new FireInterceptor("main");
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
-    numberOfRequests: 10,
+    numberOfRequests: 5,
     bufferInterval: 1,
     ignoreImages: true,
   });
@@ -405,8 +405,10 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     if (buffer1) {
       try {
-        r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1)) as MangaFire.Result;
-        if (r1?.result && typeof r1.result !== 'string' && r1.result.html) {
+        r1 = JSON.parse(
+          Application.arrayBufferToUTF8String(buffer1),
+        ) as MangaFire.Result;
+        if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
           $1 = cheerio.load(r1.result.html);
         }
       } catch (error) {
@@ -416,11 +418,12 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     if (buffer2) {
       try {
-        r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2)) as MangaFire.Result;
-        const html = typeof r2?.result === "string" 
-          ? r2.result 
-          : r2?.result?.html || "";
-        
+        r2 = JSON.parse(
+          Application.arrayBufferToUTF8String(buffer2),
+        ) as MangaFire.Result;
+        const html =
+          typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+
         if (html) {
           $r2 = cheerio.load(html);
         }
@@ -544,7 +547,7 @@ export class MangaFireExtension implements MangaFireImplementation {
       const subtitle = latestChapterMatch
         ? `Ch. ${latestChapterMatch[1]}`
         : undefined;
-      
+
       const chapterLink = unit.find(".content[data-name='chap'] a").first();
       const chapterId = chapterLink.attr("href")?.split("/").pop() || "";
 
@@ -580,23 +583,23 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     const request = {
       url: new URLBuilder(baseUrl)
-      .addPath("filter")
+        .addPath("filter")
         .addQuery("keyword", "")
         .addQuery("language[]", "en")
         .addQuery("sort", "most_viewed")
-      .addQuery("page", page.toString())
-      .build(),
-      method: "GET"
+        .addQuery("page", page.toString())
+        .build(),
+      method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-        $(".unit .inner").each((_, element) => {
+    $(".unit .inner").each((_, element) => {
       const unit = $(element);
       const infoLink = unit.find(".info > a").last();
       const title = infoLink.text().trim();
-            const image = unit.find(".poster img").attr("src") || "";
+      const image = unit.find(".poster img").attr("src") || "";
       const mangaId = infoLink.attr("href")?.replace("/manga/", "") || "";
 
       const latestChapter = unit

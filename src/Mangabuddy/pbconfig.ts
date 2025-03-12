@@ -1,14 +1,14 @@
 import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "RawKuma",
-  description: "A paperback extension for RawKuma",
-  version: "1.0.0-alpha.2",
+  name: "Mangabuddy",
+  description: "Extension that pulls content from mangabuddy.com.",
+  version: "1.0.0-alpha.1",
   icon: "icon.png",
   language: "en",
-  contentRating: ContentRating.EVERYONE,
+  contentRating: ContentRating.MATURE,
   badges: [
-    { label: "RAW PROVIDER", textColor: "#FFFFFF", backgroundColor: "#800080" },
+    { label: "Aggregator", textColor: "#FFFFFF", backgroundColor: "#800080" },
     { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#800080" },
     { label: "Manga", textColor: "#FFFFFF", backgroundColor: "#C71585" },
     { label: "Manhwa", textColor: "#FFFFFF", backgroundColor: "#C71585" },
@@ -18,6 +18,7 @@ export default {
     SourceIntents.DISCOVER_SECIONS,
     SourceIntents.MANGA_SEARCH,
     SourceIntents.MANGA_CHAPTERS,
+    SourceIntents.CLOUDFLARE_BYPASS_REQUIRED,
   ],
   developers: [
     {

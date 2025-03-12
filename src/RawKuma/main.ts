@@ -96,10 +96,11 @@ export class RawKumaExtension implements KumaImplementation {
         const label = $(element).find("label").text().trim();
         const value = $(element).find("input[type=checkbox]").attr("value");
         if (label && value) {
-          const alphanumericId = value.toLowerCase()
-            .replace(/\s+/g, '-')
-            .replace(/[^a-z0-9-]/g, '');
-            
+          const alphanumericId = value
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, "");
+
           genres.push({
             id: alphanumericId,
             value: label,
@@ -215,14 +216,15 @@ export class RawKumaExtension implements KumaImplementation {
               string,
               "included" | "excluded"
             >;
-            
+
             const genreList = await this.getGenreList();
-            const idToValueMap = new Map(genreList.map(g => [g.id, g.value]));
-            
+            const idToValueMap = new Map(genreList.map((g) => [g.id, g.value]));
+
             Object.entries(genreRecord).forEach(([genreId, state]) => {
               const originalValue = idToValueMap.get(genreId);
               if (originalValue) {
-                const value = state === "excluded" ? `-${originalValue}` : originalValue;
+                const value =
+                  state === "excluded" ? `-${originalValue}` : originalValue;
                 urlBuilder.addQuery("genre[]", value);
               }
             });
@@ -248,7 +250,10 @@ export class RawKumaExtension implements KumaImplementation {
       const image = unit.find(".limit img").attr("src") || "";
       const href = infoLink.attr("href");
       const mangaId = href
-        ? href.split("/manga/")[1]?.replace(/\/$/, "").replace(/[^a-zA-Z0-9-]/g, '')
+        ? href
+            .split("/manga/")[1]
+            ?.replace(/\/$/, "")
+            .replace(/[^a-zA-Z0-9-]/g, "")
         : undefined;
 
       if (title && mangaId) {
@@ -494,7 +499,11 @@ export class RawKumaExtension implements KumaImplementation {
 
       const latestChapter = unit.find(".luf ul li").first();
       const chapterText = latestChapter.find("a").text().trim();
-      const chapterId = latestChapter.find("a").attr("href")?.replace(baseUrl, "").replace(/^\/|\/$/g, "");
+      const chapterId = latestChapter
+        .find("a")
+        .attr("href")
+        ?.replace(baseUrl, "")
+        .replace(/^\/|\/$/g, "");
 
       const timeAgo = latestChapter.find("span").text().trim();
       const subtitle = `${chapterText} - ${timeAgo}`;
@@ -502,13 +511,13 @@ export class RawKumaExtension implements KumaImplementation {
       if (title && mangaId && chapterId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
         items.push({
-            mangaId: mangaId,
-            imageUrl: image,
-            chapterId: chapterId,
-            title: title,
-            subtitle: subtitle,
-            type: "chapterUpdatesCarouselItem",
-          });
+          mangaId: mangaId,
+          imageUrl: image,
+          chapterId: chapterId,
+          title: title,
+          subtitle: subtitle,
+          type: "chapterUpdatesCarouselItem",
+        });
       }
     });
 

@@ -21,7 +21,7 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
-import { postToDiscordWebhook } from "../utils/discord_debugging";
+// import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { CaveInterceptor } from "./BatcaveInterceptor";
 
@@ -141,6 +141,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     const searchUrl = urlBuilder;
 
     // Get filter values
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const getFilterValue = (id: string) =>
       query.filters.find((filter) => filter.id == id)?.value;
 
@@ -256,6 +257,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     // Expected mangaId format: 6975-invincible-2003.html
     const request = { url: `${baseUrl}/${sourceManga.mangaId}`, method: "GET" };
@@ -278,17 +280,27 @@ export class BatcaveExtension implements BatcaveImplementation {
 
     try {
       if (!jsonData) throw new Error("No JSON data found");
-      const parsedData = JSON.parse(jsonData);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      const parsedData: any = JSON.parse(jsonData);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (parsedData.chapters) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
         parsedData.chapters.forEach((chapter: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (chapter.id && typeof chapter.id === "number") {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             const [day, month, year] = chapter.date.split(".").map(Number);
             const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 
             chapters.push({
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               chapterId: `${sourceManga.mangaId.split("-")[0]}/${chapter.id}`,
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               title: chapter.title || `Chapter ${chapter.posi}`,
-              sourceManga: sourceManga,
+              sourceManga,
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               chapNum: chapter.posi,
               publishDate: new Date(isoDate),
               volume: undefined,
@@ -306,6 +318,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     return chapters;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
       const request = {
@@ -328,12 +341,15 @@ export class BatcaveExtension implements BatcaveImplementation {
         );
         if (jsonMatch) {
           try {
-            const data = JSON.parse(jsonMatch[1]);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+            const data: any = JSON.parse(jsonMatch[1]);
 
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (data.images && Array.isArray(data.images)) {
-              data.images = data.images.map((img: string) =>
+              data.images = (data.images as string[]).map((img: string) =>
                 img.replace(/\\\//g, "/"),
               );
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               pages.push(...data.images);
             } else {
               console.error("Images not found in JSON data");
@@ -629,7 +645,6 @@ export class BatcaveExtension implements BatcaveImplementation {
       method: "GET",
     };
 
-    postToDiscordWebhook(`Genre URL: ${request.url}`);
     const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
 
