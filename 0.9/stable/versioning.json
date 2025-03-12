@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-03-07T00:56:27.809Z",
+  "buildTime": "2025-03-12T02:14:33.315Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.39",
     "types": "1.0.0-alpha.39"
@@ -73,7 +73,7 @@
     {
       "name": "MangaFire",
       "description": "Extension that pulls content from mangafire.to.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -140,9 +140,56 @@
       "id": "MangaFire"
     },
     {
+      "name": "Mangabuddy",
+      "description": "Extension that pulls content from mangabuddy.com.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "MATURE",
+      "badges": [
+        {
+          "label": "Aggregator",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        },
+        {
+          "label": "Mature",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        },
+        {
+          "label": "Manga",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Manhwa",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Manhua",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1,
+        16
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Mangabuddy"
+    },
+    {
       "name": "RawKuma",
       "description": "A paperback extension for RawKuma",
-      "version": "0.9.0",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -151,6 +198,26 @@
           "label": "RAW PROVIDER",
           "textColor": "#FFFFFF",
           "backgroundColor": "#800080"
+        },
+        {
+          "label": "Mature",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        },
+        {
+          "label": "Manga",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Manhwa",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        },
+        {
+          "label": "Manhua",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
         }
       ],
       "capabilities": [
@@ -164,32 +231,6 @@
         }
       ],
       "id": "RawKuma"
-    },
-    {
-      "name": "ThunderScans",
-      "description": "A paperback extension for Thunderscans",
-      "version": "0.9.0",
-      "icon": "icon.png",
-      "language": "en",
-      "contentRating": "SAFE",
-      "badges": [
-        {
-          "label": "TRANSLATOR",
-          "textColor": "#FFFFFF",
-          "backgroundColor": "#800080"
-        }
-      ],
-      "capabilities": [
-        4,
-        64,
-        1
-      ],
-      "developers": [
-        {
-          "name": "Karrot"
-        }
-      ],
-      "id": "ThunderScans"
     }
   ]
 }

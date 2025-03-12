@@ -16879,28 +16879,6 @@ var source = (() => {
   var parse5 = getParse((content, options, isDocument2, context) => options._useHtmlParser2 ? parseDocument(content, options) : parseWithParse5(content, options, isDocument2, context));
   var load = getLoad(parse5, (dom, options) => options._useHtmlParser2 ? esm_default(dom, options) : renderWithParse5(dom));
 
-  // src/utils/discord_debugging.ts
-  init_buffer();
-  async function postToDiscordWebhook(message) {
-    const webhookUrl = "";
-    const payload = { content: message };
-    const request = {
-      url: webhookUrl,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    };
-    try {
-      const [response, data2] = await Application.scheduleRequest(request);
-      if (response.status < 200 || response.status >= 300) {
-        throw new Error(`Discord webhook error: ${response.status}`);
-      }
-      console.log("Successfully posted to Discord webhook");
-    } catch (error) {
-      console.error("Error posting to Discord webhook:", error);
-    }
-  }
-
   // src/utils/url-builder/base.ts
   init_buffer();
   var URLBuilder = class {
@@ -17129,6 +17107,7 @@ var source = (() => {
         }
       };
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getChapters(sourceManga) {
       const request = { url: `${baseUrl}/${sourceManga.mangaId}`, method: "GET" };
       const $2 = await this.fetchCheerio(request);
@@ -17150,9 +17129,12 @@ var source = (() => {
               const [day, month, year] = chapter.date.split(".").map(Number);
               const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
               chapters.push({
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 chapterId: `${sourceManga.mangaId.split("-")[0]}/${chapter.id}`,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 title: chapter.title || `Chapter ${chapter.posi}`,
                 sourceManga,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 chapNum: chapter.posi,
                 publishDate: new Date(isoDate),
                 volume: void 0,
@@ -17168,6 +17150,7 @@ var source = (() => {
       }
       return chapters;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getChapterDetails(chapter) {
       try {
         const request = {
@@ -17420,7 +17403,6 @@ var source = (() => {
         url: genreId,
         method: "GET"
       };
-      postToDiscordWebhook(`Genre URL: ${request.url}`);
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
       $2(".readed").each((_, element) => {

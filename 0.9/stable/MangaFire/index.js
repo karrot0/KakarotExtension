@@ -16951,7 +16951,7 @@ var source = (() => {
   var MangaFireExtension = class {
     requestManager = new FireInterceptor("main");
     globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
-      numberOfRequests: 10,
+      numberOfRequests: 5,
       bufferInterval: 1,
       ignoreImages: true
     });
@@ -17241,7 +17241,9 @@ var source = (() => {
       let $1;
       if (buffer1) {
         try {
-          r1 = JSON.parse(Application.arrayBufferToUTF8String(buffer1));
+          r1 = JSON.parse(
+            Application.arrayBufferToUTF8String(buffer1)
+          );
           if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
             $1 = load(r1.result.html);
           }
@@ -17251,7 +17253,9 @@ var source = (() => {
       }
       if (buffer2) {
         try {
-          r2 = JSON.parse(Application.arrayBufferToUTF8String(buffer2));
+          r2 = JSON.parse(
+            Application.arrayBufferToUTF8String(buffer2)
+          );
           const html3 = typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
           if (html3) {
             $r2 = load(html3);
