@@ -159,7 +159,10 @@ export class BatcaveExtension implements BatcaveImplementation {
         ? `https://batcave.biz${rawImage}`
         : rawImage;
       const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId?.split("/").pop();
+      const mangaId = rawMangaId
+        ?.replace(/^.*?\/([^/]+)$/, "$1")
+        .replace(/\.html$/, "")
+        .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
         .text()
@@ -195,8 +198,8 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    // Expected mangaId: 6975-invincible-2003.html
-    const request = { url: `${baseUrl}/${mangaId}`, method: "GET" };
+    // Expected mangaId: 6975-invincible-2003
+    const request = { url: `${baseUrl}/${mangaId}.html`, method: "GET" };
 
     const $ = await this.fetchCheerio(request);
 
@@ -236,7 +239,7 @@ export class BatcaveExtension implements BatcaveImplementation {
         id: "genres",
         title: "Genres",
         tags: genres.map((genre) => ({
-          id: genre.toLowerCase(),
+          id: genre.toLowerCase().replace(/[^a-z0-9]/g, ""),
           title: genre,
         })),
       });
@@ -259,8 +262,11 @@ export class BatcaveExtension implements BatcaveImplementation {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    // Expected mangaId format: 6975-invincible-2003.html
-    const request = { url: `${baseUrl}/${sourceManga.mangaId}`, method: "GET" };
+    // Expected mangaId format: 6975-invincible-2003
+    const request = {
+      url: `${baseUrl}/${sourceManga.mangaId}.html`,
+      method: "GET",
+    };
     const $ = await this.fetchCheerio(request);
     const chapters: Chapter[] = [];
 
@@ -296,7 +302,7 @@ export class BatcaveExtension implements BatcaveImplementation {
 
             chapters.push({
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              chapterId: `${sourceManga.mangaId.split("-")[0]}/${chapter.id}`,
+              chapterId: chapter.id,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               title: chapter.title || `Chapter ${chapter.posi}`,
               sourceManga,
@@ -322,7 +328,7 @@ export class BatcaveExtension implements BatcaveImplementation {
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
       const request = {
-        url: `${baseUrl}/reader/${chapter.chapterId}`,
+        url: `${baseUrl}/reader/${chapter.sourceManga.mangaId.split("-")[0]}/${chapter.chapterId}`,
         method: "GET",
       };
 
@@ -405,7 +411,10 @@ export class BatcaveExtension implements BatcaveImplementation {
         ? `https://batcave.biz${rawImage}`
         : rawImage;
       const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId?.split("/").pop();
+      const mangaId = rawMangaId
+        ?.replace(/^.*?\/([^/]+)$/, "$1")
+        .replace(/\.html$/, "")
+        .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
         .text()
@@ -463,7 +472,10 @@ export class BatcaveExtension implements BatcaveImplementation {
         ? `https://batcave.biz${rawImage}`
         : rawImage;
       const rawMangaId = unit.attr("href");
-      const mangaId = rawMangaId?.split("/").pop();
+      const mangaId = rawMangaId
+        ?.replace(/^.*?\/([^/]+)$/, "$1")
+        .replace(/\.html$/, "")
+        .trim();
       const rating = unit.find(".poster__label--rate").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -516,7 +528,10 @@ export class BatcaveExtension implements BatcaveImplementation {
         ? `https://batcave.biz${rawImage}`
         : rawImage;
       const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
-      const mangaId = rawMangaId?.split("/").pop();
+      const mangaId = rawMangaId
+        ?.replace(/^.*?\/([^/]+)$/, "$1")
+        .replace(/\.html$/, "")
+        .trim();
       const latestChapter = unit.find(".latest__chapter a").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -657,7 +672,10 @@ export class BatcaveExtension implements BatcaveImplementation {
         ? `https://batcave.biz${rawImage}`
         : rawImage;
       const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId?.split("/").pop();
+      const mangaId = rawMangaId
+        ?.replace(/^.*?\/([^/]+)$/, "$1")
+        .replace(/\.html$/, "")
+        .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
         .text()

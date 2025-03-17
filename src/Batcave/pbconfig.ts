@@ -3,50 +3,17 @@ import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Batcave",
   description: "Extension that pulls content from batcave.biz.",
-  version: "1.0.0-alpha.2",
+  version: "1.0.0-alpha.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
   badges: [
-    {
-      label: "Content Providing",
-      textColor: "#FFFFFF",
-      backgroundColor: "#FF0000",
-    },
-    {
-      label: "Aggregator",
-      textColor: "#FFFFFF",
-      backgroundColor: "#006400",
-    },
-    {
-      label: "Safe",
-      textColor: "#000000",
-      backgroundColor: "#FFD700",
-    },
-    {
-      label: "English",
-      textColor: "#000000",
-      backgroundColor: "#00ffff",
-    },
+    { label: "Aggregator", textColor: "#FFFFFF", backgroundColor: "#800080" },
+    { label: "Mature", textColor: "#FFFFFF", backgroundColor: "#800080" },
     {
       label: "Western Comics",
       textColor: "#FFFFFF",
       backgroundColor: "#C71585",
-    },
-    {
-      label: "Fast Release",
-      textColor: "#000000",
-      backgroundColor: "#00FF00",
-    },
-    {
-      label: "Good Images",
-      textColor: "#FFFFFF",
-      backgroundColor: "#0000FF",
-    },
-    {
-      label: "Good Translations",
-      textColor: "#FFFFFF",
-      backgroundColor: "#1E90FF",
     },
   ],
   capabilities: [

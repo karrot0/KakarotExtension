@@ -26,7 +26,6 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { BuddyInterceptor } from "./MangabuddyInterceptor";
 
