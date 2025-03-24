@@ -35,8 +35,8 @@
   "devDependencies": {
     "@eslint/js": "^9.20.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
-    "@paperback/toolchain": "^1.0.0-alpha.41",
-    "@paperback/types": "^1.0.0-alpha.41",
+    "@paperback/toolchain": "^1.0.0-alpha.46",
+    "@paperback/types": "^1.0.0-alpha.46",
     "@types/eslint": "^9.6.1",
     "cheerio": "^1.0.0",
     "eslint": "^9.22.0",
