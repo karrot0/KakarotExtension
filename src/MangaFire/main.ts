@@ -207,12 +207,20 @@ export class MangaFireExtension implements MangaFireImplementation {
       searchUrl.addQuery("type[]", type);
     }
 
+    let url = searchUrl.build();
+
     if (genres && typeof genres === "object") {
+      const includedGenres: string[] = [];
+      const excludedGenres: string[] = [];
+
       Object.entries(genres).forEach(([id, value]) => {
         if (value === "included") {
-          searchUrl.addQuery("genre[]", id);
+          includedGenres.push(id);
+          url += `&genre[]=${id}`;
         } else if (value === "excluded") {
-          searchUrl.addQuery("genre[]", `-${id}`);
+          const excludedId = `-${id}`;
+          excludedGenres.push(excludedId);
+          url += `&genre[]=${excludedId}`;
         }
       });
     }
@@ -238,10 +246,10 @@ export class MangaFireExtension implements MangaFireImplementation {
         default:
           statusValue = "releasing";
       }
-      searchUrl.addQuery("status[]", statusValue);
+      url += `&status[]=${statusValue}`;
     }
 
-    const request = { url: searchUrl.build(), method: "GET" };
+    const request = { url, method: "GET" };
 
     const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
