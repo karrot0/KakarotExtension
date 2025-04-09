@@ -17089,12 +17089,18 @@ var source = (() => {
       if (type && type != "all") {
         searchUrl.addQuery("type[]", type);
       }
+      let url = searchUrl.build();
       if (genres && typeof genres === "object") {
+        const includedGenres = [];
+        const excludedGenres = [];
         Object.entries(genres).forEach(([id, value]) => {
           if (value === "included") {
-            searchUrl.addQuery("genre[]", id);
+            includedGenres.push(id);
+            url += `&genre[]=${id}`;
           } else if (value === "excluded") {
-            searchUrl.addQuery("genre[]", `-${id}`);
+            const excludedId = `-${id}`;
+            excludedGenres.push(excludedId);
+            url += `&genre[]=${excludedId}`;
           }
         });
       }
@@ -17119,9 +17125,9 @@ var source = (() => {
           default:
             statusValue = "releasing";
         }
-        searchUrl.addQuery("status[]", statusValue);
+        url += `&status[]=${statusValue}`;
       }
-      const request = { url: searchUrl.build(), method: "GET" };
+      const request = { url, method: "GET" };
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
       $2(".original.card-lg .unit .inner").each((_, element) => {
