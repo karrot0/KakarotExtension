@@ -17268,7 +17268,7 @@ var source = (() => {
           title: chapterTitle,
           sourceManga,
           chapNum: chapterNumber,
-          publishDate: dateText ? new Date(convertToISO8601(dateText)) : /* @__PURE__ */ new Date(),
+          publishDate: dateText ? new Date(convertToISO8601(dateText)) : void 0,
           volume: void 0,
           langCode: "\u{1F1EC}\u{1F1E7}"
         });
