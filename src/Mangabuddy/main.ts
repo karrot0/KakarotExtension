@@ -446,7 +446,7 @@ export class MangabuddyExtension implements BuddyImplementation {
         chapNum: chapterNumber,
         publishDate: dateText
           ? new Date(convertToISO8601(dateText))
-          : new Date(),
+          : undefined,
         volume: undefined,
         langCode: "🇬🇧",
       });
