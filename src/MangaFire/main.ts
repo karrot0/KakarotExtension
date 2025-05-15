@@ -29,6 +29,7 @@ import * as htmlparser2 from "htmlparser2";
 // import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
+
 // import { MangaFireSettingsForm } from "./MangaFireSettings";
 
 const baseUrl = "https://mangafire.to";
@@ -37,7 +38,7 @@ type MangaFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
-  // SettingsFormProviding & 
+  // SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MangaFireExtension implements MangaFireImplementation {
@@ -130,7 +131,9 @@ export class MangaFireExtension implements MangaFireImplementation {
       const lengths: { id: string; label: string }[] = [];
       const sorts: { id: string; label: string }[] = [];
 
-      $(".dropdown:has(button .value[data-placeholder='Type']) .dropdown-menu.noclose.c1 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Type']) .dropdown-menu.noclose.c1 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label) {
@@ -142,13 +145,13 @@ export class MangaFireExtension implements MangaFireImplementation {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
-          genres.push(
-            { id, label }
-          );
+          genres.push({ id, label });
         }
       });
 
-      $(".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
@@ -156,7 +159,9 @@ export class MangaFireExtension implements MangaFireImplementation {
         }
       });
 
-      $(".dropdown:has(button .value[data-placeholder='Language']) .dropdown-menu.noclose.c1 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Language']) .dropdown-menu.noclose.c1 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
@@ -164,7 +169,9 @@ export class MangaFireExtension implements MangaFireImplementation {
         }
       });
 
-      $(".dropdown:has(button .value[data-placeholder='Year']) .dropdown-menu.noclose.md.c3 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Year']) .dropdown-menu.noclose.md.c3 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
@@ -172,7 +179,9 @@ export class MangaFireExtension implements MangaFireImplementation {
         }
       });
 
-      $(".dropdown:has(button .value[data-placeholder='Length']) .dropdown-menu.noclose.c1 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Length']) .dropdown-menu.noclose.c1 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
@@ -180,7 +189,9 @@ export class MangaFireExtension implements MangaFireImplementation {
         }
       });
 
-      $(".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li").each((_, element) => {
+      $(
+        ".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li",
+      ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
         if (label && id) {
@@ -196,7 +207,7 @@ export class MangaFireExtension implements MangaFireImplementation {
         years: years,
         lengths: lengths,
         sorts: sorts,
-      }
+      };
     } catch (error) {
       console.error("Error fetching search details:", error);
     }
@@ -209,17 +220,19 @@ export class MangaFireExtension implements MangaFireImplementation {
       id: "type",
       type: "dropdown",
       options: [
-      { id: "all", value: "All" },
-      ...(searchDetails?.types?.map(t => ({ id: t.id, value: t.label })) || [])
+        { id: "all", value: "All" },
+        ...(searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) ||
+          []),
       ],
-      value: "all", 
-      title: "Type Filter"
+      value: "all",
+      title: "Type Filter",
     });
 
     filters.push({
       id: "genres",
       type: "multiselect",
-      options: searchDetails?.genres?.map(g => ({ id: g.id, value: g.label })) || [],
+      options:
+        searchDetails?.genres?.map((g) => ({ id: g.id, value: g.label })) || [],
       allowExclusion: true,
       value: {},
       title: "Genre Filter",
@@ -229,13 +242,14 @@ export class MangaFireExtension implements MangaFireImplementation {
 
     filters.push({
       id: "status",
-      type: "dropdown", 
+      type: "dropdown",
       options: [
-      { id: "all", value: "All" },
-      ...(searchDetails?.status?.map(s => ({ id: s.id, value: s.label })) || [])
+        { id: "all", value: "All" },
+        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) ||
+          []),
       ],
       value: "all",
-      title: "Status Filter"
+      title: "Status Filter",
     });
 
     filters.push({
@@ -243,10 +257,13 @@ export class MangaFireExtension implements MangaFireImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.languages?.map(l => ({ id: l.id, value: l.label })) || [])
+        ...(searchDetails?.languages?.map((l) => ({
+          id: l.id,
+          value: l.label,
+        })) || []),
       ],
       value: "all",
-      title: "Language Filter"
+      title: "Language Filter",
     });
 
     filters.push({
@@ -254,10 +271,11 @@ export class MangaFireExtension implements MangaFireImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.years?.map(y => ({ id: y.id, value: y.label })) || [])
+        ...(searchDetails?.years?.map((y) => ({ id: y.id, value: y.label })) ||
+          []),
       ],
       value: "all",
-      title: "Year Filter"
+      title: "Year Filter",
     });
 
     filters.push({
@@ -265,10 +283,13 @@ export class MangaFireExtension implements MangaFireImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.lengths?.map(l => ({ id: l.id, value: l.label })) || [])
+        ...(searchDetails?.lengths?.map((l) => ({
+          id: l.id,
+          value: l.label,
+        })) || []),
       ],
       value: "all",
-      title: "Length Filter"
+      title: "Length Filter",
     });
 
     return filters;
@@ -276,12 +297,13 @@ export class MangaFireExtension implements MangaFireImplementation {
 
   async getSortingOptions(query: SearchQuery): Promise<SortingOption[]> {
     void query;
-    
+
     const searchDetails = await this.getSearchDetails();
-    const sortingOptions: SortingOption[] = searchDetails?.sorts?.map((sort) => ({
-      id: sort.id,
-      label: sort.label,
-    })) || [];
+    const sortingOptions: SortingOption[] =
+      searchDetails?.sorts?.map((sort) => ({
+        id: sort.id,
+        label: sort.label,
+      })) || [];
 
     return sortingOptions;
   }
@@ -414,7 +436,9 @@ export class MangaFireExtension implements MangaFireImplementation {
     const title = $(".manga-detail .info h1").text().trim();
     const altTitles = [$(".manga-detail .info h6").text().trim()];
     const image = $(".manga-detail .poster img").attr("src") || "";
-    const description = $("#synopsis .modal-content").text().trim() || $(".manga-detail .info .description").text().trim();
+    const description =
+      $("#synopsis .modal-content").text().trim() ||
+      $(".manga-detail .info .description").text().trim();
     const authors: string[] = [];
     $("#info-rating .meta div").each((_, element) => {
       const label = $(element).find("span").first().text().trim();
@@ -431,7 +455,7 @@ export class MangaFireExtension implements MangaFireImplementation {
     $(".manga-detail .info p").each((_, element) => {
       statusText = $(element).text().trim();
     });
-        
+
     if (statusText.includes("Releasing")) {
       status = "ONGOING";
     } else if (statusText.includes("Completed")) {
@@ -496,10 +520,10 @@ export class MangaFireExtension implements MangaFireImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId.split(".")[1];
-    
+
     const languages = ["en", "fr", "es", "es-la", "pt", "pt-br", "ja"];
     const allRequests = [];
-    
+
     for (const lang of languages) {
       for (const type of ["read", "manga"]) {
         allRequests.push({
@@ -512,76 +536,84 @@ export class MangaFireExtension implements MangaFireImplementation {
             .build(),
           method: "GET",
           language: lang,
-          type: type
+          type: type,
         });
       }
     }
 
     const responses = await Promise.allSettled(
-      allRequests.map(req => 
-        Application.scheduleRequest({ 
-          url: req.url, 
-          method: req.method 
-        }).then(([, buffer]) => ({ buffer, language: req.language, type: req.type }))
-      )
+      allRequests.map((req) =>
+        Application.scheduleRequest({
+          url: req.url,
+          method: req.method,
+        }).then(([, buffer]) => ({
+          buffer,
+          language: req.language,
+          type: req.type,
+        })),
+      ),
     );
-    
+
     const chapters: Chapter[] = [];
     const timestampMaps = new Map<string, Map<string, string>>();
-    
+
     for (const response of responses) {
-      if (response.status === 'fulfilled' && response.value.type === 'manga') {
+      if (response.status === "fulfilled" && response.value.type === "manga") {
         try {
           const buffer = response.value.buffer;
           const language = response.value.language;
-          
+
           const r2 = JSON.parse(
-            Application.arrayBufferToUTF8String(buffer)
+            Application.arrayBufferToUTF8String(buffer),
           ) as MangaFire.Result;
-          
-          const html = typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
-          
+
+          const html =
+            typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+
           if (html) {
             const $r2 = cheerio.load(html);
             const timestampMap = new Map<string, string>();
-            
+
             $r2("li").each((_, el) => {
               const li = $r2(el);
               const chapterNumber = li.attr("data-number") || "0";
               const dateText = li.find("span").last().text().trim();
               timestampMap.set(chapterNumber, dateText);
             });
-            
+
             if (timestampMap.size > 0) {
               timestampMaps.set(language, timestampMap);
             }
           }
         } catch (error) {
-          console.error(`Failed to parse buffer for language ${response.value.language}:`, error);
+          console.error(
+            `Failed to parse buffer for language ${response.value.language}:`,
+            error,
+          );
         }
       }
     }
-    
+
     for (const response of responses) {
-      if (response.status === 'fulfilled' && response.value.type === 'read') {
+      if (response.status === "fulfilled" && response.value.type === "read") {
         try {
           const buffer = response.value.buffer;
           const language = response.value.language;
-          
+
           const r1 = JSON.parse(
-            Application.arrayBufferToUTF8String(buffer)
+            Application.arrayBufferToUTF8String(buffer),
           ) as MangaFire.Result;
-          
+
           if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
             const $1 = cheerio.load(r1.result.html);
             const timestampMap = timestampMaps.get(language);
-            
+
             $1("li").each((_, el) => {
               const li = $1(el);
               const link = li.find("a");
               const chapterNumber = link.attr("data-number") || "0";
               const timestamp = timestampMap?.get(chapterNumber);
-              
+
               chapters.push({
                 chapterId: link.attr("data-id") || "0",
                 title: link.find("span").first().text().trim(),
@@ -592,12 +624,15 @@ export class MangaFireExtension implements MangaFireImplementation {
                   : undefined,
                 volume: undefined,
                 langCode: getLanguageFlag(language),
-                version: getLanguageVersion(language)
+                version: getLanguageVersion(language),
               });
             });
           }
         } catch (error) {
-          console.error(`Failed to parse buffer for language ${response.value.language}:`, error);
+          console.error(
+            `Failed to parse buffer for language ${response.value.language}:`,
+            error,
+          );
         }
       }
     }
@@ -1009,27 +1044,43 @@ function convertToISO8601(dateText: string): string {
 
 function getLanguageFlag(language: string): string {
   switch (language) {
-    case "en": return "🇬🇧";
-    case "fr": return "🇫🇷";
-    case "es": return "🇪🇸";
-    case "es-la": return "🇲🇽";
-    case "pt": return "🇵🇹";
-    case "pt-br": return "🇧🇷";
-    case "ja": return "🇯🇵";
-    default: return "🇬🇧";
+    case "en":
+      return "🇬🇧";
+    case "fr":
+      return "🇫🇷";
+    case "es":
+      return "🇪🇸";
+    case "es-la":
+      return "🇲🇽";
+    case "pt":
+      return "🇵🇹";
+    case "pt-br":
+      return "🇧🇷";
+    case "ja":
+      return "🇯🇵";
+    default:
+      return "🇬🇧";
   }
 }
 
 function getLanguageVersion(language: string): string {
   switch (language) {
-    case "en": return "EN";
-    case "fr": return "FR";
-    case "es": return "ES";
-    case "es-la": return "ESLA";
-    case "pt": return "PT";
-    case "pt-br": return "PTBR";
-    case "ja": return "JP";
-    default: return "EN";
+    case "en":
+      return "EN";
+    case "fr":
+      return "FR";
+    case "es":
+      return "ES";
+    case "es-la":
+      return "ESLA";
+    case "pt":
+      return "PT";
+    case "pt-br":
+      return "PTBR";
+    case "ja":
+      return "JP";
+    default:
+      return "EN";
   }
 }
 
