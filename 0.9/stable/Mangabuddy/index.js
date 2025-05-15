@@ -1853,9 +1853,11 @@ var source = (() => {
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.LabelRow = LabelRow;
       exports.InputRow = InputRow;
+      exports.StepperRow = StepperRow;
       exports.ToggleRow = ToggleRow;
       exports.SelectRow = SelectRow;
       exports.ButtonRow = ButtonRow;
+      exports.WebViewRow = WebViewRow;
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
@@ -1865,6 +1867,14 @@ var source = (() => {
       function InputRow(id, props) {
         return { ...props, id, type: "inputRow", isHidden: props.isHidden ?? false };
       }
+      function StepperRow(id, props) {
+        return {
+          ...props,
+          id,
+          type: "stepperRow",
+          isHidden: props.isHidden ?? false
+        };
+      }
       function ToggleRow(id, props) {
         return { ...props, id, type: "toggleRow", isHidden: props.isHidden ?? false };
       }
@@ -1873,6 +1883,14 @@ var source = (() => {
       }
       function ButtonRow(id, props) {
         return { ...props, id, type: "buttonRow", isHidden: props.isHidden ?? false };
+      }
+      function WebViewRow(id, props) {
+        return {
+          ...props,
+          id,
+          type: "webViewRow",
+          isHidden: props.isHidden ?? false
+        };
       }
       function NavigationRow(id, props) {
         return {
@@ -2145,7 +2163,7 @@ var source = (() => {
         promise;
         currentRequestsMade = 0;
         lastReset = Date.now();
-        imageRegex = new RegExp(/\.(png|gif|jpeg|jpg|webp)(\?|$)/gi);
+        imageRegex = new RegExp(/\.(png|gif|jpeg|jpg|webp)(\?|$)/i);
         constructor(id, options) {
           super(id);
           this.options = options;
@@ -2171,11 +2189,11 @@ var source = (() => {
           }
           this.currentRequestsMade += 1;
           if (this.currentRequestsMade >= this.options.numberOfRequests) {
-            if (secondsSinceLastReset <= this.options.bufferInterval) {
-              const sleepTime = this.options.bufferInterval - secondsSinceLastReset;
+            const secondsSinceLastReset2 = (Date.now() - this.lastReset) / 1e3;
+            if (secondsSinceLastReset2 <= this.options.bufferInterval) {
+              const sleepTime = this.options.bufferInterval - secondsSinceLastReset2;
               console.log(`[BasicRateLimiter] rate limit hit, sleeping for ${sleepTime}`);
               this.promise = Application.sleep(sleepTime);
-              await this.promise;
             }
           }
         }
@@ -2210,71 +2228,156 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.URL = void 0;
+      exports.parseURL = parseURL;
+      function parseURL(url) {
+        const components = {};
+        const regex = /^(?:([a-zA-Z][a-zA-Z\d+\-.]*):)?(?:\/\/([^\/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/;
+        const match = url.match(regex);
+        if (!match) {
+          throw new Error("Invalid URL string provided.");
+        }
+        if (match[1] !== void 0 && match[1] !== "") {
+          components.protocol = match[1];
+        }
+        if (match[2] !== void 0 && match[2] !== "") {
+          let authority = match[2];
+          let userInfo = "";
+          let hostPort = "";
+          const atIndex = authority.indexOf("@");
+          if (atIndex !== -1) {
+            userInfo = authority.substring(0, atIndex);
+            hostPort = authority.substring(atIndex + 1);
+            if (userInfo !== "") {
+              const colonIndex = userInfo.indexOf(":");
+              if (colonIndex !== -1) {
+                components.username = userInfo.substring(0, colonIndex);
+                components.password = userInfo.substring(colonIndex + 1);
+              } else {
+                components.username = userInfo;
+                components.password = "";
+              }
+            }
+          } else {
+            hostPort = authority;
+          }
+          if (hostPort !== "") {
+            if (hostPort.startsWith("[")) {
+              const closingBracketIndex = hostPort.indexOf("]");
+              if (closingBracketIndex === -1) {
+                throw new Error("Invalid IPv6 address in URL update.");
+              }
+              components.hostname = hostPort.substring(0, closingBracketIndex + 1);
+              const portPart = hostPort.substring(closingBracketIndex + 1);
+              if (portPart.startsWith(":")) {
+                components.port = portPart.substring(1);
+              }
+            } else {
+              const colonIndex = hostPort.lastIndexOf(":");
+              if (colonIndex !== -1 && hostPort.indexOf(":") === colonIndex) {
+                components.hostname = hostPort.substring(0, colonIndex);
+                components.port = hostPort.substring(colonIndex + 1);
+              } else {
+                components.hostname = hostPort;
+                components.port = "";
+              }
+            }
+          }
+        }
+        if (match[3] !== void 0 && match[3] !== "") {
+          components.path = match[3].startsWith("/") ? match[3] : `/${match[3]}`;
+        }
+        if (match[4] !== void 0) {
+          const query = {};
+          const pairs = match[4].split("&");
+          for (const pair of pairs) {
+            if (!pair)
+              continue;
+            const [rawKey, rawValue = ""] = pair.split("=");
+            const key = decodeURIComponent(rawKey);
+            const value = decodeURIComponent(rawValue);
+            if (key in query) {
+              const existing = query[key];
+              if (Array.isArray(existing)) {
+                existing.push(value);
+              } else {
+                query[key] = [existing, value];
+              }
+            } else {
+              query[key] = value;
+            }
+          }
+          components.queryItems = query;
+        }
+        if (match[5] !== void 0) {
+          components.fragment = match[5];
+        }
+        return components;
+      }
       var URL2 = class {
-        protocol = "";
-        username = "";
-        password = "";
-        hostname = "";
-        port = "";
-        pathname = "";
-        query = {};
-        hash = "";
+        protocol;
+        hostname;
+        path;
+        username;
+        password;
+        port;
+        queryItems = {};
+        fragment;
         /**
          * Creates a new SimpleURL instance.
          * @param url - (Optional) A URL string to initialize the instance.
          */
         constructor(url) {
-          if (url) {
-            this._parse(url);
-          } else {
-            this.protocol = "http:";
-            this.username = "";
-            this.password = "";
-            this.hostname = "localhost";
-            this.port = "";
-            this.pathname = "";
-            this.query = {};
-            this.hash = "";
+          const components = parseURL(url);
+          if (!components.hostname || !components.protocol) {
+            throw new Error("URL Hostname and Protocol are required");
           }
+          this.hostname = components.hostname;
+          this.protocol = components.protocol;
+          this.path = components.path ?? "";
+          this.username = components.username;
+          this.password = components.password;
+          this.port = components.port;
+          this.queryItems = components.queryItems;
+          this.fragment = components.fragment;
         }
         /**
          * Returns the full URL string built from the current components.
          */
         toString() {
-          let url = "";
-          url += this.protocol;
-          url += "//";
-          if (this.username) {
+          let url = `${this.protocol}://`;
+          if (this.username !== void 0 && this.username !== "") {
             url += this.username;
-            if (this.password) {
+            if (this.password !== void 0 && this.password !== "") {
               url += `:${this.password}`;
             }
             url += "@";
           }
           url += this.hostname;
-          if (this.port) {
+          if (this.port !== void 0 && this.port !== "") {
             url += `:${this.port}`;
           }
-          if (this.pathname) {
-            url += this.pathname.startsWith("/") ? this.pathname : `/${this.pathname}`;
+          if (this.path !== "") {
+            url += this.path.startsWith("/") ? this.path : `/${this.path}`;
           }
-          const queryKeys = Object.keys(this.query);
-          if (queryKeys.length > 0) {
+          if (this.queryItems !== void 0) {
+            const queryKeys = Object.keys(this.queryItems);
             const params = [];
-            for (const key of queryKeys) {
-              const value = this.query[key];
-              if (Array.isArray(value)) {
-                for (const v of value) {
-                  params.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+            if (queryKeys.length > 0) {
+              for (const key of queryKeys) {
+                const value = this.queryItems[key];
+                if (Array.isArray(value)) {
+                  for (const v of value) {
+                    params.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+                  }
+                } else {
+                  params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
                 }
-              } else {
-                params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
               }
             }
             url += `?${params.join("&")}`;
           }
-          if (this.hash) {
-            url += this.hash.startsWith("#") ? this.hash : `#${this.hash}`;
+          if (this.fragment !== void 0) {
+            url += `#${this.fragment}`;
           }
           return url;
         }
@@ -2282,27 +2385,37 @@ var source = (() => {
          * Convenience method to update the protocol.
          */
         setProtocol(newProtocol) {
-          this.protocol = newProtocol.endsWith(":") ? newProtocol : `${newProtocol}:`;
+          if (newProtocol === "")
+            throw new Error("Protocol is required");
+          this.protocol = newProtocol;
           return this;
         }
         /**
          * Convenience method to update the username.
          */
         setUsername(newUsername) {
-          this.username = newUsername;
+          if (newUsername === "")
+            this.username = void 0;
+          else
+            this.username = newUsername;
           return this;
         }
         /**
          * Convenience method to update the password.
          */
         setPassword(newPassword) {
-          this.password = newPassword;
+          if (newPassword === "")
+            this.password = void 0;
+          else
+            this.password = newPassword;
           return this;
         }
         /**
          * Convenience method to update the hostname.
          */
         setHostname(newHostname) {
+          if (newHostname === "")
+            throw new Error("Hostname is required");
           this.hostname = newHostname;
           return this;
         }
@@ -2310,42 +2423,51 @@ var source = (() => {
          * Convenience method to update the port.
          */
         setPort(newPort) {
-          this.port = newPort;
+          if (newPort === "")
+            this.port = void 0;
+          else
+            this.port = newPort;
           return this;
         }
         /**
          * Convenience method to update the pathname.
          */
-        setPathname(newPathname) {
-          this.pathname = newPathname.startsWith("/") ? newPathname : `/${newPathname}`;
+        setPath(newPathname) {
+          this.path = newPathname.startsWith("/") ? newPathname : `/${newPathname}`;
+          return this;
+        }
+        addPathComponent(component) {
+          this.path = (this.path ?? "") + (component.startsWith("/") ? component : `/${component}`);
           return this;
         }
         /**
          * Replace the entire query object.
          */
-        setQuery(newQuery) {
-          this.query = newQuery;
+        setQueryItems(newQuery) {
+          this.queryItems = newQuery;
           return this;
         }
         /**
          * Update or add a single query parameter.
          */
-        setQueryParam(key, value) {
-          this.query[key] = value;
+        setQueryItem(key, value) {
+          if (this.queryItems === void 0)
+            this.queryItems = {};
+          this.queryItems[key] = value;
           return this;
         }
         /**
          * Remove a query parameter.
          */
-        removeQueryParam(key) {
-          delete this.query[key];
+        removeQueryItem(key) {
+          delete this.queryItems?.[key];
           return this;
         }
         /**
          * Convenience method to update the hash (fragment).
          */
-        setHash(newHash) {
-          this.hash = newHash.startsWith("#") ? newHash : `#${newHash}`;
+        setFragment(newHash) {
+          this.fragment = newHash;
           return this;
         }
         /**
@@ -2360,125 +2482,29 @@ var source = (() => {
          * @param input - A URL string or a partial UrlComponents object.
          */
         update(input) {
+          let components;
           if (typeof input === "string") {
-            this._parse(input, true);
+            components = parseURL(input);
           } else {
-            if (input.protocol !== void 0)
-              this.setProtocol(input.protocol);
-            if (input.username !== void 0)
-              this.username = input.username;
-            if (input.password !== void 0)
-              this.password = input.password;
-            if (input.hostname !== void 0)
-              this.hostname = input.hostname;
-            if (input.port !== void 0)
-              this.port = input.port;
-            if (input.pathname !== void 0)
-              this.setPathname(input.pathname);
-            if (input.query !== void 0)
-              this.query = input.query;
-            if (input.hash !== void 0)
-              this.setHash(input.hash);
+            components = input;
           }
+          if (components.protocol !== void 0)
+            this.setProtocol(components.protocol);
+          if (components.username !== void 0)
+            this.setUsername(components.username);
+          if (components.password !== void 0)
+            this.setPassword(components.password);
+          if (components.hostname !== void 0)
+            this.setHostname(components.hostname);
+          if (components.port !== void 0)
+            this.setPort(components.port);
+          if (components.path !== void 0)
+            this.setPath(components.path);
+          if (components.queryItems !== void 0)
+            this.setQueryItems(components.queryItems);
+          if (components.fragment !== void 0)
+            this.setFragment(components.fragment);
           return this;
-        }
-        /**
-         * Internal method to parse a URL string and update the current components.
-         *
-         * @param url - The URL string to parse.
-         * @param partial - If true, only update components present in the input.
-         */
-        _parse(url, partial = false) {
-          const regex = /^(?:([a-zA-Z][a-zA-Z\d+\-.]*:))?(?:\/\/([^/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/;
-          const match = url.match(regex);
-          if (!match) {
-            throw new Error("Invalid URL string provided.");
-          }
-          if (match[1] !== void 0 && match[1] !== "") {
-            this.setProtocol(match[1]);
-          } else if (!partial && !this.protocol) {
-            this.protocol = "";
-          }
-          if (match[2] !== void 0 && match[2] !== "") {
-            let authority = match[2];
-            let userInfo = "";
-            let hostPort = "";
-            const atIndex = authority.indexOf("@");
-            if (atIndex !== -1) {
-              userInfo = authority.substring(0, atIndex);
-              hostPort = authority.substring(atIndex + 1);
-              if (userInfo !== "") {
-                const colonIndex = userInfo.indexOf(":");
-                if (colonIndex !== -1) {
-                  this.username = userInfo.substring(0, colonIndex);
-                  this.password = userInfo.substring(colonIndex + 1);
-                } else {
-                  this.username = userInfo;
-                  this.password = "";
-                }
-              }
-            } else {
-              hostPort = authority;
-            }
-            if (hostPort !== "") {
-              if (hostPort.startsWith("[")) {
-                const closingBracketIndex = hostPort.indexOf("]");
-                if (closingBracketIndex === -1) {
-                  throw new Error("Invalid IPv6 address in URL update.");
-                }
-                this.hostname = hostPort.substring(0, closingBracketIndex + 1);
-                const portPart = hostPort.substring(closingBracketIndex + 1);
-                if (portPart.startsWith(":")) {
-                  this.port = portPart.substring(1);
-                }
-              } else {
-                const colonIndex = hostPort.lastIndexOf(":");
-                if (colonIndex !== -1 && hostPort.indexOf(":") === colonIndex) {
-                  this.hostname = hostPort.substring(0, colonIndex);
-                  this.port = hostPort.substring(colonIndex + 1);
-                } else {
-                  this.hostname = hostPort;
-                  this.port = "";
-                }
-              }
-            }
-          } else if (!partial && !this.hostname) {
-            this.hostname = "";
-          }
-          if (match[3] !== void 0 && match[3] !== "") {
-            this.pathname = match[3].startsWith("/") ? match[3] : `/${match[3]}`;
-          } else if (!partial && !this.pathname) {
-            this.pathname = "";
-          }
-          if (match[4] !== void 0 && match[4] !== "") {
-            const query = {};
-            const pairs = match[4].split("&");
-            for (const pair of pairs) {
-              if (!pair)
-                continue;
-              const [rawKey, rawValue = ""] = pair.split("=");
-              const key = decodeURIComponent(rawKey);
-              const value = decodeURIComponent(rawValue);
-              if (key in query) {
-                const existing = query[key];
-                if (Array.isArray(existing)) {
-                  existing.push(value);
-                } else {
-                  query[key] = [existing, value];
-                }
-              } else {
-                query[key] = value;
-              }
-            }
-            this.query = query;
-          } else if (!partial && !this.query) {
-            this.query = {};
-          }
-          if (match[5] !== void 0 && match[5] !== "") {
-            this.hash = `#${match[5]}`;
-          } else if (!partial && !this.hash) {
-            this.hash = "";
-          }
         }
       };
       exports.URL = URL2;
@@ -2561,7 +2587,7 @@ var source = (() => {
             return [];
           }
           const matchedCookies = {};
-          const pathname = url.pathname.startsWith("/") ? url.pathname : `/${url.pathname}`;
+          const pathname = url.path.startsWith("/") ? url.path : `/${url.path}`;
           const splitHostname = hostname.split(".");
           const splitUrlPath = pathname.split("/");
           splitUrlPath.shift();
@@ -2966,6 +2992,15 @@ var source = (() => {
     }
   });
 
+  // node_modules/@paperback/types/lib/SortingOption.js
+  var require_SortingOption = __commonJS({
+    "node_modules/@paperback/types/lib/SortingOption.js"(exports) {
+      "use strict";
+      init_buffer();
+      Object.defineProperty(exports, "__esModule", { value: true });
+    }
+  });
+
   // node_modules/@paperback/types/lib/index.js
   var require_lib = __commonJS({
     "node_modules/@paperback/types/lib/index.js"(exports) {
@@ -3011,6 +3046,7 @@ var source = (() => {
       __exportStar(require_Tag(), exports);
       __exportStar(require_TagSection(), exports);
       __exportStar(require_TrackedMangaChapterReadAction(), exports);
+      __exportStar(require_SortingOption(), exports);
     }
   });
 

@@ -1853,9 +1853,11 @@ var source = (() => {
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.LabelRow = LabelRow;
       exports.InputRow = InputRow;
+      exports.StepperRow = StepperRow;
       exports.ToggleRow = ToggleRow;
       exports.SelectRow = SelectRow;
       exports.ButtonRow = ButtonRow;
+      exports.WebViewRow = WebViewRow;
       exports.NavigationRow = NavigationRow;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
@@ -1865,6 +1867,14 @@ var source = (() => {
       function InputRow(id, props) {
         return { ...props, id, type: "inputRow", isHidden: props.isHidden ?? false };
       }
+      function StepperRow(id, props) {
+        return {
+          ...props,
+          id,
+          type: "stepperRow",
+          isHidden: props.isHidden ?? false
+        };
+      }
       function ToggleRow(id, props) {
         return { ...props, id, type: "toggleRow", isHidden: props.isHidden ?? false };
       }
@@ -1873,6 +1883,14 @@ var source = (() => {
       }
       function ButtonRow(id, props) {
         return { ...props, id, type: "buttonRow", isHidden: props.isHidden ?? false };
+      }
+      function WebViewRow(id, props) {
+        return {
+          ...props,
+          id,
+          type: "webViewRow",
+          isHidden: props.isHidden ?? false
+        };
       }
       function NavigationRow(id, props) {
         return {
@@ -2145,7 +2163,7 @@ var source = (() => {
         promise;
         currentRequestsMade = 0;
         lastReset = Date.now();
-        imageRegex = new RegExp(/\.(png|gif|jpeg|jpg|webp)(\?|$)/gi);
+        imageRegex = new RegExp(/\.(png|gif|jpeg|jpg|webp)(\?|$)/i);
         constructor(id, options) {
           super(id);
           this.options = options;
@@ -2171,11 +2189,11 @@ var source = (() => {
           }
           this.currentRequestsMade += 1;
           if (this.currentRequestsMade >= this.options.numberOfRequests) {
-            if (secondsSinceLastReset <= this.options.bufferInterval) {
-              const sleepTime = this.options.bufferInterval - secondsSinceLastReset;
+            const secondsSinceLastReset2 = (Date.now() - this.lastReset) / 1e3;
+            if (secondsSinceLastReset2 <= this.options.bufferInterval) {
+              const sleepTime = this.options.bufferInterval - secondsSinceLastReset2;
               console.log(`[BasicRateLimiter] rate limit hit, sleeping for ${sleepTime}`);
               this.promise = Application.sleep(sleepTime);
-              await this.promise;
             }
           }
         }
@@ -2210,71 +2228,156 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.URL = void 0;
+      exports.parseURL = parseURL;
+      function parseURL(url) {
+        const components = {};
+        const regex = /^(?:([a-zA-Z][a-zA-Z\d+\-.]*):)?(?:\/\/([^\/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/;
+        const match = url.match(regex);
+        if (!match) {
+          throw new Error("Invalid URL string provided.");
+        }
+        if (match[1] !== void 0 && match[1] !== "") {
+          components.protocol = match[1];
+        }
+        if (match[2] !== void 0 && match[2] !== "") {
+          let authority = match[2];
+          let userInfo = "";
+          let hostPort = "";
+          const atIndex = authority.indexOf("@");
+          if (atIndex !== -1) {
+            userInfo = authority.substring(0, atIndex);
+            hostPort = authority.substring(atIndex + 1);
+            if (userInfo !== "") {
+              const colonIndex = userInfo.indexOf(":");
+              if (colonIndex !== -1) {
+                components.username = userInfo.substring(0, colonIndex);
+                components.password = userInfo.substring(colonIndex + 1);
+              } else {
+                components.username = userInfo;
+                components.password = "";
+              }
+            }
+          } else {
+            hostPort = authority;
+          }
+          if (hostPort !== "") {
+            if (hostPort.startsWith("[")) {
+              const closingBracketIndex = hostPort.indexOf("]");
+              if (closingBracketIndex === -1) {
+                throw new Error("Invalid IPv6 address in URL update.");
+              }
+              components.hostname = hostPort.substring(0, closingBracketIndex + 1);
+              const portPart = hostPort.substring(closingBracketIndex + 1);
+              if (portPart.startsWith(":")) {
+                components.port = portPart.substring(1);
+              }
+            } else {
+              const colonIndex = hostPort.lastIndexOf(":");
+              if (colonIndex !== -1 && hostPort.indexOf(":") === colonIndex) {
+                components.hostname = hostPort.substring(0, colonIndex);
+                components.port = hostPort.substring(colonIndex + 1);
+              } else {
+                components.hostname = hostPort;
+                components.port = "";
+              }
+            }
+          }
+        }
+        if (match[3] !== void 0 && match[3] !== "") {
+          components.path = match[3].startsWith("/") ? match[3] : `/${match[3]}`;
+        }
+        if (match[4] !== void 0) {
+          const query = {};
+          const pairs = match[4].split("&");
+          for (const pair of pairs) {
+            if (!pair)
+              continue;
+            const [rawKey, rawValue = ""] = pair.split("=");
+            const key = decodeURIComponent(rawKey);
+            const value = decodeURIComponent(rawValue);
+            if (key in query) {
+              const existing = query[key];
+              if (Array.isArray(existing)) {
+                existing.push(value);
+              } else {
+                query[key] = [existing, value];
+              }
+            } else {
+              query[key] = value;
+            }
+          }
+          components.queryItems = query;
+        }
+        if (match[5] !== void 0) {
+          components.fragment = match[5];
+        }
+        return components;
+      }
       var URL2 = class {
-        protocol = "";
-        username = "";
-        password = "";
-        hostname = "";
-        port = "";
-        pathname = "";
-        query = {};
-        hash = "";
+        protocol;
+        hostname;
+        path;
+        username;
+        password;
+        port;
+        queryItems = {};
+        fragment;
         /**
          * Creates a new SimpleURL instance.
          * @param url - (Optional) A URL string to initialize the instance.
          */
         constructor(url) {
-          if (url) {
-            this._parse(url);
-          } else {
-            this.protocol = "http:";
-            this.username = "";
-            this.password = "";
-            this.hostname = "localhost";
-            this.port = "";
-            this.pathname = "";
-            this.query = {};
-            this.hash = "";
+          const components = parseURL(url);
+          if (!components.hostname || !components.protocol) {
+            throw new Error("URL Hostname and Protocol are required");
           }
+          this.hostname = components.hostname;
+          this.protocol = components.protocol;
+          this.path = components.path ?? "";
+          this.username = components.username;
+          this.password = components.password;
+          this.port = components.port;
+          this.queryItems = components.queryItems;
+          this.fragment = components.fragment;
         }
         /**
          * Returns the full URL string built from the current components.
          */
         toString() {
-          let url = "";
-          url += this.protocol;
-          url += "//";
-          if (this.username) {
+          let url = `${this.protocol}://`;
+          if (this.username !== void 0 && this.username !== "") {
             url += this.username;
-            if (this.password) {
+            if (this.password !== void 0 && this.password !== "") {
               url += `:${this.password}`;
             }
             url += "@";
           }
           url += this.hostname;
-          if (this.port) {
+          if (this.port !== void 0 && this.port !== "") {
             url += `:${this.port}`;
           }
-          if (this.pathname) {
-            url += this.pathname.startsWith("/") ? this.pathname : `/${this.pathname}`;
+          if (this.path !== "") {
+            url += this.path.startsWith("/") ? this.path : `/${this.path}`;
           }
-          const queryKeys = Object.keys(this.query);
-          if (queryKeys.length > 0) {
+          if (this.queryItems !== void 0) {
+            const queryKeys = Object.keys(this.queryItems);
             const params = [];
-            for (const key of queryKeys) {
-              const value = this.query[key];
-              if (Array.isArray(value)) {
-                for (const v of value) {
-                  params.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+            if (queryKeys.length > 0) {
+              for (const key of queryKeys) {
+                const value = this.queryItems[key];
+                if (Array.isArray(value)) {
+                  for (const v of value) {
+                    params.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+                  }
+                } else {
+                  params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
                 }
-              } else {
-                params.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
               }
             }
             url += `?${params.join("&")}`;
           }
-          if (this.hash) {
-            url += this.hash.startsWith("#") ? this.hash : `#${this.hash}`;
+          if (this.fragment !== void 0) {
+            url += `#${this.fragment}`;
           }
           return url;
         }
@@ -2282,27 +2385,37 @@ var source = (() => {
          * Convenience method to update the protocol.
          */
         setProtocol(newProtocol) {
-          this.protocol = newProtocol.endsWith(":") ? newProtocol : `${newProtocol}:`;
+          if (newProtocol === "")
+            throw new Error("Protocol is required");
+          this.protocol = newProtocol;
           return this;
         }
         /**
          * Convenience method to update the username.
          */
         setUsername(newUsername) {
-          this.username = newUsername;
+          if (newUsername === "")
+            this.username = void 0;
+          else
+            this.username = newUsername;
           return this;
         }
         /**
          * Convenience method to update the password.
          */
         setPassword(newPassword) {
-          this.password = newPassword;
+          if (newPassword === "")
+            this.password = void 0;
+          else
+            this.password = newPassword;
           return this;
         }
         /**
          * Convenience method to update the hostname.
          */
         setHostname(newHostname) {
+          if (newHostname === "")
+            throw new Error("Hostname is required");
           this.hostname = newHostname;
           return this;
         }
@@ -2310,42 +2423,51 @@ var source = (() => {
          * Convenience method to update the port.
          */
         setPort(newPort) {
-          this.port = newPort;
+          if (newPort === "")
+            this.port = void 0;
+          else
+            this.port = newPort;
           return this;
         }
         /**
          * Convenience method to update the pathname.
          */
-        setPathname(newPathname) {
-          this.pathname = newPathname.startsWith("/") ? newPathname : `/${newPathname}`;
+        setPath(newPathname) {
+          this.path = newPathname.startsWith("/") ? newPathname : `/${newPathname}`;
+          return this;
+        }
+        addPathComponent(component) {
+          this.path = (this.path ?? "") + (component.startsWith("/") ? component : `/${component}`);
           return this;
         }
         /**
          * Replace the entire query object.
          */
-        setQuery(newQuery) {
-          this.query = newQuery;
+        setQueryItems(newQuery) {
+          this.queryItems = newQuery;
           return this;
         }
         /**
          * Update or add a single query parameter.
          */
-        setQueryParam(key, value) {
-          this.query[key] = value;
+        setQueryItem(key, value) {
+          if (this.queryItems === void 0)
+            this.queryItems = {};
+          this.queryItems[key] = value;
           return this;
         }
         /**
          * Remove a query parameter.
          */
-        removeQueryParam(key) {
-          delete this.query[key];
+        removeQueryItem(key) {
+          delete this.queryItems?.[key];
           return this;
         }
         /**
          * Convenience method to update the hash (fragment).
          */
-        setHash(newHash) {
-          this.hash = newHash.startsWith("#") ? newHash : `#${newHash}`;
+        setFragment(newHash) {
+          this.fragment = newHash;
           return this;
         }
         /**
@@ -2360,125 +2482,29 @@ var source = (() => {
          * @param input - A URL string or a partial UrlComponents object.
          */
         update(input) {
+          let components;
           if (typeof input === "string") {
-            this._parse(input, true);
+            components = parseURL(input);
           } else {
-            if (input.protocol !== void 0)
-              this.setProtocol(input.protocol);
-            if (input.username !== void 0)
-              this.username = input.username;
-            if (input.password !== void 0)
-              this.password = input.password;
-            if (input.hostname !== void 0)
-              this.hostname = input.hostname;
-            if (input.port !== void 0)
-              this.port = input.port;
-            if (input.pathname !== void 0)
-              this.setPathname(input.pathname);
-            if (input.query !== void 0)
-              this.query = input.query;
-            if (input.hash !== void 0)
-              this.setHash(input.hash);
+            components = input;
           }
+          if (components.protocol !== void 0)
+            this.setProtocol(components.protocol);
+          if (components.username !== void 0)
+            this.setUsername(components.username);
+          if (components.password !== void 0)
+            this.setPassword(components.password);
+          if (components.hostname !== void 0)
+            this.setHostname(components.hostname);
+          if (components.port !== void 0)
+            this.setPort(components.port);
+          if (components.path !== void 0)
+            this.setPath(components.path);
+          if (components.queryItems !== void 0)
+            this.setQueryItems(components.queryItems);
+          if (components.fragment !== void 0)
+            this.setFragment(components.fragment);
           return this;
-        }
-        /**
-         * Internal method to parse a URL string and update the current components.
-         *
-         * @param url - The URL string to parse.
-         * @param partial - If true, only update components present in the input.
-         */
-        _parse(url, partial = false) {
-          const regex = /^(?:([a-zA-Z][a-zA-Z\d+\-.]*:))?(?:\/\/([^/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/;
-          const match = url.match(regex);
-          if (!match) {
-            throw new Error("Invalid URL string provided.");
-          }
-          if (match[1] !== void 0 && match[1] !== "") {
-            this.setProtocol(match[1]);
-          } else if (!partial && !this.protocol) {
-            this.protocol = "";
-          }
-          if (match[2] !== void 0 && match[2] !== "") {
-            let authority = match[2];
-            let userInfo = "";
-            let hostPort = "";
-            const atIndex = authority.indexOf("@");
-            if (atIndex !== -1) {
-              userInfo = authority.substring(0, atIndex);
-              hostPort = authority.substring(atIndex + 1);
-              if (userInfo !== "") {
-                const colonIndex = userInfo.indexOf(":");
-                if (colonIndex !== -1) {
-                  this.username = userInfo.substring(0, colonIndex);
-                  this.password = userInfo.substring(colonIndex + 1);
-                } else {
-                  this.username = userInfo;
-                  this.password = "";
-                }
-              }
-            } else {
-              hostPort = authority;
-            }
-            if (hostPort !== "") {
-              if (hostPort.startsWith("[")) {
-                const closingBracketIndex = hostPort.indexOf("]");
-                if (closingBracketIndex === -1) {
-                  throw new Error("Invalid IPv6 address in URL update.");
-                }
-                this.hostname = hostPort.substring(0, closingBracketIndex + 1);
-                const portPart = hostPort.substring(closingBracketIndex + 1);
-                if (portPart.startsWith(":")) {
-                  this.port = portPart.substring(1);
-                }
-              } else {
-                const colonIndex = hostPort.lastIndexOf(":");
-                if (colonIndex !== -1 && hostPort.indexOf(":") === colonIndex) {
-                  this.hostname = hostPort.substring(0, colonIndex);
-                  this.port = hostPort.substring(colonIndex + 1);
-                } else {
-                  this.hostname = hostPort;
-                  this.port = "";
-                }
-              }
-            }
-          } else if (!partial && !this.hostname) {
-            this.hostname = "";
-          }
-          if (match[3] !== void 0 && match[3] !== "") {
-            this.pathname = match[3].startsWith("/") ? match[3] : `/${match[3]}`;
-          } else if (!partial && !this.pathname) {
-            this.pathname = "";
-          }
-          if (match[4] !== void 0 && match[4] !== "") {
-            const query = {};
-            const pairs = match[4].split("&");
-            for (const pair of pairs) {
-              if (!pair)
-                continue;
-              const [rawKey, rawValue = ""] = pair.split("=");
-              const key = decodeURIComponent(rawKey);
-              const value = decodeURIComponent(rawValue);
-              if (key in query) {
-                const existing = query[key];
-                if (Array.isArray(existing)) {
-                  existing.push(value);
-                } else {
-                  query[key] = [existing, value];
-                }
-              } else {
-                query[key] = value;
-              }
-            }
-            this.query = query;
-          } else if (!partial && !this.query) {
-            this.query = {};
-          }
-          if (match[5] !== void 0 && match[5] !== "") {
-            this.hash = `#${match[5]}`;
-          } else if (!partial && !this.hash) {
-            this.hash = "";
-          }
         }
       };
       exports.URL = URL2;
@@ -2561,7 +2587,7 @@ var source = (() => {
             return [];
           }
           const matchedCookies = {};
-          const pathname = url.pathname.startsWith("/") ? url.pathname : `/${url.pathname}`;
+          const pathname = url.path.startsWith("/") ? url.path : `/${url.path}`;
           const splitHostname = hostname.split(".");
           const splitUrlPath = pathname.split("/");
           splitUrlPath.shift();
@@ -2966,6 +2992,15 @@ var source = (() => {
     }
   });
 
+  // node_modules/@paperback/types/lib/SortingOption.js
+  var require_SortingOption = __commonJS({
+    "node_modules/@paperback/types/lib/SortingOption.js"(exports) {
+      "use strict";
+      init_buffer();
+      Object.defineProperty(exports, "__esModule", { value: true });
+    }
+  });
+
   // node_modules/@paperback/types/lib/index.js
   var require_lib = __commonJS({
     "node_modules/@paperback/types/lib/index.js"(exports) {
@@ -3011,6 +3046,7 @@ var source = (() => {
       __exportStar(require_Tag(), exports);
       __exportStar(require_TagSection(), exports);
       __exportStar(require_TrackedMangaChapterReadAction(), exports);
+      __exportStar(require_SortingOption(), exports);
     }
   });
 
@@ -16977,12 +17013,25 @@ var source = (() => {
           type: import_types3.DiscoverSectionType.simpleCarousel
         },
         {
+          id: "languages_section",
+          title: "Languages",
+          type: import_types3.DiscoverSectionType.genres
+        },
+        {
+          id: "types_section",
+          title: "Types",
+          type: import_types3.DiscoverSectionType.genres
+        },
+        {
           id: "genres_section",
           title: "Genres",
           type: import_types3.DiscoverSectionType.genres
         }
       ];
     }
+    // async getSettingsForm(): Promise<Form> {
+    //   return new MangaFireSettingsForm();
+    // }
     async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
         case "popular_section":
@@ -16991,22 +17040,113 @@ var source = (() => {
           return this.getUpdatedSectionItems(section, metadata);
         case "new_manga_section":
           return this.getNewMangaSectionItems(section, metadata);
+        case "types_section":
+          return this.getTypesSection();
         case "genres_section":
           return this.getFilterSection();
+        case "languages_section":
+          return this.getLanguagesSection();
         default:
           return { items: [] };
       }
     }
+    async getSearchDetails() {
+      try {
+        const request = {
+          url: `${baseUrl}/filter`,
+          method: "GET"
+        };
+        const $2 = await this.fetchCheerio(request);
+        const types = [];
+        const genres = [];
+        const status = [];
+        const languages = [];
+        const years = [];
+        const lengths = [];
+        const sorts = [];
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Type']) .dropdown-menu.noclose.c1 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label) {
+            types.push({ id, label });
+          }
+        });
+        $2(".genres li").each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            genres.push({ id, label });
+          }
+        });
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            status.push({ id, label });
+          }
+        });
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Language']) .dropdown-menu.noclose.c1 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            languages.push({ id, label });
+          }
+        });
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Year']) .dropdown-menu.noclose.md.c3 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            years.push({ id, label });
+          }
+        });
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Length']) .dropdown-menu.noclose.c1 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            lengths.push({ id, label });
+          }
+        });
+        $2(
+          ".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li"
+        ).each((_, element) => {
+          const id = $2(element).find("input").attr("value") ?? "";
+          const label = $2(element).find("label").text().trim();
+          if (label && id) {
+            sorts.push({ id, label });
+          }
+        });
+        return {
+          types,
+          genres,
+          status,
+          languages,
+          years,
+          lengths,
+          sorts
+        };
+      } catch (error) {
+        console.error("Error fetching search details:", error);
+      }
+    }
     async getSearchFilters() {
       const filters2 = [];
+      const searchDetails = await this.getSearchDetails();
       filters2.push({
         id: "type",
         type: "dropdown",
         options: [
           { id: "all", value: "All" },
-          { id: "manhua", value: "Manhua" },
-          { id: "manhwa", value: "Manhwa" },
-          { id: "manga", value: "Manga" }
+          ...searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || []
         ],
         value: "all",
         title: "Type Filter"
@@ -17014,49 +17154,7 @@ var source = (() => {
       filters2.push({
         id: "genres",
         type: "multiselect",
-        options: [
-          { id: "1", value: "Action" },
-          { id: "78", value: "Adventure" },
-          { id: "3", value: "Avant Garde" },
-          { id: "4", value: "Boys Love" },
-          { id: "5", value: "Comedy" },
-          { id: "77", value: "Demons" },
-          { id: "6", value: "Drama" },
-          { id: "7", value: "Ecchi" },
-          { id: "79", value: "Fantasy" },
-          { id: "9", value: "Girls Love" },
-          { id: "10", value: "Gourmet" },
-          { id: "11", value: "Harem" },
-          { id: "530", value: "Horror" },
-          { id: "13", value: "Isekai" },
-          { id: "531", value: "Iyashikei" },
-          { id: "15", value: "Josei" },
-          { id: "532", value: "Kids" },
-          { id: "539", value: "Magic" },
-          { id: "533", value: "Mahou Shoujo" },
-          { id: "534", value: "Martial Arts" },
-          { id: "19", value: "Mecha" },
-          { id: "535", value: "Military" },
-          { id: "21", value: "Music" },
-          { id: "22", value: "Mystery" },
-          { id: "23", value: "Parody" },
-          { id: "536", value: "Psychological" },
-          { id: "25", value: "Reverse Harem" },
-          { id: "26", value: "Romance" },
-          { id: "73", value: "School" },
-          { id: "28", value: "Sci-Fi" },
-          { id: "537", value: "Seinen" },
-          { id: "30", value: "Shoujo" },
-          { id: "31", value: "Shounen" },
-          { id: "538", value: "Slice of Life" },
-          { id: "33", value: "Space" },
-          { id: "34", value: "Sports" },
-          { id: "75", value: "Super Power" },
-          { id: "76", value: "Supernatural" },
-          { id: "37", value: "Suspense" },
-          { id: "38", value: "Thriller" },
-          { id: "39", value: "Vampire" }
-        ],
+        options: searchDetails?.genres?.map((g) => ({ id: g.id, value: g.label })) || [],
         allowExclusion: true,
         value: {},
         title: "Genre Filter",
@@ -17068,24 +17166,68 @@ var source = (() => {
         type: "dropdown",
         options: [
           { id: "all", value: "All" },
-          { id: "completed", value: "Completed" },
-          { id: "releasing", value: "Releasing" },
-          { id: "hiatus", value: "On Hiatus" },
-          { id: "discontinued", value: "Discontinued" },
-          { id: "not_published", value: "Not Yet Published" }
+          ...searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) || []
         ],
         value: "all",
         title: "Status Filter"
       });
+      filters2.push({
+        id: "language",
+        type: "dropdown",
+        options: [
+          { id: "all", value: "All" },
+          ...searchDetails?.languages?.map((l) => ({
+            id: l.id,
+            value: l.label
+          })) || []
+        ],
+        value: "all",
+        title: "Language Filter"
+      });
+      filters2.push({
+        id: "year",
+        type: "dropdown",
+        options: [
+          { id: "all", value: "All" },
+          ...searchDetails?.years?.map((y) => ({ id: y.id, value: y.label })) || []
+        ],
+        value: "all",
+        title: "Year Filter"
+      });
+      filters2.push({
+        id: "length",
+        type: "dropdown",
+        options: [
+          { id: "all", value: "All" },
+          ...searchDetails?.lengths?.map((l) => ({
+            id: l.id,
+            value: l.label
+          })) || []
+        ],
+        value: "all",
+        title: "Length Filter"
+      });
       return filters2;
     }
-    async getSearchResults(query, metadata) {
+    async getSortingOptions(query) {
+      void query;
+      const searchDetails = await this.getSearchDetails();
+      const sortingOptions = searchDetails?.sorts?.map((sort) => ({
+        id: sort.id,
+        label: sort.label
+      })) || [];
+      return sortingOptions;
+    }
+    async getSearchResults(query, metadata, sortingOption) {
       const page = metadata?.page ?? 1;
       const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
       const type = getFilterValue("type");
       const genres = getFilterValue("genres");
       const status = getFilterValue("status");
+      const languages = getFilterValue("language");
+      const year = getFilterValue("year");
+      const length = getFilterValue("length");
       if (type && type != "all") {
         searchUrl.addQuery("type[]", type);
       }
@@ -17104,28 +17246,20 @@ var source = (() => {
           }
         });
       }
-      if (status && status != "all") {
-        let statusValue;
-        switch (status) {
-          case "completed":
-            statusValue = "completed";
-            break;
-          case "releasing":
-            statusValue = "releasing";
-            break;
-          case "hiatus":
-            statusValue = "hiatus";
-            break;
-          case "discontinued":
-            statusValue = "discontinued";
-            break;
-          case "not_published":
-            statusValue = "not_published";
-            break;
-          default:
-            statusValue = "releasing";
-        }
-        url += `&status[]=${statusValue}`;
+      if (status && status !== "all" && typeof status === "string") {
+        url += `&status[]=${status}`;
+      }
+      if (languages && languages !== "all" && typeof languages === "string") {
+        url += `&language[]=${languages}`;
+      }
+      if (year && year !== "all" && typeof year === "string") {
+        url += `&year[]=${year}`;
+      }
+      if (length && length !== "all" && typeof length === "string") {
+        url += `&length[]=${length}`;
+      }
+      if (sortingOption) {
+        url += `&sort=${sortingOption.id}`;
       }
       const request = { url, method: "GET" };
       const $2 = await this.fetchCheerio(request);
@@ -17165,7 +17299,7 @@ var source = (() => {
       const title = $2(".manga-detail .info h1").text().trim();
       const altTitles = [$2(".manga-detail .info h6").text().trim()];
       const image = $2(".manga-detail .poster img").attr("src") || "";
-      const description = $2(".manga-detail .info .description").text().trim();
+      const description = $2("#synopsis .modal-content").text().trim() || $2(".manga-detail .info .description").text().trim();
       const authors = [];
       $2("#info-rating .meta div").each((_, element) => {
         const label = $2(element).find("span").first().text().trim();
@@ -17176,13 +17310,16 @@ var source = (() => {
         }
       });
       let status = "UNKNOWN";
-      const statusText = $2(".manga-detail .info .min-info").text().toLowerCase();
-      if (statusText.includes("releasing")) {
+      let statusText = "Unknown";
+      $2(".manga-detail .info p").each((_, element) => {
+        statusText = $2(element).text().trim();
+      });
+      if (statusText.includes("Releasing")) {
         status = "ONGOING";
-      } else if (statusText.includes("completed")) {
+      } else if (statusText.includes("Completed")) {
         status = "COMPLETED";
-      } else if (statusText.includes("hiatus") || statusText.includes("discontinued") || statusText.includes("not yet published")) {
-        status = "UNKNOWN";
+      } else if (statusText.includes("hiatus") || statusText.includes("discontinued") || statusText.includes("not yet published") || statusText.includes("completed")) {
+        status = statusText.toLocaleUpperCase().replace(/\s+/g, "_");
       }
       const tags = [];
       const genres = [];
@@ -17225,85 +17362,103 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const mangaId = sourceManga.mangaId.split(".")[1];
-      const requests = ["read", "manga"].map((type) => ({
-        url: new URLBuilder(baseUrl).addPath("ajax").addPath(type).addPath(mangaId).addPath("chapter").addPath("en").build(),
-        method: "GET"
-      }));
-      let buffer1 = null;
-      let buffer2 = null;
-      try {
-        [buffer1, buffer2] = await Promise.all(
-          requests.map(
-            (req) => Application.scheduleRequest(req).then(([, buffer]) => buffer)
-          )
-        );
-      } catch (error) {
-        console.error("Failed to fetch chapter buffers:", error);
-        buffer1 = buffer2 = null;
-      }
-      let r1 = null;
-      let r2 = null;
-      let $r2;
-      let $1;
-      if (buffer1) {
-        try {
-          r1 = JSON.parse(
-            Application.arrayBufferToUTF8String(buffer1)
-          );
-          if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
-            $1 = load(r1.result.html);
-          }
-        } catch (error) {
-          console.error("Failed to parse buffer1:", error);
-        }
-      }
-      if (buffer2) {
-        try {
-          r2 = JSON.parse(
-            Application.arrayBufferToUTF8String(buffer2)
-          );
-          const html3 = typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
-          if (html3) {
-            $r2 = load(html3);
-          }
-        } catch (error) {
-          console.error("Failed to parse buffer2:", error);
-        }
-      }
-      const timestampMap = /* @__PURE__ */ new Map();
-      if ($r2) {
-        $r2("li").each((_, el) => {
-          const li = $r2(el);
-          const chapterNumber = li.attr("data-number") || "0";
-          const dateText = li.find("span").last().text().trim();
-          timestampMap.set(chapterNumber, dateText);
-        });
-      }
-      const chapters = [];
-      if ($1) {
-        $1("li").each((_, el) => {
-          const li = $1(el);
-          const link = li.find("a");
-          const chapterNumber = link.attr("data-number") || "0";
-          const timestamp = timestampMap.get(chapterNumber);
-          chapters.push({
-            chapterId: link.attr("data-id") || "0",
-            title: link.find("span").first().text().trim(),
-            sourceManga,
-            chapNum: parseFloat(String(chapterNumber)),
-            publishDate: timestamp ? new Date(convertToISO8601(timestamp)) : /* @__PURE__ */ new Date(),
-            volume: void 0,
-            langCode: "\u{1F1EC}\u{1F1E7}"
+      const languages = ["en", "fr", "es", "es-la", "pt", "pt-br", "ja"];
+      const allRequests = [];
+      for (const lang of languages) {
+        for (const type of ["read", "manga"]) {
+          allRequests.push({
+            url: new URLBuilder(baseUrl).addPath("ajax").addPath(type).addPath(mangaId).addPath("chapter").addPath(lang).build(),
+            method: "GET",
+            language: lang,
+            type
           });
-        });
+        }
+      }
+      const responses = await Promise.allSettled(
+        allRequests.map(
+          (req) => Application.scheduleRequest({
+            url: req.url,
+            method: req.method
+          }).then(([, buffer]) => ({
+            buffer,
+            language: req.language,
+            type: req.type
+          }))
+        )
+      );
+      const chapters = [];
+      const timestampMaps = /* @__PURE__ */ new Map();
+      for (const response of responses) {
+        if (response.status === "fulfilled" && response.value.type === "manga") {
+          try {
+            const buffer = response.value.buffer;
+            const language = response.value.language;
+            const r2 = JSON.parse(
+              Application.arrayBufferToUTF8String(buffer)
+            );
+            const html3 = typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
+            if (html3) {
+              const $r2 = load(html3);
+              const timestampMap = /* @__PURE__ */ new Map();
+              $r2("li").each((_, el) => {
+                const li = $r2(el);
+                const chapterNumber = li.attr("data-number") || "0";
+                const dateText = li.find("span").last().text().trim();
+                timestampMap.set(chapterNumber, dateText);
+              });
+              if (timestampMap.size > 0) {
+                timestampMaps.set(language, timestampMap);
+              }
+            }
+          } catch (error) {
+            console.error(
+              `Failed to parse buffer for language ${response.value.language}:`,
+              error
+            );
+          }
+        }
+      }
+      for (const response of responses) {
+        if (response.status === "fulfilled" && response.value.type === "read") {
+          try {
+            const buffer = response.value.buffer;
+            const language = response.value.language;
+            const r1 = JSON.parse(
+              Application.arrayBufferToUTF8String(buffer)
+            );
+            if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
+              const $1 = load(r1.result.html);
+              const timestampMap = timestampMaps.get(language);
+              $1("li").each((_, el) => {
+                const li = $1(el);
+                const link = li.find("a");
+                const chapterNumber = link.attr("data-number") || "0";
+                const timestamp = timestampMap?.get(chapterNumber);
+                chapters.push({
+                  chapterId: link.attr("data-id") || "0",
+                  title: link.find("span").first().text().trim(),
+                  sourceManga,
+                  chapNum: parseFloat(String(chapterNumber)),
+                  publishDate: timestamp ? new Date(convertToISO8601(timestamp)) : void 0,
+                  volume: void 0,
+                  langCode: getLanguageFlag(language),
+                  version: getLanguageVersion(language)
+                });
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Failed to parse buffer for language ${response.value.language}:`,
+              error
+            );
+          }
+        }
       }
       return chapters;
     }
     async getChapterDetails(chapter) {
-      console.log(`Parsing chapter ${chapter.chapterId}`);
       try {
         const url = new URLBuilder(baseUrl).addPath("ajax").addPath("read").addPath("chapter").addPath(chapter.chapterId).build();
-        console.log(url);
         const request = { url, method: "GET" };
         const [_, buffer] = await Application.scheduleRequest(request);
         const json = JSON.parse(
@@ -17438,6 +17593,27 @@ var source = (() => {
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
       };
     }
+    async getTypesSection() {
+      const searchDetails = await this.getSearchDetails();
+      const types = searchDetails?.types || [];
+      return {
+        items: types.map((type) => ({
+          type: "genresCarouselItem",
+          searchQuery: {
+            title: "",
+            filters: [
+              {
+                id: type.id,
+                value: type.label
+              }
+            ]
+          },
+          name: type.label,
+          metadata: void 0
+        })),
+        metadata: void 0
+      };
+    }
     async getFilterSection() {
       const items = [
         { id: "manhua", name: "Manhua", type: "type" },
@@ -17503,6 +17679,27 @@ var source = (() => {
         metadata: void 0
       };
     }
+    async getLanguagesSection() {
+      const searchDetails = await this.getSearchDetails();
+      const languages = searchDetails?.languages || [];
+      return {
+        items: languages.map((lang) => ({
+          type: "genresCarouselItem",
+          searchQuery: {
+            title: "",
+            filters: [
+              {
+                id: lang.id,
+                value: lang.label
+              }
+            ]
+          },
+          name: `${getLanguageFlag(lang.id)} ${lang.label}`,
+          metadata: void 0
+        })),
+        metadata: void 0
+      };
+    }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
         throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
@@ -17556,6 +17753,46 @@ var source = (() => {
     }
     const parsedDate = new Date(dateText);
     return isNaN(parsedDate.getTime()) ? now.toISOString() : parsedDate.toISOString();
+  }
+  function getLanguageFlag(language) {
+    switch (language) {
+      case "en":
+        return "\u{1F1EC}\u{1F1E7}";
+      case "fr":
+        return "\u{1F1EB}\u{1F1F7}";
+      case "es":
+        return "\u{1F1EA}\u{1F1F8}";
+      case "es-la":
+        return "\u{1F1F2}\u{1F1FD}";
+      case "pt":
+        return "\u{1F1F5}\u{1F1F9}";
+      case "pt-br":
+        return "\u{1F1E7}\u{1F1F7}";
+      case "ja":
+        return "\u{1F1EF}\u{1F1F5}";
+      default:
+        return "\u{1F1EC}\u{1F1E7}";
+    }
+  }
+  function getLanguageVersion(language) {
+    switch (language) {
+      case "en":
+        return "EN";
+      case "fr":
+        return "FR";
+      case "es":
+        return "ES";
+      case "es-la":
+        return "ESLA";
+      case "pt":
+        return "PT";
+      case "pt-br":
+        return "PTBR";
+      case "ja":
+        return "JP";
+      default:
+        return "EN";
+    }
   }
   var MangaFire = new MangaFireExtension();
   return __toCommonJS(main_exports);
