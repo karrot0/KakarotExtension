@@ -1828,7 +1828,7 @@ var source = (() => {
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.Form = void 0;
-      var Form = class {
+      var Form3 = class {
         reloadForm() {
           const formId = this["__underlying_formId"];
           if (!formId)
@@ -1841,7 +1841,7 @@ var source = (() => {
           return false;
         }
       };
-      exports.Form = Form;
+      exports.Form = Form3;
     }
   });
 
@@ -1851,17 +1851,17 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.LabelRow = LabelRow;
+      exports.LabelRow = LabelRow2;
       exports.InputRow = InputRow;
       exports.StepperRow = StepperRow;
       exports.ToggleRow = ToggleRow;
-      exports.SelectRow = SelectRow;
+      exports.SelectRow = SelectRow2;
       exports.ButtonRow = ButtonRow;
       exports.WebViewRow = WebViewRow;
-      exports.NavigationRow = NavigationRow;
+      exports.NavigationRow = NavigationRow2;
       exports.OAuthButtonRow = OAuthButtonRow;
       exports.DeferredItem = DeferredItem;
-      function LabelRow(id, props) {
+      function LabelRow2(id, props) {
         return { ...props, id, type: "labelRow", isHidden: props.isHidden ?? false };
       }
       function InputRow(id, props) {
@@ -1878,7 +1878,7 @@ var source = (() => {
       function ToggleRow(id, props) {
         return { ...props, id, type: "toggleRow", isHidden: props.isHidden ?? false };
       }
-      function SelectRow(id, props) {
+      function SelectRow2(id, props) {
         return { ...props, id, type: "selectRow", isHidden: props.isHidden ?? false };
       }
       function ButtonRow(id, props) {
@@ -1892,7 +1892,7 @@ var source = (() => {
           isHidden: props.isHidden ?? false
         };
       }
-      function NavigationRow(id, props) {
+      function NavigationRow2(id, props) {
         return {
           ...props,
           id,
@@ -1920,8 +1920,8 @@ var source = (() => {
       "use strict";
       init_buffer();
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.Section = Section;
-      function Section(params, items) {
+      exports.Section = Section2;
+      function Section2(params, items) {
         let info;
         if (typeof params === "string") {
           info = { id: params };
@@ -3072,7 +3072,7 @@ var source = (() => {
     MangaFireExtension: () => MangaFireExtension
   });
   init_buffer();
-  var import_types3 = __toESM(require_lib(), 1);
+  var import_types4 = __toESM(require_lib(), 1);
 
   // node_modules/cheerio/dist/browser/index.js
   init_buffer();
@@ -16982,12 +16982,121 @@ var source = (() => {
     }
   };
 
+  // src/MangaFire/MangaFireSettings.ts
+  init_buffer();
+  var import_types3 = __toESM(require_lib(), 1);
+  var MFLanguagesClass = class {
+    Languages = [
+      { name: "English", MDCode: "en", flagCode: "\u{1F1EC}\u{1F1E7}", default: true },
+      { name: "Fran\xE7ais", MDCode: "fr", flagCode: "\u{1F1EB}\u{1F1F7}" },
+      { name: "Espa\xF1ol", MDCode: "es", flagCode: "\u{1F1EA}\u{1F1F8}" },
+      { name: "Espa\xF1ol (Latinoam\xE9rica)", MDCode: "es-la", flagCode: "\u{1F1F2}\u{1F1FD}" },
+      { name: "Portugu\xEAs", MDCode: "pt", flagCode: "\u{1F1F5}\u{1F1F9}" },
+      { name: "Portugu\xEAs (Brasil)", MDCode: "pt-br", flagCode: "\u{1F1E7}\u{1F1F7}" },
+      { name: "\u65E5\u672C\u8A9E", MDCode: "ja", flagCode: "\u{1F1EF}\u{1F1F5}" }
+    ];
+    constructor() {
+      this.Languages = this.Languages.sort(
+        (a, b) => a.name > b.name ? 1 : -1
+      );
+    }
+    getCodeList() {
+      return this.Languages.map((language) => language.MDCode);
+    }
+    getName(code) {
+      return this.Languages.find((language) => language.MDCode === code)?.name ?? "Unknown";
+    }
+    getFlagCode(code) {
+      return this.Languages.find((language) => language.MDCode === code)?.flagCode ?? "\u{1F3F3}\uFE0F";
+    }
+    getDefault() {
+      return this.Languages.filter((language) => language.default).map(
+        (language) => language.MDCode
+      );
+    }
+  };
+  var MFLanguages = new MFLanguagesClass();
+  function getLanguages() {
+    return Application.getState("languages") ?? MFLanguages.getDefault();
+  }
+  function setLanguages(languages) {
+    Application.setState(languages, "languages");
+  }
+  var MangaFireSettingsForm = class extends import_types3.Form {
+    getSections() {
+      return [
+        (0, import_types3.Section)("mainSettings", [
+          (0, import_types3.LabelRow)("settingsLabel", {
+            title: "MangaFire Settings",
+            subtitle: "Configure your reading experience"
+          }),
+          (0, import_types3.NavigationRow)("contentSettings", {
+            title: "Content Settings",
+            subtitle: "Languages and display options",
+            form: new ContentSettingsForm()
+          })
+        ])
+      ];
+    }
+  };
+  var ContentSettingsForm = class extends import_types3.Form {
+    languagesState;
+    constructor() {
+      super();
+      const languages = getLanguages();
+      this.languagesState = {
+        value: languages,
+        updateValue: async (newValue) => {
+          this.languagesState.value = newValue;
+          setLanguages(newValue);
+        }
+      };
+    }
+    async updateValue(value) {
+      this.languagesState.value = value;
+      setLanguages(value);
+    }
+    getSections() {
+      return [
+        (0, import_types3.Section)("contentSettings", [
+          (0, import_types3.LabelRow)("contentSettingsLabel", {
+            title: "Content Settings",
+            subtitle: "Configure your reading experience"
+          }),
+          (0, import_types3.SelectRow)("languages", {
+            title: "Languages",
+            subtitle: (() => {
+              const selectedLangCodes = this.languagesState.value;
+              const selectedLangNames = selectedLangCodes.map(
+                (langCode) => `${MFLanguages.getFlagCode(langCode)} ${MFLanguages.getName(
+                  langCode
+                )}`
+              ).sort();
+              return selectedLangNames.join(", ");
+            })(),
+            value: this.languagesState.value,
+            options: MFLanguages.getCodeList().map((code) => ({
+              id: code,
+              title: `${MFLanguages.getFlagCode(code)} ${MFLanguages.getName(code)}`
+            })),
+            minItemCount: 1,
+            maxItemCount: MFLanguages.getCodeList().length,
+            onValueChange: Application.Selector(
+              this,
+              "updateValue"
+            )
+          })
+        ])
+      ];
+    }
+  };
+
   // src/MangaFire/main.ts
   var baseUrl = "https://mangafire.to";
   var MangaFireExtension = class {
     requestManager = new FireInterceptor("main");
-    globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
-      numberOfRequests: 5,
+    globalRateLimiter = new import_types4.BasicRateLimiter("rateLimiter", {
+      numberOfRequests: 10,
       bufferInterval: 1,
       ignoreImages: true
     });
@@ -17000,38 +17109,38 @@ var source = (() => {
         {
           id: "popular_section",
           title: "Popular",
-          type: import_types3.DiscoverSectionType.featured
+          type: import_types4.DiscoverSectionType.featured
         },
         {
           id: "updated_section",
           title: "Recently Updated",
-          type: import_types3.DiscoverSectionType.chapterUpdates
+          type: import_types4.DiscoverSectionType.chapterUpdates
         },
         {
           id: "new_manga_section",
           title: "New Manga",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          type: import_types4.DiscoverSectionType.simpleCarousel
         },
         {
           id: "languages_section",
           title: "Languages",
-          type: import_types3.DiscoverSectionType.genres
+          type: import_types4.DiscoverSectionType.genres
         },
         {
           id: "types_section",
           title: "Types",
-          type: import_types3.DiscoverSectionType.genres
+          type: import_types4.DiscoverSectionType.genres
         },
         {
           id: "genres_section",
           title: "Genres",
-          type: import_types3.DiscoverSectionType.genres
+          type: import_types4.DiscoverSectionType.genres
         }
       ];
     }
-    // async getSettingsForm(): Promise<Form> {
-    //   return new MangaFireSettingsForm();
-    // }
+    async getSettingsForm() {
+      return new MangaFireSettingsForm();
+    }
     async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
         case "popular_section":
@@ -17354,7 +17463,7 @@ var source = (() => {
           thumbnailUrl: image,
           synopsis: description,
           rating,
-          contentRating: import_types3.ContentRating.EVERYONE,
+          contentRating: import_types4.ContentRating.EVERYONE,
           status,
           tagGroups: tags
         }
@@ -17362,7 +17471,7 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const mangaId = sourceManga.mangaId.split(".")[1];
-      const languages = ["en", "fr", "es", "es-la", "pt", "pt-br", "ja"];
+      const languages = getLanguages();
       const allRequests = [];
       for (const lang of languages) {
         for (const type of ["read", "manga"]) {
@@ -17702,7 +17811,7 @@ var source = (() => {
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
-        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
+        throw new import_types4.CloudflareError({ url: baseUrl, method: "GET" });
       }
     }
     async fetchCheerio(request) {
