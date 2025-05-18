@@ -33,20 +33,20 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
+    "@eslint/js": "^9.25.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
-    "@paperback/toolchain": "^1.0.0-alpha.47",
-    "@paperback/types": "^1.0.0-alpha.47",
+    "@paperback/toolchain": "^1.0.0-alpha.50",
+    "@paperback/types": "^1.0.0-alpha.50",
     "@types/eslint": "^9.6.1",
     "cheerio": "^1.0.0",
-    "eslint": "^9.22.0",
+    "eslint": "^9.25.0",
     "fastest-levenshtein": "^1.0.16",
     "husky": "^9.1.7",
     "moment": "^2.30.1",
     "prettier": "^3.5.3",
     "stemmer": "^2.0.1",
     "typescript": "^5.8.2",
-    "typescript-eslint": "^8.26.1"
+    "typescript-eslint": "^8.30.1"
   },
   "dependencies": {
     "@types/node": "^22.13.0",

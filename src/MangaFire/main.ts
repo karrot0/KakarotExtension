@@ -17,11 +17,11 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
-  // SettingsFormProviding,
+  SettingsFormProviding,
   SortingOption,
   SourceManga,
   TagSection,
-  // Form,
+  Form,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
@@ -29,8 +29,7 @@ import * as htmlparser2 from "htmlparser2";
 // import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { FireInterceptor } from "./MangaFireInterceptor";
-
-// import { MangaFireSettingsForm } from "./MangaFireSettings";
+import { MangaFireSettingsForm, getLanguages } from "./MangaFireSettings";
 
 const baseUrl = "https://mangafire.to";
 
@@ -38,13 +37,13 @@ type MangaFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
-  // SettingsFormProviding &
+  SettingsFormProviding &
   DiscoverSectionProviding;
 
 export class MangaFireExtension implements MangaFireImplementation {
   requestManager = new FireInterceptor("main");
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
-    numberOfRequests: 5,
+    numberOfRequests: 10,
     bufferInterval: 1,
     ignoreImages: true,
   });
@@ -89,9 +88,9 @@ export class MangaFireExtension implements MangaFireImplementation {
     ];
   }
 
-  // async getSettingsForm(): Promise<Form> {
-  //   return new MangaFireSettingsForm();
-  // }
+  async getSettingsForm(): Promise<Form> {
+    return new MangaFireSettingsForm();
+  }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
@@ -521,7 +520,7 @@ export class MangaFireExtension implements MangaFireImplementation {
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId.split(".")[1];
 
-    const languages = ["en", "fr", "es", "es-la", "pt", "pt-br", "ja"];
+    const languages = getLanguages();
     const allRequests = [];
 
     for (const lang of languages) {
