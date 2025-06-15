@@ -17342,7 +17342,7 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: `${baseUrl}/latest`,
+        url: `${baseUrl}/latest?page=${page}`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
