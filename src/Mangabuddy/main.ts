@@ -497,7 +497,7 @@ export class MangabuddyExtension implements BuddyImplementation {
     const collectedIds = metadata?.collectedIds ?? [];
 
     const request = {
-      url: `${baseUrl}/latest`,
+      url: `${baseUrl}/latest?page=${page}`,
       method: "GET",
     };
 
