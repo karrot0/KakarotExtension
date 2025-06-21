@@ -160,8 +160,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
-        ?.replace(/^.*?\/([^/]+)$/, "$1")
-        .replace(/\.html$/, "")
+        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
+        .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
@@ -260,7 +260,6 @@ export class BatcaveExtension implements BatcaveImplementation {
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     // Expected mangaId format: 6975-invincible-2003
     const request = {
@@ -284,32 +283,35 @@ export class BatcaveExtension implements BatcaveImplementation {
     );
     const jsonData = jsonMatch ? jsonMatch[1] : null;
 
+    interface ChapterData {
+      id: number;
+      title?: string;
+      posi: number;
+      date: string;
+    }
+
+    interface ParsedData {
+      chapters?: ChapterData[];
+    }
+
     try {
       if (!jsonData) throw new Error("No JSON data found");
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-      const parsedData: any = JSON.parse(jsonData);
+      const parsedData: ParsedData = JSON.parse(jsonData) as ParsedData;
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (parsedData.chapters) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
-        parsedData.chapters.forEach((chapter: any) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        parsedData.chapters.forEach((chapter: ChapterData) => {
           if (chapter.id && typeof chapter.id === "number") {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             const [day, month, year] = chapter.date.split(".").map(Number);
             const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
 
             chapters.push({
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              chapterId: chapter.id,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              chapterId: chapter.id.toString(),
               title: chapter.title || `Chapter ${chapter.posi}`,
               sourceManga,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               chapNum: chapter.posi,
               publishDate: new Date(isoDate),
-              volume: undefined,
+              volume: 0,
               langCode: "🇬🇧",
             });
           } else {
@@ -324,7 +326,6 @@ export class BatcaveExtension implements BatcaveImplementation {
     return chapters;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     try {
       const request = {
@@ -347,15 +348,12 @@ export class BatcaveExtension implements BatcaveImplementation {
         );
         if (jsonMatch) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-            const data: any = JSON.parse(jsonMatch[1]);
+            const data: { images?: string[] } = JSON.parse(jsonMatch[1]) as { images?: string[] };
 
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (data.images && Array.isArray(data.images)) {
-              data.images = (data.images as string[]).map((img: string) =>
+              data.images = data.images.map((img: string) =>
                 img.replace(/\\\//g, "/"),
               );
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
               pages.push(...data.images);
             } else {
               console.error("Images not found in JSON data");
@@ -412,8 +410,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
-        ?.replace(/^.*?\/([^/]+)$/, "$1")
-        .replace(/\.html$/, "")
+        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
+        .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
@@ -473,8 +471,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         : rawImage;
       const rawMangaId = unit.attr("href");
       const mangaId = rawMangaId
-        ?.replace(/^.*?\/([^/]+)$/, "$1")
-        .replace(/\.html$/, "")
+        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
+        .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
       const rating = unit.find(".poster__label--rate").text().trim();
 
@@ -529,8 +527,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         : rawImage;
       const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
       const mangaId = rawMangaId
-        ?.replace(/^.*?\/([^/]+)$/, "$1")
-        .replace(/\.html$/, "")
+        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
+        .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
       const latestChapter = unit.find(".latest__chapter a").text().trim();
 
@@ -673,8 +671,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
-        ?.replace(/^.*?\/([^/]+)$/, "$1")
-        .replace(/\.html$/, "")
+        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
+        .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
       const latestChapterText = unit
         .find(".readed__info li:last-child")
