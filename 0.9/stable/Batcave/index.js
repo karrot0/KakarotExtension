@@ -17081,7 +17081,7 @@ var source = (() => {
         const rawImage = unit.find("img").attr("data-src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
-        const mangaId = rawMangaId?.replace(/^.*?\/([^/]+)$/, "$1").replace(/\.html$/, "").trim();
+        const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
         const latestChapter = latestChapterText.replace("Last issue:", "").trim().replace(/.*#(\d+).*/, "#$1");
         if (!mangaId) return;
@@ -17143,7 +17143,6 @@ var source = (() => {
         }
       };
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getChapters(sourceManga) {
       const request = {
         url: `${baseUrl}/${sourceManga.mangaId}.html`,
@@ -17168,15 +17167,12 @@ var source = (() => {
               const [day, month, year] = chapter.date.split(".").map(Number);
               const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
               chapters.push({
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                chapterId: chapter.id,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                chapterId: chapter.id.toString(),
                 title: chapter.title || `Chapter ${chapter.posi}`,
                 sourceManga,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 chapNum: chapter.posi,
                 publishDate: new Date(isoDate),
-                volume: void 0,
+                volume: 0,
                 langCode: "\u{1F1EC}\u{1F1E7}"
               });
             } else {
@@ -17189,7 +17185,6 @@ var source = (() => {
       }
       return chapters;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getChapterDetails(chapter) {
       try {
         const request = {
@@ -17253,7 +17248,7 @@ var source = (() => {
         const rawImage = unit.find("img").attr("data-src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
-        const mangaId = rawMangaId?.replace(/^.*?\/([^/]+)$/, "$1").replace(/\.html$/, "").trim();
+        const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
         const latestChapter = latestChapterText.replace("Last issue:", "").trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -17293,7 +17288,7 @@ var source = (() => {
         const rawImage = (unit.find(".poster__img img").attr("data-src") || "").trim();
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = unit.attr("href");
-        const mangaId = rawMangaId?.replace(/^.*?\/([^/]+)$/, "$1").replace(/\.html$/, "").trim();
+        const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const rating = unit.find(".poster__label--rate").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
@@ -17327,7 +17322,7 @@ var source = (() => {
         const rawImage = unit.find(".latest__img img").attr("src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
-        const mangaId = rawMangaId?.replace(/^.*?\/([^/]+)$/, "$1").replace(/\.html$/, "").trim();
+        const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const latestChapter = unit.find(".latest__chapter a").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
@@ -17451,7 +17446,7 @@ var source = (() => {
         const rawImage = unit.find("img").attr("data-src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
-        const mangaId = rawMangaId?.replace(/^.*?\/([^/]+)$/, "$1").replace(/\.html$/, "").trim();
+        const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
         const latestChapter = latestChapterText.replace("Last issue:", "").trim().replace(/.*#(\d+).*/, "#$1");
         if (!mangaId) return;
