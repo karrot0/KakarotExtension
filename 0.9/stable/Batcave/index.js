@@ -16970,10 +16970,14 @@ var source = (() => {
   var import_types2 = __toESM(require_lib(), 1);
   var CaveInterceptor = class extends import_types2.PaperbackInterceptor {
     async interceptRequest(request) {
+      let referer = `https://batcave.biz`;
+      if (request.url.includes("readcomiconline.ru")) {
+        referer = `https://readcomiconline.ru`;
+      }
       request.headers = {
         ...request.headers,
-        origin: `https://batcave.biz`,
-        referer: `https://batcave.biz`,
+        origin: referer,
+        referer,
         "user-agent": await Application.getDefaultUserAgent(),
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "accept-language": "en-US,en;q=0.5",
