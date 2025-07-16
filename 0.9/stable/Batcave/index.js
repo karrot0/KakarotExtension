@@ -16971,8 +16971,8 @@ var source = (() => {
   var CaveInterceptor = class extends import_types2.PaperbackInterceptor {
     async interceptRequest(request) {
       let referer = `https://batcave.biz`;
-      if (request.url.includes("readcomiconline.ru")) {
-        referer = `https://readcomiconline.ru`;
+      if (request.url.includes("readcomicsonline.ru")) {
+        referer = `https://readcomicsonline.ru`;
       }
       request.headers = {
         ...request.headers,
