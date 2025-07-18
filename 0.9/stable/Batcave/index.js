@@ -16965,7 +16965,7 @@ var source = (() => {
     }
   };
 
-  // src/Batcave/BatcaveInterceptor.ts
+  // src/Batcave/interceptors.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
   var CaveInterceptor = class extends import_types2.PaperbackInterceptor {
