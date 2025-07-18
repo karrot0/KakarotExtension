@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-07-18T17:30:59.075Z",
+  "buildTime": "2025-07-18T20:17:44.190Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -154,6 +154,42 @@
         }
       ],
       "id": "ReadAllComics"
+    },
+    {
+      "name": "ReadComicsOnlineRu",
+      "description": "Extension that pulls content from readcomicsonline.ru.",
+      "version": "1.0.0-alpha.2",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [
+        {
+          "label": "Aggregator",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        },
+        {
+          "label": "Mature",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        },
+        {
+          "label": "Western Comics",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "ReadComicsOnline"
     }
   ]
 }
