@@ -17224,17 +17224,14 @@ var source = (() => {
           );
         }
       });
-      const currentPage = $2(".pagination__pages > span").first().text();
-      const hasNextPage = $2(".pagination__pages > a").filter(
-        (_, el) => parseInt($2(el).text()) > parseInt(currentPage)
-      ).length > 0;
+      const hasNextPage = $2(".next.page-numbers").length > 0;
       return {
         items,
         metadata: hasNextPage ? { page: page + 1, collectedIds } : void 0
       };
     }
     getMangaShareUrl(mangaId) {
-      return `${baseUrl}/${mangaId}`;
+      return `${baseUrl}/category/${mangaId}`;
     }
     checkCloudflareStatus(status) {
       if (status === 503 || status === 403) {
