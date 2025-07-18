@@ -1,10 +1,10 @@
 import {
   Form,
+  FormSectionElement,
   LabelRow,
   NavigationRow,
   Section,
   SelectRow,
-  FormSectionElement,
 } from "@paperback/types";
 
 // Language Helper Class
@@ -21,9 +21,7 @@ class MFLanguagesClass {
 
   constructor() {
     // Sort languages by name
-    this.Languages = this.Languages.sort((a, b) =>
-      a.name > b.name ? 1 : -1
-    );
+    this.Languages = this.Languages.sort((a, b) => (a.name > b.name ? 1 : -1));
   }
 
   getCodeList(): string[] {
@@ -32,19 +30,21 @@ class MFLanguagesClass {
 
   getName(code: string): string {
     return (
-      this.Languages.find((language) => language.MDCode === code)?.name ?? "Unknown"
+      this.Languages.find((language) => language.MDCode === code)?.name ??
+      "Unknown"
     );
   }
 
   getFlagCode(code: string): string {
     return (
-      this.Languages.find((language) => language.MDCode === code)?.flagCode ?? "🏳️"
+      this.Languages.find((language) => language.MDCode === code)?.flagCode ??
+      "🏳️"
     );
   }
 
   getDefault(): string[] {
     return this.Languages.filter((language) => language.default).map(
-      (language) => language.MDCode
+      (language) => language.MDCode,
     );
   }
 }
@@ -52,7 +52,10 @@ class MFLanguagesClass {
 export const MFLanguages = new MFLanguagesClass();
 
 export function getLanguages(): string[] {
-  return (Application.getState("languages") as string[] | undefined) ?? MFLanguages.getDefault();
+  return (
+    (Application.getState("languages") as string[] | undefined) ??
+    MFLanguages.getDefault()
+  );
 }
 
 export function setLanguages(languages: string[]): void {
@@ -117,8 +120,8 @@ export class ContentSettingsForm extends Form {
               .map(
                 (langCode) =>
                   `${MFLanguages.getFlagCode(langCode)} ${MFLanguages.getName(
-                    langCode
-                  )}`
+                    langCode,
+                  )}`,
               )
               .sort();
             return selectedLangNames.join(", ");
@@ -132,8 +135,8 @@ export class ContentSettingsForm extends Form {
           maxItemCount: MFLanguages.getCodeList().length,
           onValueChange: Application.Selector(
             this as ContentSettingsForm,
-            "updateValue"
-          )
+            "updateValue",
+          ),
         }),
       ]),
     ];

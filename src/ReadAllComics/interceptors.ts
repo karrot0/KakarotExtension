@@ -1,16 +1,11 @@
 import { PaperbackInterceptor, Request, Response } from "@paperback/types";
 
-export class CaveInterceptor extends PaperbackInterceptor {
+export class ReadAllComicsInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
-    let referer = `https://batcave.biz`;
-    if (request.url.includes('readcomicsonline.ru')) {
-      referer = `https://readcomicsonline.ru`;
-    }
-
     request.headers = {
       ...request.headers,
-      origin: referer,
-      referer: referer,
+      origin: "https://readallcomics.com",
+      referer: "https://readallcomics.com",
       "user-agent": await Application.getDefaultUserAgent(),
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",

@@ -27,6 +27,7 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
+import { BuddyMetadata } from "./Mangabuddy";
 import { BuddyInterceptor } from "./MangabuddyInterceptor";
 
 const baseUrl = "https://mangabuddy.com";
@@ -202,7 +203,7 @@ export class MangabuddyExtension implements BuddyImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: MangaFire.Metadata | undefined,
+    metadata: BuddyMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":

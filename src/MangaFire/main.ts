@@ -10,6 +10,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   PagedResults,
   Request,
@@ -21,15 +22,19 @@ import {
   SortingOption,
   SourceManga,
   TagSection,
-  Form,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-// import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
-import { FireInterceptor } from "./MangaFireInterceptor";
-import { MangaFireSettingsForm, getLanguages } from "./MangaFireSettings";
+import { getLanguages, MangaFireSettingsForm } from "./forms";
+import { FireInterceptor } from "./interceptors";
+import {
+  MangaFireImageData,
+  MangaFireMetadata,
+  MangaFirePageResponse,
+  MangaFireResult,
+} from "./model";
 
 const baseUrl = "https://mangafire.to";
 
@@ -94,7 +99,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: MangaFire.Metadata | undefined,
+    metadata: MangaFireMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
@@ -376,7 +381,6 @@ export class MangaFireExtension implements MangaFireImplementation {
     }
 
     if (sortingOption) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       url += `&sort=${sortingOption.id}`;
     }
 
@@ -564,7 +568,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
           const r2 = JSON.parse(
             Application.arrayBufferToUTF8String(buffer),
-          ) as MangaFire.Result;
+          ) as MangaFireResult;
 
           const html =
             typeof r2?.result === "string" ? r2.result : r2?.result?.html || "";
@@ -601,7 +605,7 @@ export class MangaFireExtension implements MangaFireImplementation {
 
           const r1 = JSON.parse(
             Application.arrayBufferToUTF8String(buffer),
-          ) as MangaFire.Result;
+          ) as MangaFireResult;
 
           if (r1?.result && typeof r1.result !== "string" && r1.result.html) {
             const $1 = cheerio.load(r1.result.html);
@@ -621,7 +625,7 @@ export class MangaFireExtension implements MangaFireImplementation {
                 publishDate: timestamp
                   ? new Date(convertToISO8601(timestamp))
                   : undefined,
-                volume: undefined,
+                volume: 0,
                 langCode: getLanguageFlag(language),
                 version: getLanguageVersion(language),
               });
@@ -653,12 +657,12 @@ export class MangaFireExtension implements MangaFireImplementation {
       const request: Request = { url, method: "GET" };
 
       const [_, buffer] = await Application.scheduleRequest(request);
-      const json: MangaFire.PageResponse = JSON.parse(
+      const json: MangaFirePageResponse = JSON.parse(
         Application.arrayBufferToUTF8String(buffer),
-      ) as MangaFire.PageResponse;
+      ) as MangaFirePageResponse;
 
       const pages: string[] = [];
-      json.result.images.forEach((value: MangaFire.ImageData) => {
+      json.result.images.forEach((value: MangaFireImageData) => {
         pages.push(value[0]);
       });
       return {

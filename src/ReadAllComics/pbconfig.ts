@@ -1,9 +1,9 @@
 import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "Batcave",
-  description: "Extension that pulls content from batcave.biz.",
-  version: "1.0.0-alpha.6",
+  name: "ReadAllComics",
+  description: "Extension that pulls content from https://readallcomics.com",
+  version: "1.0.0-alpha.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

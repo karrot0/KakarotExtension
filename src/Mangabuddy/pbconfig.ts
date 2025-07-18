@@ -25,7 +25,7 @@ export default {
       name: "Karrot",
     },
     {
-      name: "Havilah"
-    }
+      name: "Havilah",
+    },
   ],
 } satisfies SourceInfo;

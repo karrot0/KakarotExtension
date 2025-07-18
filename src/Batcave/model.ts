@@ -1,4 +1,4 @@
-export interface BuddyMetadata {
+export interface CaveMetadata {
   offset?: number;
   collectedIds?: string[];
 }

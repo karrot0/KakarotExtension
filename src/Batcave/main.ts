@@ -23,7 +23,8 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 // import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
-import { CaveInterceptor } from "./BatcaveInterceptor";
+import { CaveInterceptor } from "./interceptors";
+import { CaveMetadata } from "./model";
 
 const baseUrl = "https://batcave.biz";
 
@@ -63,7 +64,7 @@ export class BatcaveExtension implements BatcaveImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: Cave.Metadata | undefined,
+    metadata: CaveMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
@@ -348,7 +349,9 @@ export class BatcaveExtension implements BatcaveImplementation {
         );
         if (jsonMatch) {
           try {
-            const data: { images?: string[] } = JSON.parse(jsonMatch[1]) as { images?: string[] };
+            const data: { images?: string[] } = JSON.parse(jsonMatch[1]) as {
+              images?: string[];
+            };
 
             if (data.images && Array.isArray(data.images)) {
               data.images = data.images.map((img: string) =>
