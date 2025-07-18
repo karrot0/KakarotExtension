@@ -377,11 +377,7 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
       }
     });
 
-    const currentPage = $(".pagination__pages > span").first().text();
-    const hasNextPage =
-      $(".pagination__pages > a").filter(
-        (_, el) => parseInt($(el).text()) > parseInt(currentPage),
-      ).length > 0;
+    const hasNextPage = $('.next.page-numbers').length > 0;
 
     return {
       items: items,
@@ -390,7 +386,7 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/${mangaId}`;
+    return `${baseUrl}/category/${mangaId}`;
   }
 
   checkCloudflareStatus(status: number): void {
