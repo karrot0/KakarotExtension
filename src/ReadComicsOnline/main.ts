@@ -89,16 +89,50 @@ export class ReadComicsOnlineExtension
     query: SearchQuery,
     metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    // const page = metadata?.page ?? 1;
+    const page = metadata?.page ?? 1;
+    const itemsPerPage = 10;
 
-    // const request = { url: searchUrl.build(), method: "GET" };
+    const searchUrl = new URLBuilder(`${baseUrl}/search`);
+    searchUrl.addQuery("query", query.title);
 
-    // const $ = await this.fetchCheerio(request);
-    const searchResults: SearchResultItem[] = [];
+    const request = {
+      url: searchUrl.build(),
+      method: "GET",
+    };
+
+    const [response, data] = await Application.scheduleRequest(request);
+    this.checkCloudflareStatus(response.status);
+    const responseText = Application.arrayBufferToUTF8String(data);
+    
+    let searchResults: SearchResultItem[] = [];
+
+    try {
+      interface SearchResponse {
+        suggestions: { value: string; data: string }[];
+      }
+
+      const searchData: SearchResponse = JSON.parse(responseText) as SearchResponse;
+      
+      if (searchData.suggestions && Array.isArray(searchData.suggestions)) {
+        searchResults = searchData.suggestions.map(item => ({
+          mangaId: item.data,
+          title: item.value,
+          imageUrl: `${baseUrl}/uploads/manga/${item.data}/cover/cover_250x350.jpg`,
+          type: "searchResultItem" as const,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to parse search response:", error);
+    }
+
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedResults = searchResults.slice(startIndex, endIndex);
+    const hasNextPage = endIndex < searchResults.length;
 
     return {
-      items: searchResults,
-      // metadata: hasNextPage ? { page: page + 1 } : undefined,
+      items: paginatedResults,
+      metadata: hasNextPage ? { page: page + 1 } : undefined,
     };
   }
 
