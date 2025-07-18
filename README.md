@@ -1,11 +1,14 @@
-# 🔥 Kakarot Extension
+# Kakarot Extension
 
-A manga extension for Paperback that includes popular manga sources.
+A repository for paperback that includes both manga and comic extensions
 
 ## 📚 Available Sources
 
+- Batcave
 - Mangafire
-- Manganelo
+- Mangabuddy
+- ReadAllComics
+- ReadComicsOnline
 
 ## 📋 Upcoming Sources
 

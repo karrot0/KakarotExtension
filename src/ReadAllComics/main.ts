@@ -76,11 +76,11 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     const collectedIds: string[] = metadata?.collectedIds ?? [];
     const page: number = metadata?.page ?? 1;
     const searchTerm = query.title ?? "";
-    
+
     // If search term is empty, use pagination similar to catalogue
     if (!searchTerm.trim()) {
       const url = page > 1 ? `${baseUrl}/page/${page}/` : `${baseUrl}`;
-      
+
       const request = { url: url, method: "GET" };
       const $ = await this.fetchCheerio(request);
 
@@ -96,8 +96,9 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
         const image = rawImage.startsWith("/")
           ? `https://2.bp.blogspot.com${rawImage}`
           : rawImage;
-        const rawMangaId = unit.attr('class')?.match(/category-([^\s]+)/)?.[1] ?? '';
-        const mangaId = rawMangaId || '';
+        const rawMangaId =
+          unit.attr("class")?.match(/category-([^\s]+)/)?.[1] ?? "";
+        const mangaId = rawMangaId || "";
         const dateText = unit.find(".pinbin-copy span").text().trim();
 
         if (title && mangaId && !newCollectedIds.includes(mangaId)) {
@@ -112,41 +113,45 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
         }
       });
 
-      const hasNextPage = $('.next.page-numbers').length > 0;
-      const nextPageMetadata = hasNextPage ? {
-        page: page + 1,
-        collectedIds: newCollectedIds
-      } : undefined;
+      const hasNextPage = $(".next.page-numbers").length > 0;
+      const nextPageMetadata = hasNextPage
+        ? {
+            page: page + 1,
+            collectedIds: newCollectedIds,
+          }
+        : undefined;
 
       return {
         items: results,
         metadata: nextPageMetadata,
       };
     }
-    
+
     // Original search logic for when search term is provided
-    const request = { 
+    const request = {
       url: `${baseUrl}/?story=${encodeURIComponent(searchTerm)}&s=&type=comic`,
       method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const results: SearchResultItem[] = [];
-    
+
     $(".list-story li").each((_, element) => {
       const unit = $(element);
       const link = unit.find("a");
       const url = link.attr("href") || "";
       const title = link.attr("title") || link.text().trim();
-      
-      const urlParts = url.split('/').filter(Boolean);
-      const mangaId = urlParts.includes('category') ? urlParts[urlParts.length - 1] : '';
-      
+
+      const urlParts = url.split("/").filter(Boolean);
+      const mangaId = urlParts.includes("category")
+        ? urlParts[urlParts.length - 1]
+        : "";
+
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
         results.push({
           mangaId: mangaId,
-          imageUrl: '',
+          imageUrl: "",
           title: title,
           subtitle: undefined,
           metadata: undefined,
@@ -366,7 +371,7 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
       }
     });
 
-    const hasNextPage = $('.next.page-numbers').length > 0;
+    const hasNextPage = $(".next.page-numbers").length > 0;
 
     return {
       items: items,
