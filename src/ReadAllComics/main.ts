@@ -73,101 +73,90 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     query: SearchQuery,
     metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
+    const page: number = metadata?.page ?? 1;
+    const searchTerm = query.title ?? "";
+    
+    // If search term is empty, use pagination similar to catalogue
+    if (!searchTerm.trim()) {
+      const url = page > 1 ? `${baseUrl}/page/${page}/` : `${baseUrl}`;
+      
+      const request = { url: url, method: "GET" };
+      const $ = await this.fetchCheerio(request);
 
-    if (!query.title) {
-      const catalogueResults = await this.getCatalogueSectionItems(
-        {
-          id: "catalogue_section",
-          title: "",
-          type: DiscoverSectionType.simpleCarousel,
-        },
-        metadata,
-      );
+      const results: SearchResultItem[] = [];
+      const newCollectedIds = [...collectedIds];
+
+      $("#post-area .post").each((_, element) => {
+        const unit = $(element);
+        const infoLink = unit.find(".pinbin-copy a");
+        const title = infoLink.attr("title")?.trim() || infoLink.text().trim();
+        const imageEl = unit.find("img");
+        const rawImage = imageEl.attr("data-src") || imageEl.attr("src") || "";
+        const image = rawImage.startsWith("/")
+          ? `https://2.bp.blogspot.com${rawImage}`
+          : rawImage;
+        const rawMangaId = unit.attr('class')?.match(/category-([^\s]+)/)?.[1] ?? '';
+        const mangaId = rawMangaId || '';
+        const dateText = unit.find(".pinbin-copy span").text().trim();
+
+        if (title && mangaId && !newCollectedIds.includes(mangaId)) {
+          newCollectedIds.push(mangaId);
+          results.push({
+            mangaId: mangaId,
+            imageUrl: image,
+            title: title,
+            subtitle: dateText,
+            metadata: undefined,
+          });
+        }
+      });
+
+      const hasNextPage = $('.next.page-numbers').length > 0;
+      const nextPageMetadata = hasNextPage ? {
+        page: page + 1,
+        collectedIds: newCollectedIds
+      } : undefined;
+
       return {
-        items: catalogueResults.items
-          .map((item) => {
-            if (item.type === "simpleCarouselItem") {
-              const searchItem: SearchResultItem = {
-                mangaId: item.mangaId,
-                title: item.title,
-                imageUrl: item.imageUrl,
-                subtitle: item.subtitle,
-                metadata: item.metadata,
-              };
-              return searchItem;
-            }
-            return null;
-          })
-          .filter((item): item is SearchResultItem => item !== null),
-        metadata: catalogueResults.metadata,
+        items: results,
+        metadata: nextPageMetadata,
       };
     }
-
-    const urlBuilder = new URLBuilder(baseUrl)
-      .addPath("search")
-      .addPath(query.title);
-
-    if (page > 1) {
-      urlBuilder.addPath("page").addPath(page.toString());
-    }
-
-    const searchUrl = urlBuilder;
-
-    // Get filter values
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const getFilterValue = (id: string) =>
-      query.filters.find((filter) => filter.id == id)?.value;
-
-    const request = { url: searchUrl.build(), method: "GET" };
+    
+    // Original search logic for when search term is provided
+    const request = { 
+      url: `${baseUrl}/?story=${encodeURIComponent(searchTerm)}&s=&type=comic`,
+      method: "GET",
+    };
 
     const $ = await this.fetchCheerio(request);
-    const searchResults: SearchResultItem[] = [];
-
-    $(".readed").each((_, element) => {
+    const results: SearchResultItem[] = [];
+    
+    $(".list-story li").each((_, element) => {
       const unit = $(element);
-      const infoLink = unit.find(".readed__title a");
-      const title = infoLink.text().trim();
-      const rawImage = unit.find("img").attr("data-src") || "";
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
-      const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
-      const latestChapterText = unit
-        .find(".readed__info li:last-child")
-        .text()
-        .trim();
-      const latestChapter = latestChapterText
-        .replace("Last issue:", "")
-        .trim()
-        .replace(/.*#(\d+).*/, "#$1");
-
-      if (!mangaId) return;
-
-      searchResults.push({
-        mangaId: mangaId,
-        imageUrl: image,
-        title: title,
-        subtitle: latestChapter,
-        metadata: undefined,
-      });
+      const link = unit.find("a");
+      const url = link.attr("href") || "";
+      const title = link.attr("title") || link.text().trim();
+      
+      const urlParts = url.split('/').filter(Boolean);
+      const mangaId = urlParts.includes('category') ? urlParts[urlParts.length - 1] : '';
+      
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        results.push({
+          mangaId: mangaId,
+          imageUrl: '',
+          title: title,
+          subtitle: undefined,
+          metadata: undefined,
+        });
+      }
     });
 
-    const currentPage =
-      parseInt($(".pagination__pages > span").first().text()) || 1;
-    const hasNextPage =
-      $(".pagination__pages > a").filter((_, el) => {
-        const pageNum = parseInt($(el).text());
-        return !isNaN(pageNum) && pageNum > currentPage;
-      }).length > 0;
-
     return {
-      items: searchResults,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      items: results,
+      metadata: undefined,
     };
   }
 
