@@ -17191,8 +17191,6 @@ var source = (() => {
           const value = genres[id];
           if (value === "included") {
             searchUrl.addQuery("genre[]", id);
-          } else if (value === "excluded") {
-            searchUrl.addQuery("genre[]", `-${id}`);
           }
         });
       }
@@ -17214,6 +17212,18 @@ var source = (() => {
         const latestChapter = item.find(".thumb .latest-chapter").text().trim();
         const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
         const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : void 0;
+        const genres2 = [];
+        item.find(".meta .genres span").each((_2, el) => {
+          const genre = $2(el).text().trim();
+          if (genre) genres2.push(genre.toLowerCase().replace(/\s+/g, "-"));
+        });
+        if (genres2.length > 0 && typeof query.filters.find((filter4) => filter4.id == "genres")?.value === "object") {
+          const filterGenres = query.filters.find((filter4) => filter4.id == "genres")?.value;
+          const hasExcluded = genres2.some((genre) => filterGenres[genre] === "excluded");
+          if (hasExcluded) {
+            return;
+          }
+        }
         if (title && mangaId) {
           searchResults.push({
             mangaId,
