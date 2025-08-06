@@ -309,9 +309,14 @@ export class NHentaiExtension implements NHentaiImplementation {
       const href = link.attr("href") || "";
       const mangaId = typeof href === "string" ? href.replace(/\/g\/(\d+)\//, "$1") : "";
       const img = link.find("img");
-      const image =
-        typeof img.attr("data-src") === "string" ? img.attr("data-src") :
+      let image = typeof img.attr("data-src") === "string" ? img.attr("data-src") :
         typeof img.attr("src") === "string" ? img.attr("src") : "";
+      if (image && image.startsWith("//")) {
+        image = "https:" + image;
+      }
+      if (!/^https?:\/\//.test(image ?? "")) {
+        return;
+      }
       const title = typeof link.find(".caption").text() === "string" ? link.find(".caption").text().trim() : "";
       const subtitle = undefined;
 
@@ -440,11 +445,16 @@ export class NHentaiExtension implements NHentaiImplementation {
     const pageCheerios = await Promise.all(pageRequests);
 
     for (const page$ of pageCheerios) {
-      const imgUrl =
-      page$("#image-container img").attr("data-src") ||
-      page$("#image-container img").attr("src") ||
-      "";
-
+      let imgUrl =
+        page$("#image-container img").attr("data-src") ||
+        page$("#image-container img").attr("src") ||
+        "";
+      if (imgUrl.startsWith("//")) {
+        imgUrl = "https:" + imgUrl;
+      }
+      if (!/^https?:\/\//.test(imgUrl)) {
+        continue;
+      }
       if (imgUrl) {
         images.push(imgUrl);
       }
@@ -484,10 +494,16 @@ export class NHentaiExtension implements NHentaiImplementation {
       const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
 
       const img = link.find("img");
-      const image =
+      let image =
         img.attr("data-src") ||
         img.attr("src") ||
         "";
+      if (image && image.startsWith("//")) {
+        image = "https:" + image;
+      }
+      if (!image || !/^https?:\/\//.test(image)) {
+        return;
+      }
       const title = link.find(".caption").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -536,10 +552,16 @@ export class NHentaiExtension implements NHentaiImplementation {
       const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
 
       const img = link.find("img");
-      const image =
+      let image =
       img.attr("data-src") ||
       img.attr("src") ||
       "";
+      if (image && image.startsWith("//")) {
+        image = "https:" + image;
+      }
+      if (!image || !/^https?:\/\//.test(image)) {
+        return;
+      }
       const title = link.find(".caption").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
