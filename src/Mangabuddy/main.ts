@@ -291,8 +291,6 @@ export class MangabuddyExtension implements BuddyImplementation {
           const value = genres[id];
           if (value === "included") {
             searchUrl.addQuery("genre[]", id);
-          } else if (value === "excluded") {
-            searchUrl.addQuery("genre[]", `-${id}`);
           }
         });
     }
@@ -322,6 +320,20 @@ export class MangabuddyExtension implements BuddyImplementation {
       const latestChapter = item.find(".thumb .latest-chapter").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
       const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
+      const genres: string[] = [];
+      item.find(".meta .genres span").each((_, el) => {
+        const genre = $(el).text().trim();
+        if (genre) genres.push(genre.toLowerCase().replace(/\s+/g, "-"));
+      });
+
+      // exclude mangas with genre that are excluded
+      if (genres.length > 0 && typeof query.filters.find((filter) => filter.id == "genres")?.value === "object") {
+        const filterGenres = query.filters.find((filter) => filter.id == "genres")?.value as Record<string, "included" | "excluded">;
+        const hasExcluded = genres.some((genre) => filterGenres[genre] === "excluded");
+        if (hasExcluded) {
+          return;
+        }
+      }
 
       if (title && mangaId) {
         searchResults.push({
