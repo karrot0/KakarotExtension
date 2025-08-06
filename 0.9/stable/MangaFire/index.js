@@ -17224,7 +17224,7 @@ var source = (() => {
           }
         });
         $2(
-          ".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li"
+          ".dropdown:has(button .value[data-placeholder='Sort by']) .dropdown-menu.noclose.c1 li"
         ).each((_, element) => {
           const id = $2(element).find("input").attr("value") ?? "";
           const label = $2(element).find("label").text().trim();
@@ -17316,17 +17316,24 @@ var source = (() => {
       });
       return filters2;
     }
-    async getSortingOptions(query) {
-      void query;
+    async getSortingOptions() {
       const searchDetails = await this.getSearchDetails();
-      const sortingOptions = searchDetails?.sorts?.map((sort) => ({
+      if (!searchDetails?.sorts || searchDetails.sorts.length === 0) {
+        return [
+          { id: "most_relevance", label: "Most Relevant" },
+          { id: "recently_updated", label: "Recently Updated" },
+          { id: "most_viewed", label: "Most Viewed" },
+          { id: "newest", label: "Newest" }
+        ];
+      }
+      return searchDetails.sorts.map((sort) => ({
         id: sort.id,
         label: sort.label
-      })) || [];
-      return sortingOptions;
+      }));
     }
     async getSearchResults(query, metadata, sortingOption) {
       const page = metadata?.page ?? 1;
+      const collectedIds = metadata?.searchCollectedIds ?? [];
       const searchUrl = new URLBuilder(baseUrl).addPath("filter").addQuery("keyword", query.title).addQuery("page", page.toString()).addQuery("genre_mode", "and");
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
       const type = getFilterValue("type");
@@ -17380,9 +17387,10 @@ var source = (() => {
         const latestChapter = unit.find(".content[data-name='chap'] a").first().find("span").first().text().trim();
         const latestChapterMatch = latestChapter.match(/Chap (\d+)/);
         const subtitle = latestChapterMatch ? `Ch. ${latestChapterMatch[1]}` : void 0;
-        if (!title || !mangaId) {
+        if (!title || !mangaId || collectedIds.includes(mangaId)) {
           return;
         }
+        collectedIds.push(mangaId);
         searchResults.push({
           mangaId,
           imageUrl: image,
