@@ -1,6 +1,7 @@
 export interface MangaFireMetadata {
-  offset?: number;
+  page?: number;
   collectedIds?: string[];
+  searchCollectedIds?: string[];
 }
 
 export interface MangaFireResult {

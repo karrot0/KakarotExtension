@@ -194,7 +194,7 @@ export class MangaFireExtension implements MangaFireImplementation {
       });
 
       $(
-        ".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li",
+        ".dropdown:has(button .value[data-placeholder='Sort by']) .dropdown-menu.noclose.c1 li",
       ).each((_, element) => {
         const id = $(element).find("input").attr("value") ?? "";
         const label = $(element).find("label").text().trim();
@@ -299,25 +299,29 @@ export class MangaFireExtension implements MangaFireImplementation {
     return filters;
   }
 
-  async getSortingOptions(query: SearchQuery): Promise<SortingOption[]> {
-    void query;
-
+  async getSortingOptions(): Promise<SortingOption[]> {
     const searchDetails = await this.getSearchDetails();
-    const sortingOptions: SortingOption[] =
-      searchDetails?.sorts?.map((sort) => ({
-        id: sort.id,
-        label: sort.label,
-      })) || [];
-
-    return sortingOptions;
+    if (!searchDetails?.sorts || searchDetails.sorts.length === 0) {
+      return [
+        { id: "most_relevance", label: "Most Relevant" },
+        { id: "recently_updated", label: "Recently Updated" },
+        { id: "most_viewed", label: "Most Viewed" },
+        { id: "newest", label: "Newest" },
+      ];
+    }
+    return searchDetails.sorts.map((sort) => ({
+      id: sort.id,
+      label: sort.label,
+    }));
   }
 
   async getSearchResults(
     query: SearchQuery,
-    metadata: { page?: number } | undefined,
+    metadata: MangaFireMetadata | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
+    const collectedIds = metadata?.searchCollectedIds ?? [];
     // Example: https://mangafire.to/filter?keyword=one%20piece&page=1&genre_mode=and&type[]=manhwa&genre[]=action&status[]=releasing&sort=most_relevance
     // Multple Genres: https://mangafire.to/filter?keyword=one+piece&type%5B%5D=manga&genre%5B%5D=1&genre%5B%5D=31&genre_mode=and&status%5B%5D=releasing&sort=most_relevance
     // No Genre: https://mangafire.to/filter?keyword=one+piece&type%5B%5D=manga&genre_mode=and&status%5B%5D=releasing&sort=most_relevance
@@ -407,9 +411,11 @@ export class MangaFireExtension implements MangaFireImplementation {
         ? `Ch. ${latestChapterMatch[1]}`
         : undefined;
 
-      if (!title || !mangaId) {
+      if (!title || !mangaId || collectedIds.includes(mangaId)) {
         return;
       }
+
+      collectedIds.push(mangaId);
 
       searchResults.push({
         mangaId: mangaId,
