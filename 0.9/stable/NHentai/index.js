@@ -17211,7 +17211,13 @@ var source = (() => {
         const href = link.attr("href") || "";
         const mangaId = typeof href === "string" ? href.replace(/\/g\/(\d+)\//, "$1") : "";
         const img = link.find("img");
-        const image = typeof img.attr("data-src") === "string" ? img.attr("data-src") : typeof img.attr("src") === "string" ? img.attr("src") : "";
+        let image = typeof img.attr("data-src") === "string" ? img.attr("data-src") : typeof img.attr("src") === "string" ? img.attr("src") : "";
+        if (image && image.startsWith("//")) {
+          image = "https:" + image;
+        }
+        if (!/^https?:\/\//.test(image ?? "")) {
+          return;
+        }
         const title = typeof link.find(".caption").text() === "string" ? link.find(".caption").text().trim() : "";
         const subtitle = void 0;
         if (!title || !mangaId) {
@@ -17309,7 +17315,13 @@ var source = (() => {
       const pageRequests = pageUrls.map((url) => this.fetchCheerio({ url, method: "GET" }));
       const pageCheerios = await Promise.all(pageRequests);
       for (const page$ of pageCheerios) {
-        const imgUrl = page$("#image-container img").attr("data-src") || page$("#image-container img").attr("src") || "";
+        let imgUrl = page$("#image-container img").attr("data-src") || page$("#image-container img").attr("src") || "";
+        if (imgUrl.startsWith("//")) {
+          imgUrl = "https:" + imgUrl;
+        }
+        if (!/^https?:\/\//.test(imgUrl)) {
+          continue;
+        }
         if (imgUrl) {
           images.push(imgUrl);
         }
@@ -17338,7 +17350,13 @@ var source = (() => {
         const href = link.attr("href") || "";
         const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
         const img = link.find("img");
-        const image = img.attr("data-src") || img.attr("src") || "";
+        let image = img.attr("data-src") || img.attr("src") || "";
+        if (image && image.startsWith("//")) {
+          image = "https:" + image;
+        }
+        if (!image || !/^https?:\/\//.test(image)) {
+          return;
+        }
         const title = link.find(".caption").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
@@ -17374,7 +17392,13 @@ var source = (() => {
         const href = link.attr("href") || "";
         const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
         const img = link.find("img");
-        const image = img.attr("data-src") || img.attr("src") || "";
+        let image = img.attr("data-src") || img.attr("src") || "";
+        if (image && image.startsWith("//")) {
+          image = "https:" + image;
+        }
+        if (!image || !/^https?:\/\//.test(image)) {
+          return;
+        }
         const title = link.find(".caption").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
