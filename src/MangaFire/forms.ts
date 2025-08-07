@@ -58,8 +58,39 @@ export function getLanguages(): string[] {
   );
 }
 
+export function getBlacklistGenres(): string[] {
+  return (
+    (Application.getState("blacklistGenres") as string[] | undefined) ?? []
+  );
+}
+
+export function getWhitelistGenres(): string[] {
+  return (
+    (Application.getState("whitelistGenres") as string[] | undefined) ?? []
+  );
+}
+
+export function getGenres(): { id: string; label: string }[] {
+  return (
+    (Application.getState("genres") as { id: string; label: string }[] | undefined) ??
+    []
+  );
+}
+
+export function setGenres(genres: { id: string; label: string }[]): void {
+  Application.setState(genres, "genres");
+}
+
 export function setLanguages(languages: string[]): void {
   Application.setState(languages, "languages");
+}
+
+export function setBlacklistGenres(genres: string[]): void {
+  Application.setState(genres, "blacklistGenres");
+}
+
+export function setWhitelistGenres(genres: string[]): void {
+  Application.setState(genres, "whitelistGenres");
 }
 
 // Main Settings Form
@@ -87,6 +118,14 @@ export class ContentSettingsForm extends Form {
     value: string[];
     updateValue: (newValue: string[]) => Promise<void>;
   };
+  private blacklistGenresState: {
+    value: string[];
+    updateValue: (newValue: string[]) => Promise<void>;
+  };
+  private whitelistGenresState: {
+    value: string[];
+    updateValue: (newValue: string[]) => Promise<void>;
+  };
 
   constructor() {
     super();
@@ -98,11 +137,37 @@ export class ContentSettingsForm extends Form {
         setLanguages(newValue);
       },
     };
+    const blacklistGenres = getBlacklistGenres();
+    this.blacklistGenresState = {
+      value: blacklistGenres,
+      updateValue: async (newValue: string[]) => {
+        this.blacklistGenresState.value = newValue;
+        setBlacklistGenres(newValue);
+      },
+    };
+    const whitelistGenres = getWhitelistGenres();
+    this.whitelistGenresState = {
+      value: whitelistGenres,
+      updateValue: async (newValue: string[]) => {
+        this.whitelistGenresState.value = newValue;
+        setWhitelistGenres(newValue);
+      },
+    };
   }
 
   async updateValue(value: string[]): Promise<void> {
     this.languagesState.value = value;
     setLanguages(value);
+  }
+
+  async updateBlacklistGenres(value: string[]): Promise<void> {
+    this.blacklistGenresState.value = value;
+    setBlacklistGenres(value);
+  }
+
+  async updateWhitelistGenres(value: string[]): Promise<void> {
+    this.whitelistGenresState.value = value;
+    setWhitelistGenres(value);
   }
 
   override getSections(): FormSectionElement[] {
@@ -136,6 +201,36 @@ export class ContentSettingsForm extends Form {
           onValueChange: Application.Selector(
             this as ContentSettingsForm,
             "updateValue",
+          ),
+        }),
+        SelectRow("whitelistGenre", {
+          title: "Whitelist Genres",
+          subtitle: "Select genres to include in your search results",
+          value: this.whitelistGenresState.value,
+          options: getGenres().map((genre) => ({
+            id: genre.id,
+            title: genre.label,
+          })),
+          minItemCount: 0,
+          maxItemCount: getGenres().length,
+          onValueChange: Application.Selector(
+            this as ContentSettingsForm,
+            "updateWhitelistGenres",
+          ),
+        }),
+        SelectRow("blacklistGenre", {
+          title: "Blacklist Genres",
+          subtitle: "Select genres to exclude from your search results",
+          value: this.blacklistGenresState.value,
+          options: getGenres().map((genre) => ({
+            id: genre.id,
+            title: genre.label,
+          })),
+          minItemCount: 0,
+          maxItemCount: getGenres().length,
+          onValueChange: Application.Selector(
+            this as ContentSettingsForm,
+            "updateBlacklistGenres",
           ),
         }),
       ]),

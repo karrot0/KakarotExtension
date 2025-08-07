@@ -27,7 +27,13 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
-import { getLanguages, MangaFireSettingsForm } from "./forms";
+import {
+  getBlacklistGenres,
+  getLanguages,
+  getWhitelistGenres,
+  MangaFireSettingsForm,
+  setGenres,
+} from "./forms";
 import { FireInterceptor } from "./interceptors";
 import {
   MangaFireImageData,
@@ -153,6 +159,8 @@ export class MangaFireExtension implements MangaFireImplementation {
         }
       });
 
+      setGenres(genres);
+
       $(
         ".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li",
       ).each((_, element) => {
@@ -232,13 +240,23 @@ export class MangaFireExtension implements MangaFireImplementation {
       title: "Type Filter",
     });
 
+    const blacklistedGenres = getBlacklistGenres();
+    const whitelistedGenres = getWhitelistGenres();
+    const genreValue: Record<string, "included" | "excluded"> = {};
+    for (const genreId of blacklistedGenres) {
+      genreValue[genreId] = "excluded";
+    }
+    for (const genreId of whitelistedGenres) {
+      genreValue[genreId] = "included";
+    }
+
     filters.push({
       id: "genres",
       type: "multiselect",
       options:
         searchDetails?.genres?.map((g) => ({ id: g.id, value: g.label })) || [],
       allowExclusion: true,
-      value: {},
+      value: genreValue,
       title: "Genre Filter",
       allowEmptySelection: false,
       maximum: undefined,
