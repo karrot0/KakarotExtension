@@ -17000,8 +17000,26 @@ var source = (() => {
   function getLanguages() {
     return Application.getState("languages") ?? MFLanguages.getDefault();
   }
+  function getBlacklistGenres() {
+    return Application.getState("blacklistGenres") ?? [];
+  }
+  function getWhitelistGenres() {
+    return Application.getState("whitelistGenres") ?? [];
+  }
+  function getGenres() {
+    return Application.getState("genres") ?? [];
+  }
+  function setGenres(genres) {
+    Application.setState(genres, "genres");
+  }
   function setLanguages(languages) {
     Application.setState(languages, "languages");
+  }
+  function setBlacklistGenres(genres) {
+    Application.setState(genres, "blacklistGenres");
+  }
+  function setWhitelistGenres(genres) {
+    Application.setState(genres, "whitelistGenres");
   }
   var MangaFireSettingsForm = class extends import_types2.Form {
     getSections() {
@@ -17022,6 +17040,8 @@ var source = (() => {
   };
   var ContentSettingsForm = class extends import_types2.Form {
     languagesState;
+    blacklistGenresState;
+    whitelistGenresState;
     constructor() {
       super();
       const languages = getLanguages();
@@ -17032,10 +17052,34 @@ var source = (() => {
           setLanguages(newValue);
         }
       };
+      const blacklistGenres = getBlacklistGenres();
+      this.blacklistGenresState = {
+        value: blacklistGenres,
+        updateValue: async (newValue) => {
+          this.blacklistGenresState.value = newValue;
+          setBlacklistGenres(newValue);
+        }
+      };
+      const whitelistGenres = getWhitelistGenres();
+      this.whitelistGenresState = {
+        value: whitelistGenres,
+        updateValue: async (newValue) => {
+          this.whitelistGenresState.value = newValue;
+          setWhitelistGenres(newValue);
+        }
+      };
     }
     async updateValue(value) {
       this.languagesState.value = value;
       setLanguages(value);
+    }
+    async updateBlacklistGenres(value) {
+      this.blacklistGenresState.value = value;
+      setBlacklistGenres(value);
+    }
+    async updateWhitelistGenres(value) {
+      this.whitelistGenresState.value = value;
+      setWhitelistGenres(value);
     }
     getSections() {
       return [
@@ -17065,6 +17109,36 @@ var source = (() => {
             onValueChange: Application.Selector(
               this,
               "updateValue"
+            )
+          }),
+          (0, import_types2.SelectRow)("whitelistGenre", {
+            title: "Whitelist Genres",
+            subtitle: "Select genres to include in your search results",
+            value: this.whitelistGenresState.value,
+            options: getGenres().map((genre) => ({
+              id: genre.id,
+              title: genre.label
+            })),
+            minItemCount: 0,
+            maxItemCount: getGenres().length,
+            onValueChange: Application.Selector(
+              this,
+              "updateWhitelistGenres"
+            )
+          }),
+          (0, import_types2.SelectRow)("blacklistGenre", {
+            title: "Blacklist Genres",
+            subtitle: "Select genres to exclude from your search results",
+            value: this.blacklistGenresState.value,
+            options: getGenres().map((genre) => ({
+              id: genre.id,
+              title: genre.label
+            })),
+            minItemCount: 0,
+            maxItemCount: getGenres().length,
+            onValueChange: Application.Selector(
+              this,
+              "updateBlacklistGenres"
             )
           })
         ])
@@ -17187,6 +17261,7 @@ var source = (() => {
             genres.push({ id, label });
           }
         });
+        setGenres(genres);
         $2(
           ".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li"
         ).each((_, element) => {
@@ -17258,12 +17333,21 @@ var source = (() => {
         value: "all",
         title: "Type Filter"
       });
+      const blacklistedGenres = getBlacklistGenres();
+      const whitelistedGenres = getWhitelistGenres();
+      const genreValue = {};
+      for (const genreId of blacklistedGenres) {
+        genreValue[genreId] = "excluded";
+      }
+      for (const genreId of whitelistedGenres) {
+        genreValue[genreId] = "included";
+      }
       filters2.push({
         id: "genres",
         type: "multiselect",
         options: searchDetails?.genres?.map((g) => ({ id: g.id, value: g.label })) || [],
         allowExclusion: true,
-        value: {},
+        value: genreValue,
         title: "Genre Filter",
         allowEmptySelection: false,
         maximum: void 0
