@@ -17096,57 +17096,65 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const getFilterValue = (id) => query.filters?.find((filter4) => filter4.id == id)?.value;
       const tagsFilter = getFilterValue("tags");
-      const formData = {
-        data: {},
-        append(key, value) {
-          if (!this.data[key]) {
-            this.data[key] = [];
+      let request;
+      if (metadata?.nextPageUrl) {
+        request = {
+          url: metadata.nextPageUrl,
+          method: "GET",
+          headers: {
+            "Referer": "https://hentai2read.com/hentai-search"
           }
-          this.data[key].push(value);
-        },
-        toString() {
-          return Object.entries(this.data).flatMap(
-            ([key, values]) => values.map(
-              (value) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-            )
-          ).join("&");
-        }
-      };
-      formData.append("cmd_wpm_pag_mng_sch_sbm", "");
-      formData.append("cbo_wpm_pag_mng_sch_nme", "0");
-      formData.append("cbo_wpm_pag_mng_sch_ats", "1");
-      formData.append("txt_wpm_pag_mng_sch_ats", "");
-      formData.append("cbo_wpm_pag_mng_sch_chr", "1");
-      formData.append("txt_wpm_pag_mng_sch_chr", "");
-      formData.append("cbo_wpm_pag_mng_sch_rls_yer", "0");
-      formData.append("txt_wpm_pag_mng_sch_rls_yer", "");
-      formData.append("rad_wpm_pag_mng_sch_sts", "0");
-      formData.append("rad_wpm_pag_mng_sch_tag_mde", "and");
-      if (query.title) {
-        formData.append("txt_wpm_pag_mng_sch_nme", query.title);
+        };
       } else {
-        formData.append("txt_wpm_pag_mng_sch_nme", "");
+        const formData = {
+          data: {},
+          append(key, value) {
+            if (!this.data[key]) {
+              this.data[key] = [];
+            }
+            this.data[key].push(value);
+          },
+          toString() {
+            return Object.entries(this.data).flatMap(
+              ([key, values]) => values.map(
+                (value) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+              )
+            ).join("&");
+          }
+        };
+        formData.append("cmd_wpm_pag_mng_sch_sbm", "");
+        formData.append("cbo_wpm_pag_mng_sch_nme", "0");
+        formData.append("cbo_wpm_pag_mng_sch_ats", "1");
+        formData.append("txt_wpm_pag_mng_sch_ats", "");
+        formData.append("cbo_wpm_pag_mng_sch_chr", "1");
+        formData.append("txt_wpm_pag_mng_sch_chr", "");
+        formData.append("cbo_wpm_pag_mng_sch_rls_yer", "0");
+        formData.append("txt_wpm_pag_mng_sch_rls_yer", "");
+        formData.append("rad_wpm_pag_mng_sch_sts", "0");
+        formData.append("rad_wpm_pag_mng_sch_tag_mde", "and");
+        if (query.title) {
+          formData.append("txt_wpm_pag_mng_sch_nme", query.title);
+        } else {
+          formData.append("txt_wpm_pag_mng_sch_nme", "");
+        }
+        if (tagsFilter) {
+          Object.entries(tagsFilter).filter(([, status]) => status === "included").forEach(([tagId]) => {
+            formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
+          });
+          Object.entries(tagsFilter).filter(([, status]) => status === "excluded").forEach(([tagId]) => {
+            formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
+          });
+        }
+        request = {
+          url: new URLBuilder(baseUrl).addPath("hentai-list/advanced-search/").build(),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Referer": "https://hentai2read.com/hentai-search"
+          },
+          body: formData.toString()
+        };
       }
-      if (page > 1) {
-        formData.append("num_wpm_pag_mng_sch_pg", page.toString());
-      }
-      if (tagsFilter) {
-        Object.entries(tagsFilter).filter(([, status]) => status === "included").forEach(([tagId]) => {
-          formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
-        });
-        Object.entries(tagsFilter).filter(([, status]) => status === "excluded").forEach(([tagId]) => {
-          formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
-        });
-      }
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("hentai-list/advanced-search/").build(),
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Referer": "https://hentai2read.com/hentai-search"
-        },
-        body: formData.toString()
-      };
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
       $2(".book-grid-item-container").each((_, element) => {
@@ -17177,10 +17185,11 @@ var source = (() => {
           metadata: void 0
         });
       });
-      const hasNextPage = !!$2("section.pagination a.next").length;
+      const nextPageLink = $2("#js-linkNext, .pagination a#js-linkNext").first();
+      const nextPageUrl = nextPageLink.attr("href");
       return {
         items: searchResults,
-        metadata: hasNextPage ? { page: page + 1 } : void 0
+        metadata: nextPageUrl ? { page: page + 1, nextPageUrl } : void 0
       };
     }
     async getMangaDetails(mangaId) {
