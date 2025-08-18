@@ -175,7 +175,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
 
   async getSearchResults(
     query: SearchQuery,
-    metadata: { page?: number } | undefined,
+    metadata: { page?: number; nextPageUrl?: string } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
 
@@ -186,75 +186,85 @@ export class Hentai2readExtension implements Hentai2readImplementation {
 
     // const categoryFilter = getFilterValue("category");
     const tagsFilter = getFilterValue("tags");
-    const formData = {
-      data: {} as Record<string, string[]>,
-      append(key: string, value: string): void {
-      if (!this.data[key]) {
-        this.data[key] = [];
-      }
-      this.data[key].push(value);
-      },
-      toString(): string {
-      return Object.entries(this.data)
-        .flatMap(([key, values]) => 
-        values.map(value => 
-          `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-        )
-        )
-        .join('&');
-      }
-    };
     
-    // Add required default form parameters
-    formData.append("cmd_wpm_pag_mng_sch_sbm", "");
-    formData.append("cbo_wpm_pag_mng_sch_nme", "0"); // Contains title = 0
-    formData.append("cbo_wpm_pag_mng_sch_ats", "1");
-    formData.append("txt_wpm_pag_mng_sch_ats", "");
-    formData.append("cbo_wpm_pag_mng_sch_chr", "1");
-    formData.append("txt_wpm_pag_mng_sch_chr", "");
-    formData.append("cbo_wpm_pag_mng_sch_rls_yer", "0");
-    formData.append("txt_wpm_pag_mng_sch_rls_yer", "");
-    formData.append("rad_wpm_pag_mng_sch_sts", "0");
-    formData.append("rad_wpm_pag_mng_sch_tag_mde", "and");
+    let request: Request;
     
-    // Add title search if provided
-    if (query.title) {
-      formData.append("txt_wpm_pag_mng_sch_nme", query.title);
+    // If we have a next page URL from previous response, use GET request
+    if (metadata?.nextPageUrl) {
+      request = {
+        url: metadata.nextPageUrl,
+        method: "GET",
+        headers: {
+          "Referer": "https://hentai2read.com/hentai-search"
+        }
+      };
     } else {
-      formData.append("txt_wpm_pag_mng_sch_nme", "");
-    }
-    
-    // Add page number if pagination needed
-    if (page > 1) {
-      formData.append("num_wpm_pag_mng_sch_pg", page.toString());
-    }
-    
-    // Process tag filters
-    if (tagsFilter) {
-      // Add included tags
-      Object.entries(tagsFilter)
-      .filter(([, status]) => status === "included")
-      .forEach(([tagId]) => {
-        formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
-      });
+      // First page or filtered search, use POST request
+      const formData = {
+        data: {} as Record<string, string[]>,
+        append(key: string, value: string): void {
+        if (!this.data[key]) {
+          this.data[key] = [];
+        }
+        this.data[key].push(value);
+        },
+        toString(): string {
+        return Object.entries(this.data)
+          .flatMap(([key, values]) => 
+          values.map(value => 
+            `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+          )
+          )
+          .join('&');
+        }
+      };
       
-      // Add excluded tags
-      Object.entries(tagsFilter)
-      .filter(([, status]) => status === "excluded")
-      .forEach(([tagId]) => {
-        formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
-      });
+      // Add required default form parameters
+      formData.append("cmd_wpm_pag_mng_sch_sbm", "");
+      formData.append("cbo_wpm_pag_mng_sch_nme", "0"); // Contains title = 0
+      formData.append("cbo_wpm_pag_mng_sch_ats", "1");
+      formData.append("txt_wpm_pag_mng_sch_ats", "");
+      formData.append("cbo_wpm_pag_mng_sch_chr", "1");
+      formData.append("txt_wpm_pag_mng_sch_chr", "");
+      formData.append("cbo_wpm_pag_mng_sch_rls_yer", "0");
+      formData.append("txt_wpm_pag_mng_sch_rls_yer", "");
+      formData.append("rad_wpm_pag_mng_sch_sts", "0");
+      formData.append("rad_wpm_pag_mng_sch_tag_mde", "and");
+      
+      // Add title search if provided
+      if (query.title) {
+        formData.append("txt_wpm_pag_mng_sch_nme", query.title);
+      } else {
+        formData.append("txt_wpm_pag_mng_sch_nme", "");
+      }
+      
+      // Process tag filters
+      if (tagsFilter) {
+        // Add included tags
+        Object.entries(tagsFilter)
+        .filter(([, status]) => status === "included")
+        .forEach(([tagId]) => {
+          formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
+        });
+        
+        // Add excluded tags
+        Object.entries(tagsFilter)
+        .filter(([, status]) => status === "excluded")
+        .forEach(([tagId]) => {
+          formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
+        });
+      }
+      
+      request = {
+        url: new URLBuilder(baseUrl).addPath("hentai-list/advanced-search/").build(),
+        method: "POST",
+        headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": "https://hentai2read.com/hentai-search"
+        },
+        body: formData.toString()
+      };
     }
-    
-    const request = {
-      url: new URLBuilder(baseUrl).addPath("hentai-list/advanced-search/").build(),
-      method: "POST",
-      headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Referer": "https://hentai2read.com/hentai-search"
-      },
-      body: formData.toString()
-    };
 
     const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
@@ -299,11 +309,13 @@ export class Hentai2readExtension implements Hentai2readImplementation {
       });
     });
 
-    const hasNextPage = !!$("section.pagination a.next").length;
-
+    // Extract next page URL from pagination
+    const nextPageLink = $("#js-linkNext, .pagination a#js-linkNext").first();
+    const nextPageUrl = nextPageLink.attr("href");
+    
     return {
       items: searchResults,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      metadata: nextPageUrl ? { page: page + 1, nextPageUrl: nextPageUrl } : undefined,
     };
   }
 
