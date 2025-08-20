@@ -17295,7 +17295,7 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const request = {
-        url: `${baseUrl}/${sourceManga.mangaId}`,
+        url: `${baseUrl}/api/manga/${sourceManga.mangaId}/chapters?source=detail`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
@@ -17305,7 +17305,7 @@ var source = (() => {
         const link = li.find("a");
         const chapterUrl = link.attr("href") || "";
         const chapterMatch = chapterUrl.match(/chapter-(\d+(\.\d+)?)/i);
-        const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
+        const chapterNumber = chapterMatch && !isNaN(Number(chapterMatch[1])) ? Number(chapterMatch[1]) : 0;
         const chapterId = chapterMatch ? chapterMatch[1] : "0";
         const chapterTitle = link.find(".chapter-title").text().trim();
         const dateText = link.find("time.chapter-update").text().trim();
