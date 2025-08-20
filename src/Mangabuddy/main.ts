@@ -430,23 +430,33 @@ export class MangabuddyExtension implements BuddyImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     // Expected mangaId: my-furry-harem-is-after-me
+    // const request = {
+    //   url: `${baseUrl}/${sourceManga.mangaId}`,
+    //   method: "GET",
+    // };
+
     const request = {
-      url: `${baseUrl}/${sourceManga.mangaId}`,
+      url: `${baseUrl}/api/manga/${sourceManga.mangaId}/chapters?source=detail`,
       method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const chapters: Chapter[] = [];
 
+    
     $(".chapter-list li").each((_, element) => {
       const li = $(element);
       const link = li.find("a");
       const chapterUrl = link.attr("href") || "";
 
       const chapterMatch = chapterUrl.match(/chapter-(\d+(\.\d+)?)/i);
-      const chapterNumber = chapterMatch ? parseFloat(chapterMatch[1]) : 0;
-
+      const chapterNumber =
+        chapterMatch && !isNaN(Number(chapterMatch[1]))
+          ? Number(chapterMatch[1])
+          : 0;
+      
       const chapterId = chapterMatch ? chapterMatch[1] : "0";
+      
 
       const chapterTitle = link.find(".chapter-title").text().trim();
 
