@@ -2521,7 +2521,7 @@ var source = (() => {
       var PaperbackInterceptor_1 = require_PaperbackInterceptor();
       var URL_1 = require_URL();
       var cookieStateKey = "cookie_store_cookies";
-      var CookieStorageInterceptor = class extends PaperbackInterceptor_1.PaperbackInterceptor {
+      var CookieStorageInterceptor2 = class extends PaperbackInterceptor_1.PaperbackInterceptor {
         options;
         _cookies = {};
         get cookies() {
@@ -2678,7 +2678,7 @@ var source = (() => {
           Application.setState(this.cookies.filter((x) => x.expires), cookieStateKey);
         }
       };
-      exports.CookieStorageInterceptor = CookieStorageInterceptor;
+      exports.CookieStorageInterceptor = CookieStorageInterceptor2;
     }
   });
 
@@ -16991,8 +16991,10 @@ var source = (() => {
   var baseUrl = "https://readcomicsonline.ru";
   var ReadComicsOnlineExtension = class {
     requestManager = new ReadComicsOnlineInterceptor("main");
+    cookieStorageInterceptor = new import_types3.CookieStorageInterceptor({ storage: "stateManager" });
     async initialise() {
       this.requestManager.registerInterceptor();
+      this.cookieStorageInterceptor.registerInterceptor();
     }
     async getDiscoverSections() {
       return [
@@ -17039,7 +17041,7 @@ var source = (() => {
         method: "GET"
       };
       const [response, data2] = await Application.scheduleRequest(request);
-      this.checkCloudflareStatus(response.status);
+      await this.checkCloudflareStatus(response.status);
       const responseText = Application.arrayBufferToUTF8String(data2);
       let searchResults = [];
       try {
@@ -17303,14 +17305,37 @@ var source = (() => {
     getMangaShareUrl(mangaId) {
       return `${baseUrl}/${mangaId}`;
     }
-    checkCloudflareStatus(status) {
-      if (status === 503 || status === 403) {
-        throw new import_types3.CloudflareError({ url: baseUrl, method: "GET" });
+    async saveCloudflareBypassCookies(cookies) {
+      for (const cookie of cookies) {
+        this.cookieStorageInterceptor.deleteCookie(cookie);
+      }
+      for (const cookie of cookies) {
+        this.cookieStorageInterceptor.setCookie(cookie);
+      }
+    }
+    async checkCloudflareStatus(status) {
+      switch (status) {
+        case 503:
+        case 403:
+          console.log("Cloudflare protection detected. Status:", status);
+          throw new import_types3.CloudflareError(
+            {
+              url: baseUrl,
+              method: "GET",
+              headers: {
+                referer: baseUrl,
+                origin: baseUrl
+              }
+            },
+            "Cloudflare bypass required, please complete the challenge."
+          );
+        case 404:
+          throw new Error("Content not found");
       }
     }
     async fetchCheerio(request) {
       const [response, data2] = await Application.scheduleRequest(request);
-      this.checkCloudflareStatus(response.status);
+      await this.checkCloudflareStatus(response.status);
       return load(Application.arrayBufferToUTF8String(data2));
     }
   };
