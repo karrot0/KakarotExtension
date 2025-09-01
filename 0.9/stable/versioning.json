@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-09-01T20:40:44.142Z",
+  "buildTime": "2025-09-01T20:59:01.008Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -164,7 +164,7 @@
     {
       "name": "ReadAllComics",
       "description": "Extension that pulls content from https://readallcomics.com",
-      "version": "1.0.0-alpha.2",
+      "version": "1.0.0-alpha.3",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -188,7 +188,8 @@
       "capabilities": [
         4,
         64,
-        1
+        1,
+        16
       ],
       "developers": [
         {
