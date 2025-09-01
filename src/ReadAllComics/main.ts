@@ -2,6 +2,9 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
+  Cookie,
+  CookieStorageInterceptor,
+  CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
   DiscoverSection,
@@ -32,13 +35,16 @@ type ReadAllComicsImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
+  CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
 export class ReadAllComicsExtension implements ReadAllComicsImplementation {
+  cookieStorageInterceptor = new CookieStorageInterceptor({storage: "stateManager"})
   requestManager = new ReadAllComicsInterceptor("main");
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+    this.cookieStorageInterceptor.registerInterceptor();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -383,15 +389,44 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     return `${baseUrl}/category/${mangaId}`;
   }
 
-  checkCloudflareStatus(status: number): void {
-    if (status === 503 || status === 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    // Clear all the cookies
+    for (const cookie of cookies) {
+      this.cookieStorageInterceptor.deleteCookie(cookie);
+    }
+
+    // Set all the cookies
+    for (const cookie of cookies) {
+      this.cookieStorageInterceptor.setCookie(cookie);
+    }
+  }
+
+  async checkCloudflareStatus(status: number): Promise<void> {
+
+    console.log(this.cookieStorageInterceptor.cookies);
+    switch (status) {
+      case 503:
+      case 403:
+        console.log(`Cloudflare protection detected. Status: ${status}`);
+        throw new CloudflareError(
+          {
+            url: baseUrl,
+            method: "GET",
+            headers: {
+              referer: baseUrl,
+              origin: baseUrl,
+            },
+          },
+          "Cloudflare bypass required, please complete the challenge."
+        );
+      case 404:
+        throw new Error("Content not found");
     }
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus(response.status);
+    await this.checkCloudflareStatus(response.status);
     return cheerio.load(Application.arrayBufferToUTF8String(data));
   }
 }
