@@ -17481,6 +17481,16 @@ var source = (() => {
         demographicValue[demoId] = "included";
       }
       filters2.push({
+        id: "contentRating",
+        type: "multiselect",
+        options: searchDetails?.contentRating?.map((c) => ({ id: c.id, value: c.label })) || [],
+        allowExclusion: true,
+        value: {},
+        title: "Content Rating",
+        allowEmptySelection: true,
+        maximum: void 0
+      });
+      filters2.push({
         id: "demographics",
         type: "multiselect",
         options: searchDetails?.demographics?.map((d) => ({ id: d.id, value: d.label })) || [],
@@ -17532,55 +17542,36 @@ var source = (() => {
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
       const type = getFilterValue("type");
       const genres = getFilterValue("genres");
+      const contentRating = getFilterValue("contentRating");
       const demographics = getFilterValue("demographics");
       const status = getFilterValue("status");
       const languages = getFilterValue("language");
       const year = getFilterValue("year");
       const length = getFilterValue("length");
-      let genresParam = "";
-      if (genres && typeof genres === "object") {
-        const includedGenres = [];
-        const excludedGenres = [];
-        Object.entries(genres).forEach(([id, value]) => {
-          if (value === "included") {
-            includedGenres.push(id);
-          } else if (value === "excluded") {
-            excludedGenres.push(id);
-          }
-        });
-        if (includedGenres.length > 0 || excludedGenres.length > 0) {
-          const includedStr = includedGenres.join(",");
-          const excludedStr = excludedGenres.join(",");
-          genresParam = excludedStr ? `${includedStr}%7C${excludedStr}` : includedStr;
+      const includedTokens = [];
+      const excludedTokens = [];
+      const addRecord = (rec) => {
+        if (!rec) return;
+        for (const [id, v] of Object.entries(rec)) {
+          if (v === "included") includedTokens.push(id);
+          else if (v === "excluded") excludedTokens.push(id);
         }
-      }
+      };
+      addRecord(genres);
+      addRecord(demographics);
+      addRecord(contentRating);
       if (type && type !== "all" && typeof type === "string") {
-        if (genresParam) {
-          genresParam = `${genresParam},${type}`;
-        } else {
-          genresParam = type;
-        }
+        includedTokens.push(type);
       }
-      if (demographics && typeof demographics === "object") {
-        const includedDemographics = [];
-        const excludedDemographics = [];
-        Object.entries(demographics).forEach(([id, value]) => {
-          if (value === "included") {
-            includedDemographics.push(id);
-          } else if (value === "excluded") {
-            excludedDemographics.push(id);
-          }
-        });
-        if (includedDemographics.length > 0 || excludedDemographics.length > 0) {
-          const includedStr = includedDemographics.join(",");
-          const excludedStr = excludedDemographics.join(",");
-          const demoParam = excludedStr ? `${includedStr}%7C${excludedStr}` : includedStr;
-          if (genresParam) {
-            genresParam = `${genresParam},${demoParam}`;
-          } else {
-            genresParam = demoParam;
-          }
-        }
+      let genresParam = "";
+      const includedStr = includedTokens.join(",");
+      const excludedStr = excludedTokens.join(",");
+      if (includedTokens.length > 0 && excludedTokens.length > 0) {
+        genresParam = `${includedStr}%7C${excludedStr}`;
+      } else if (includedTokens.length > 0) {
+        genresParam = includedStr;
+      } else if (excludedTokens.length > 0) {
+        genresParam = `%7C${excludedStr}`;
       }
       if (genresParam) {
         searchUrl.addQuery("genres", genresParam);
