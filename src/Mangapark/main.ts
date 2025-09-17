@@ -235,7 +235,7 @@ export class MangaparkExtension implements MangaparkImplementation {
     const year = getFilterValue("year");
     const length = getFilterValue("length");
 
-    // Handle genres with | separator for included|excluded
+    // Handle genres with %7C separator for included|excluded
     let genresParam = "";
     if (genres && typeof genres === "object") {
       const includedGenres: string[] = [];
@@ -253,7 +253,7 @@ export class MangaparkExtension implements MangaparkImplementation {
         const includedStr = includedGenres.join(",");
         const excludedStr = excludedGenres.join(",");
         genresParam = excludedStr
-          ? `${includedStr}|${excludedStr}`
+          ? `${includedStr}%7C${excludedStr}`
           : includedStr;
       }
     }
@@ -267,7 +267,7 @@ export class MangaparkExtension implements MangaparkImplementation {
       }
     }
 
-    // Handle demographics - add to genres parameter
+    // Handle demographics - add to genres parameter, use %7C as separator
     if (demographics && typeof demographics === "object") {
       const includedDemographics: string[] = [];
       const excludedDemographics: string[] = [];
@@ -284,7 +284,7 @@ export class MangaparkExtension implements MangaparkImplementation {
         const includedStr = includedDemographics.join(",");
         const excludedStr = excludedDemographics.join(",");
         const demoParam = excludedStr
-          ? `${includedStr}|${excludedStr}`
+          ? `${includedStr}%7C${excludedStr}`
           : includedStr;
         
         if (genresParam) {
