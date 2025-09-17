@@ -1,9 +1,9 @@
 import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "MangaFire",
-  description: "Extension that pulls content from mangafire.to.",
-  version: "1.0.0-alpha.9",
+  name: "Mangapark",
+  description: "Extension that pulls content from mangapark.net.",
+  version: "1.0.0-alpha.1",
   icon: "icon.png",
   language: "multi",
   contentRating: ContentRating.EVERYONE,
@@ -17,9 +17,6 @@ export default {
   developers: [
     {
       name: "Karrot",
-    },
-    {
-      name: "nyzzik",
-    },
+    }
   ],
 } satisfies SourceInfo;
