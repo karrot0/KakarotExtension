@@ -17551,7 +17551,7 @@ var source = (() => {
         if (includedGenres.length > 0 || excludedGenres.length > 0) {
           const includedStr = includedGenres.join(",");
           const excludedStr = excludedGenres.join(",");
-          genresParam = excludedStr ? `${includedStr}|${excludedStr}` : includedStr;
+          genresParam = excludedStr ? `${includedStr}%7C${excludedStr}` : includedStr;
         }
       }
       if (type && type !== "all" && typeof type === "string") {
@@ -17574,7 +17574,7 @@ var source = (() => {
         if (includedDemographics.length > 0 || excludedDemographics.length > 0) {
           const includedStr = includedDemographics.join(",");
           const excludedStr = excludedDemographics.join(",");
-          const demoParam = excludedStr ? `${includedStr}|${excludedStr}` : includedStr;
+          const demoParam = excludedStr ? `${includedStr}%7C${excludedStr}` : includedStr;
           if (genresParam) {
             genresParam = `${genresParam},${demoParam}`;
           } else {
