@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-09-01T20:59:01.008Z",
+  "buildTime": "2025-09-17T05:04:34.833Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -69,7 +69,7 @@
     {
       "name": "MangaFire",
       "description": "Extension that pulls content from mangafire.to.",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "SAFE",
@@ -139,6 +139,27 @@
         }
       ],
       "id": "Mangabuddy"
+    },
+    {
+      "name": "Mangapark",
+      "description": "Extension that pulls content from mangapark.net.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "multi",
+      "contentRating": "SAFE",
+      "capabilities": [
+        4,
+        64,
+        1,
+        32
+      ],
+      "badges": [],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Mangapark"
     },
     {
       "name": "NHentai",
