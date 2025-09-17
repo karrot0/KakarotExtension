@@ -108,13 +108,13 @@ export class MangaparkExtension implements MangaparkImplementation {
   async getSearchFilters(): Promise<SearchFilter[]> {
     const filters: SearchFilter[] = [];
     const searchDetails = await this.getSearchDetails();
+
     filters.push({
       id: "type",
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) ||
-          []),
+        ...(searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || []),
       ],
       value: "all",
       title: "Type Filter",
@@ -153,6 +153,18 @@ export class MangaparkExtension implements MangaparkImplementation {
     }
 
     filters.push({
+      id: "contentRating",
+      type: "multiselect",
+      options:
+        searchDetails?.contentRating?.map((c) => ({ id: c.id, value: c.label })) || [],
+        allowExclusion: true,
+      value: {},
+      title: "Content Rating",
+      allowEmptySelection: true,
+      maximum: undefined,
+    });
+
+    filters.push({
       id: "demographics",
       type: "multiselect",
       options:
@@ -169,8 +181,7 @@ export class MangaparkExtension implements MangaparkImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) ||
-          []),
+        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) || []),
       ],
       value: "all",
       title: "Status Filter",
@@ -227,6 +238,7 @@ export class MangaparkExtension implements MangaparkImplementation {
     const genres = getFilterValue("genres") as
       | Record<string, "included" | "excluded">
       | undefined;
+    const contentRating = getFilterValue("contentRating") as Record<string, "included"> | undefined;
     const demographics = getFilterValue("demographics") as
       | Record<string, "included" | "excluded">
       | undefined;
@@ -235,64 +247,37 @@ export class MangaparkExtension implements MangaparkImplementation {
     const year = getFilterValue("year");
     const length = getFilterValue("length");
 
-    // Handle genres with %7C separator for included|excluded
-    let genresParam = "";
-    if (genres && typeof genres === "object") {
-      const includedGenres: string[] = [];
-      const excludedGenres: string[] = [];
+    // Aggregate included/excluded tokens across genres, demographics, contentRating, and type
+    const includedTokens: string[] = [];
+    const excludedTokens: string[] = [];
 
-      Object.entries(genres).forEach(([id, value]) => {
-        if (value === "included") {
-          includedGenres.push(id);
-        } else if (value === "excluded") {
-          excludedGenres.push(id);
-        }
-      });
-
-      if (includedGenres.length > 0 || excludedGenres.length > 0) {
-        const includedStr = includedGenres.join(",");
-        const excludedStr = excludedGenres.join(",");
-        genresParam = excludedStr
-          ? `${includedStr}%7C${excludedStr}`
-          : includedStr;
+    const addRecord = (rec?: Record<string, "included" | "excluded">) => {
+      if (!rec) return;
+      for (const [id, v] of Object.entries(rec)) {
+        if (v === "included") includedTokens.push(id);
+        else if (v === "excluded") excludedTokens.push(id);
       }
-    }
+    };
 
-    // Handle type (manga, manhua, manhwa) - add to genres
+    addRecord(genres);
+    addRecord(demographics);
+    addRecord(contentRating);
+
+    // Handle type (manga, manhua, manhwa) - always treated as included when selected
     if (type && type !== "all" && typeof type === "string") {
-      if (genresParam) {
-        genresParam = `${genresParam},${type}`;
-      } else {
-        genresParam = type;
-      }
+      includedTokens.push(type);
     }
 
-    // Handle demographics - add to genres parameter, use %7C as separator
-    if (demographics && typeof demographics === "object") {
-      const includedDemographics: string[] = [];
-      const excludedDemographics: string[] = [];
-
-      Object.entries(demographics).forEach(([id, value]) => {
-        if (value === "included") {
-          includedDemographics.push(id);
-        } else if (value === "excluded") {
-          excludedDemographics.push(id);
-        }
-      });
-
-      if (includedDemographics.length > 0 || excludedDemographics.length > 0) {
-        const includedStr = includedDemographics.join(",");
-        const excludedStr = excludedDemographics.join(",");
-        const demoParam = excludedStr
-          ? `${includedStr}%7C${excludedStr}`
-          : includedStr;
-        
-        if (genresParam) {
-          genresParam = `${genresParam},${demoParam}`;
-        } else {
-          genresParam = demoParam;
-        }
-      }
+    // Build genres param with %7C as separator between included and excluded
+    let genresParam = "";
+    const includedStr = includedTokens.join(",");
+    const excludedStr = excludedTokens.join(",");
+    if (includedTokens.length > 0 && excludedTokens.length > 0) {
+      genresParam = `${includedStr}%7C${excludedStr}`;
+    } else if (includedTokens.length > 0) {
+      genresParam = includedStr;
+    } else if (excludedTokens.length > 0) {
+      genresParam = `%7C${excludedStr}`;
     }
 
     // Add genres parameter if we have any
