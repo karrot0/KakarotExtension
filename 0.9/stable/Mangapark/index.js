@@ -17716,7 +17716,7 @@ var source = (() => {
         const title = chapterElement.text().trim();
         const cleanedTitle = title.replace(/Vol\.?\s*\d+(?:\.\d+)?/gi, "").trim();
         let chapNum = 0;
-        const match = cleanedTitle.match(/(?:Ch(?:apter)?\.?\s*)(\d+(?:\.\d+)?)/i);
+        const match = cleanedTitle.match(/(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i);
         if (match) {
           chapNum = parseFloat(match[1]);
         } else {

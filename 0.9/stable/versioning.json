@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-09-17T16:47:16.122Z",
+  "buildTime": "2025-09-19T13:54:10.011Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -143,7 +143,7 @@
     {
       "name": "Mangapark",
       "description": "Extension that pulls content from mangapark.net.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "SAFE",
