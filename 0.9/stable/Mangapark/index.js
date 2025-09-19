@@ -16968,233 +16968,6 @@ var source = (() => {
   // src/Mangapark/forms.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
-  function getBlacklistGenres() {
-    return Application.getState("blacklistGenres") ?? [];
-  }
-  function getWhitelistGenres() {
-    return Application.getState("whitelistGenres") ?? [];
-  }
-  function getGenres() {
-    return Application.getState("genres") ?? [];
-  }
-  function setWhitelistGenres(genres) {
-    Application.setState(genres, "whitelistGenres");
-  }
-  function setBlacklistGenres(genres) {
-    Application.setState(genres, "blacklistGenres");
-  }
-  function getDemographics() {
-    return Application.getState("demographics") ?? [];
-  }
-  function getBlacklistDemographics() {
-    return Application.getState("blacklistDemographics") ?? [];
-  }
-  function getWhitelistDemographics() {
-    return Application.getState("whitelistDemographics") ?? [];
-  }
-  function setBlacklistDemographics(demographics) {
-    Application.setState(demographics, "blacklistDemographics");
-  }
-  function setWhitelistDemographics(demographics) {
-    Application.setState(demographics, "whitelistDemographics");
-  }
-  function getEnableChapterFiltering() {
-    return Application.getState("enableChapterFiltering") ?? false;
-  }
-  function setEnableChapterFiltering(value) {
-    Application.setState(value, "enableChapterFiltering");
-  }
-  var SettingsForm = class extends import_types2.Form {
-    getSections() {
-      return [
-        (0, import_types2.Section)("mainSettings", [
-          (0, import_types2.LabelRow)("settingsLabel", {
-            title: "Mangapark Settings",
-            subtitle: "Configure extension behavior"
-          }),
-          (0, import_types2.NavigationRow)("contentSettings", {
-            title: "Content Settings",
-            subtitle: "Chapters display preferences",
-            form: new ContentSettingsForm()
-          })
-        ])
-      ];
-    }
-  };
-  var ContentSettingsForm = class extends import_types2.Form {
-    chapterFilteringState;
-    blacklistGenresState;
-    whitelistGenresState;
-    blacklistDemographicsState;
-    whitelistDemographicsState;
-    constructor() {
-      super();
-      const filteringEnabled = getEnableChapterFiltering();
-      this.chapterFilteringState = {
-        value: filteringEnabled,
-        updateValue: async (newValue) => {
-          const enabled = (newValue?.[0] ?? "off") === "on";
-          this.chapterFilteringState.value = enabled;
-          setEnableChapterFiltering(enabled);
-        }
-      };
-      const blacklistGenres = getBlacklistGenres();
-      this.blacklistGenresState = {
-        value: blacklistGenres,
-        updateValue: async (newValue) => {
-          this.blacklistGenresState.value = newValue;
-          setBlacklistGenres(newValue);
-        }
-      };
-      const whitelistGenres = getWhitelistGenres();
-      this.whitelistGenresState = {
-        value: whitelistGenres,
-        updateValue: async (newValue) => {
-          this.whitelistGenresState.value = newValue;
-          setWhitelistGenres(newValue);
-        }
-      };
-      const blacklistDemographics = getBlacklistDemographics();
-      this.blacklistDemographicsState = {
-        value: blacklistDemographics,
-        updateValue: async (newValue) => {
-          this.blacklistDemographicsState.value = newValue;
-          setBlacklistDemographics(newValue);
-        }
-      };
-      const whitelistDemographics = getWhitelistDemographics();
-      this.whitelistDemographicsState = {
-        value: whitelistDemographics,
-        updateValue: async (newValue) => {
-          this.whitelistDemographicsState.value = newValue;
-          setWhitelistDemographics(newValue);
-        }
-      };
-    }
-    async updateChapterFiltering(value) {
-      const enabled = (value?.[0] ?? "off") === "on";
-      this.chapterFilteringState.value = enabled;
-      setEnableChapterFiltering(enabled);
-    }
-    async updateBlacklistGenres(value) {
-      this.blacklistGenresState.value = value;
-      setBlacklistGenres(value);
-    }
-    async updateWhitelistGenres(value) {
-      this.whitelistGenresState.value = value;
-      setWhitelistGenres(value);
-    }
-    async updateBlacklistDemographics(value) {
-      this.blacklistDemographicsState.value = value;
-      setBlacklistDemographics(value);
-    }
-    async updateWhitelistDemographics(value) {
-      this.whitelistDemographicsState.value = value;
-      setWhitelistDemographics(value);
-    }
-    getSections() {
-      return [
-        (0, import_types2.Section)("contentSettings", [
-          (0, import_types2.LabelRow)("contentSettingsLabel", {
-            title: "Content Settings",
-            subtitle: "Configure your reading experience"
-          }),
-          (0, import_types2.SelectRow)("enableChapterFiltering", {
-            title: "Enable Chapter Filtering",
-            subtitle: this.chapterFilteringState.value ? "On: Show one version per chapter with prioritization" : "Off: Show all versions",
-            value: [this.chapterFilteringState.value ? "on" : "off"],
-            options: [
-              { id: "on", title: "On" },
-              { id: "off", title: "Off" }
-            ],
-            minItemCount: 1,
-            maxItemCount: 1,
-            onValueChange: Application.Selector(
-              this,
-              "updateChapterFiltering"
-            )
-          }),
-          (0, import_types2.SelectRow)("whitelistGenres", {
-            title: "Whitelist Genres",
-            subtitle: "Select genres to include in your search results",
-            value: this.whitelistGenresState.value,
-            options: getGenres().map((genre) => ({
-              id: genre.id,
-              title: genre.label
-            })),
-            minItemCount: 0,
-            maxItemCount: getGenres().length,
-            onValueChange: Application.Selector(
-              this,
-              "updateWhitelistGenres"
-            )
-          }),
-          (0, import_types2.SelectRow)("blacklistGenres", {
-            title: "Blacklist Genres",
-            subtitle: "Select genres to exclude from your search results",
-            value: this.blacklistGenresState.value,
-            options: getGenres().map((genre) => ({
-              id: genre.id,
-              title: genre.label
-            })),
-            minItemCount: 0,
-            maxItemCount: getGenres().length,
-            onValueChange: Application.Selector(
-              this,
-              "updateBlacklistGenres"
-            )
-          }),
-          (0, import_types2.SelectRow)("whitelistDemographics", {
-            title: "Whitelist Demographics",
-            subtitle: "Select demographics to include in your search results",
-            value: this.whitelistDemographicsState.value,
-            options: getDemographics().map((demo) => ({
-              id: demo.id,
-              title: demo.label
-            })),
-            minItemCount: 0,
-            maxItemCount: Math.max(1, getDemographics().length),
-            onValueChange: Application.Selector(
-              this,
-              "updateWhitelistDemographics"
-            )
-          }),
-          (0, import_types2.SelectRow)("blacklistDemographics", {
-            title: "Blacklist Demographics",
-            subtitle: "Select demographics to exclude from your search results",
-            value: this.blacklistDemographicsState.value,
-            options: getDemographics().map((demo) => ({
-              id: demo.id,
-              title: demo.label
-            })),
-            minItemCount: 0,
-            maxItemCount: Math.max(1, getDemographics().length),
-            onValueChange: Application.Selector(
-              this,
-              "updateBlacklistDemographics"
-            )
-          })
-        ])
-      ];
-    }
-  };
-
-  // src/Mangapark/interceptors.ts
-  init_buffer();
-  var import_types3 = __toESM(require_lib(), 1);
-  var Interceptor = class extends import_types3.PaperbackInterceptor {
-    async interceptRequest(request) {
-      request.headers = {
-        ...request.headers,
-        referer: `https://mangapark.io/`,
-        "user-agent": await Application.getDefaultUserAgent()
-      };
-      return request;
-    }
-    async interceptResponse(request, response, data2) {
-      return data2;
-    }
-  };
 
   // src/Mangapark/model.ts
   init_buffer();
@@ -17387,6 +17160,235 @@ var source = (() => {
       { id: "field_create", label: "Recently Created" },
       { id: "field_name", label: "Name A-Z" }
     ]
+  };
+
+  // src/Mangapark/forms.ts
+  function getBlacklistGenres() {
+    return Application.getState("blacklistGenres") ?? [];
+  }
+  function getWhitelistGenres() {
+    return Application.getState("whitelistGenres") ?? [];
+  }
+  function getGenres() {
+    return STATIC_SEARCH_DETAILS.genres;
+  }
+  function setWhitelistGenres(genres) {
+    Application.setState(genres, "whitelistGenres");
+  }
+  function setBlacklistGenres(genres) {
+    Application.setState(genres, "blacklistGenres");
+  }
+  function getDemographics() {
+    return STATIC_SEARCH_DETAILS.demographics;
+  }
+  function getBlacklistDemographics() {
+    return Application.getState("blacklistDemographics") ?? [];
+  }
+  function getWhitelistDemographics() {
+    return Application.getState("whitelistDemographics") ?? [];
+  }
+  function setBlacklistDemographics(demographics) {
+    Application.setState(demographics, "blacklistDemographics");
+  }
+  function setWhitelistDemographics(demographics) {
+    Application.setState(demographics, "whitelistDemographics");
+  }
+  function getEnableChapterFiltering() {
+    return Application.getState("enableChapterFiltering") ?? false;
+  }
+  function setEnableChapterFiltering(value) {
+    Application.setState(value, "enableChapterFiltering");
+  }
+  var SettingsForm = class extends import_types2.Form {
+    getSections() {
+      return [
+        (0, import_types2.Section)("mainSettings", [
+          (0, import_types2.LabelRow)("settingsLabel", {
+            title: "Mangapark Settings",
+            subtitle: "Configure extension behavior"
+          }),
+          (0, import_types2.NavigationRow)("contentSettings", {
+            title: "Content Settings",
+            subtitle: "Chapters display preferences",
+            form: new ContentSettingsForm()
+          })
+        ])
+      ];
+    }
+  };
+  var ContentSettingsForm = class extends import_types2.Form {
+    chapterFilteringState;
+    blacklistGenresState;
+    whitelistGenresState;
+    blacklistDemographicsState;
+    whitelistDemographicsState;
+    constructor() {
+      super();
+      const filteringEnabled = getEnableChapterFiltering();
+      this.chapterFilteringState = {
+        value: filteringEnabled,
+        updateValue: async (newValue) => {
+          const enabled = (newValue?.[0] ?? "off") === "on";
+          this.chapterFilteringState.value = enabled;
+          setEnableChapterFiltering(enabled);
+        }
+      };
+      const blacklistGenres = getBlacklistGenres();
+      this.blacklistGenresState = {
+        value: blacklistGenres,
+        updateValue: async (newValue) => {
+          this.blacklistGenresState.value = newValue;
+          setBlacklistGenres(newValue);
+        }
+      };
+      const whitelistGenres = getWhitelistGenres();
+      this.whitelistGenresState = {
+        value: whitelistGenres,
+        updateValue: async (newValue) => {
+          this.whitelistGenresState.value = newValue;
+          setWhitelistGenres(newValue);
+        }
+      };
+      const blacklistDemographics = getBlacklistDemographics();
+      this.blacklistDemographicsState = {
+        value: blacklistDemographics,
+        updateValue: async (newValue) => {
+          this.blacklistDemographicsState.value = newValue;
+          setBlacklistDemographics(newValue);
+        }
+      };
+      const whitelistDemographics = getWhitelistDemographics();
+      this.whitelistDemographicsState = {
+        value: whitelistDemographics,
+        updateValue: async (newValue) => {
+          this.whitelistDemographicsState.value = newValue;
+          setWhitelistDemographics(newValue);
+        }
+      };
+    }
+    async updateChapterFiltering(value) {
+      const enabled = (value?.[0] ?? "off") === "on";
+      this.chapterFilteringState.value = enabled;
+      setEnableChapterFiltering(enabled);
+    }
+    async updateBlacklistGenres(value) {
+      this.blacklistGenresState.value = value;
+      setBlacklistGenres(value);
+    }
+    async updateWhitelistGenres(value) {
+      this.whitelistGenresState.value = value;
+      setWhitelistGenres(value);
+    }
+    async updateBlacklistDemographics(value) {
+      this.blacklistDemographicsState.value = value;
+      setBlacklistDemographics(value);
+    }
+    async updateWhitelistDemographics(value) {
+      this.whitelistDemographicsState.value = value;
+      setWhitelistDemographics(value);
+    }
+    getSections() {
+      return [
+        (0, import_types2.Section)("contentSettings", [
+          (0, import_types2.LabelRow)("contentSettingsLabel", {
+            title: "Content Settings",
+            subtitle: "Configure your reading experience"
+          }),
+          (0, import_types2.SelectRow)("enableChapterFiltering", {
+            title: "Enable Chapter Filtering",
+            subtitle: this.chapterFilteringState.value ? "On: Show one version per chapter with prioritization" : "Off: Show all versions",
+            value: [this.chapterFilteringState.value ? "on" : "off"],
+            options: [
+              { id: "on", title: "On" },
+              { id: "off", title: "Off" }
+            ],
+            minItemCount: 1,
+            maxItemCount: 1,
+            onValueChange: Application.Selector(
+              this,
+              "updateChapterFiltering"
+            )
+          }),
+          (0, import_types2.SelectRow)("whitelistGenres", {
+            title: "Whitelist Genres",
+            subtitle: "Select genres to include in your search results",
+            value: this.whitelistGenresState.value,
+            options: getGenres().map((genre) => ({
+              id: genre.id,
+              title: genre.label
+            })),
+            minItemCount: 0,
+            maxItemCount: Math.max(1, getGenres().length),
+            onValueChange: Application.Selector(
+              this,
+              "updateWhitelistGenres"
+            )
+          }),
+          (0, import_types2.SelectRow)("blacklistGenres", {
+            title: "Blacklist Genres",
+            subtitle: "Select genres to exclude from your search results",
+            value: this.blacklistGenresState.value,
+            options: getGenres().map((genre) => ({
+              id: genre.id,
+              title: genre.label
+            })),
+            minItemCount: 0,
+            maxItemCount: Math.max(1, getGenres().length),
+            onValueChange: Application.Selector(
+              this,
+              "updateBlacklistGenres"
+            )
+          }),
+          (0, import_types2.SelectRow)("whitelistDemographics", {
+            title: "Whitelist Demographics",
+            subtitle: "Select demographics to include in your search results",
+            value: this.whitelistDemographicsState.value,
+            options: getDemographics().map((demo) => ({
+              id: demo.id,
+              title: demo.label
+            })),
+            minItemCount: 0,
+            maxItemCount: Math.max(1, getDemographics().length),
+            onValueChange: Application.Selector(
+              this,
+              "updateWhitelistDemographics"
+            )
+          }),
+          (0, import_types2.SelectRow)("blacklistDemographics", {
+            title: "Blacklist Demographics",
+            subtitle: "Select demographics to exclude from your search results",
+            value: this.blacklistDemographicsState.value,
+            options: getDemographics().map((demo) => ({
+              id: demo.id,
+              title: demo.label
+            })),
+            minItemCount: 0,
+            maxItemCount: Math.max(1, getDemographics().length),
+            onValueChange: Application.Selector(
+              this,
+              "updateBlacklistDemographics"
+            )
+          })
+        ])
+      ];
+    }
+  };
+
+  // src/Mangapark/interceptors.ts
+  init_buffer();
+  var import_types3 = __toESM(require_lib(), 1);
+  var Interceptor = class extends import_types3.PaperbackInterceptor {
+    async interceptRequest(request) {
+      request.headers = {
+        ...request.headers,
+        referer: `https://mangapark.io/`,
+        "user-agent": await Application.getDefaultUserAgent()
+      };
+      return request;
+    }
+    async interceptResponse(request, response, data2) {
+      return data2;
+    }
   };
 
   // src/Mangapark/main.ts
