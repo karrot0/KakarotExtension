@@ -6,6 +6,7 @@ import {
   Section,
   SelectRow,
 } from "@paperback/types";
+import { STATIC_SEARCH_DETAILS } from "./model";
 
 export function getBlacklistGenres(): string[] {
   return (
@@ -20,10 +21,7 @@ export function getWhitelistGenres(): string[] {
 }
 
 export function getGenres(): { id: string; label: string }[] {
-  return (
-    (Application.getState("genres") as { id: string; label: string }[] | undefined) ??
-    []
-  );
+  return STATIC_SEARCH_DETAILS.genres;
 }
 
 export function setGenres(genres: { id: string; label: string }[]): void {
@@ -43,10 +41,7 @@ export function setBlacklistGenres(genres: string[]): void {
 }
 
 export function getDemographics(): { id: string; label: string }[] {
-  return (
-    (Application.getState("demographics") as { id: string; label: string }[] | undefined) ??
-    []
-  );
+  return STATIC_SEARCH_DETAILS.demographics;
 }
 
 export function setDemographics(demographics: { id: string; label: string }[]): void {
@@ -228,7 +223,7 @@ export class ContentSettingsForm extends Form {
             title: genre.label,
           })),
           minItemCount: 0,
-          maxItemCount: getGenres().length,
+          maxItemCount: Math.max(1, getGenres().length),
           onValueChange: Application.Selector(
             this as ContentSettingsForm,
             "updateWhitelistGenres",
@@ -243,7 +238,7 @@ export class ContentSettingsForm extends Form {
             title: genre.label,
           })),
           minItemCount: 0,
-          maxItemCount: getGenres().length,
+          maxItemCount: Math.max(1, getGenres().length),
           onValueChange: Application.Selector(
             this as ContentSettingsForm,
             "updateBlacklistGenres",
