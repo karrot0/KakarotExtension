@@ -477,7 +477,7 @@ export class MangaparkExtension implements MangaparkImplementation {
       // Remove any Volume prefix like "Vol.02" before extracting chapter
       const cleanedTitle = title.replace(/Vol\.?\s*\d+(?:\.\d+)?/gi, "").trim();
       let chapNum = 0;
-      const match = cleanedTitle.match(/(?:Ch(?:apter)?\.?\s*)(\d+(?:\.\d+)?)/i);
+      const match = cleanedTitle.match(/(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i);
       if (match) {
         chapNum = parseFloat(match[1]);
       } else {
