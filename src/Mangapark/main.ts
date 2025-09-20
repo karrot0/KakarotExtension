@@ -28,12 +28,12 @@ import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
 import {
+  getBlacklistDemographics,
   getBlacklistGenres,
+  getEnableChapterFiltering,
+  getWhitelistDemographics,
   getWhitelistGenres,
   SettingsForm,
-  getEnableChapterFiltering,
-  getBlacklistDemographics,
-  getWhitelistDemographics,
 } from "./forms";
 import { Interceptor } from "./interceptors";
 import { metadata, SearchDetails, STATIC_SEARCH_DETAILS } from "./model";
@@ -109,15 +109,25 @@ export class MangaparkExtension implements MangaparkImplementation {
     const filters: SearchFilter[] = [];
     const searchDetails = await this.getSearchDetails();
 
+    const blacklistedTypes = getBlacklistGenres();
+    const whitelistedTypes = getWhitelistGenres();
+    const typesValue: Record<string, "included" | "excluded"> = {};
+    for (const genreId of blacklistedTypes) {
+      typesValue[genreId] = "excluded";
+    }
+    for (const genreId of whitelistedTypes) {
+      typesValue[genreId] = "included";
+    }
+
     filters.push({
       id: "type",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || []),
-      ],
-      value: "all",
+      type: "multiselect",
+      options: searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || [],
+      allowExclusion: true,
+      value: typesValue,
+      allowEmptySelection: false,
       title: "Type Filter",
+      maximum: undefined,
     });
 
     const blacklistedGenres = getBlacklistGenres();
@@ -156,8 +166,11 @@ export class MangaparkExtension implements MangaparkImplementation {
       id: "contentRating",
       type: "multiselect",
       options:
-        searchDetails?.contentRating?.map((c) => ({ id: c.id, value: c.label })) || [],
-        allowExclusion: true,
+        searchDetails?.contentRating?.map((c) => ({
+          id: c.id,
+          value: c.label,
+        })) || [],
+      allowExclusion: true,
       value: {},
       title: "Content Rating",
       allowEmptySelection: true,
@@ -168,7 +181,10 @@ export class MangaparkExtension implements MangaparkImplementation {
       id: "demographics",
       type: "multiselect",
       options:
-        searchDetails?.demographics?.map((d) => ({ id: d.id, value: d.label })) || [],
+        searchDetails?.demographics?.map((d) => ({
+          id: d.id,
+          value: d.label,
+        })) || [],
       allowExclusion: true,
       value: demographicValue,
       title: "Demographic Filter",
@@ -181,7 +197,8 @@ export class MangaparkExtension implements MangaparkImplementation {
       type: "dropdown",
       options: [
         { id: "all", value: "All" },
-        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) || []),
+        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) ||
+          []),
       ],
       value: "all",
       title: "Status Filter",
@@ -234,11 +251,15 @@ export class MangaparkExtension implements MangaparkImplementation {
     const getFilterValue = (id: string) =>
       query.filters.find((filter) => filter.id == id)?.value;
 
-    const type = getFilterValue("type");
+    const types = getFilterValue("type") as
+      | Record<string, "included" | "excluded">
+      | undefined;
     const genres = getFilterValue("genres") as
       | Record<string, "included" | "excluded">
       | undefined;
-    const contentRating = getFilterValue("contentRating") as Record<string, "included"> | undefined;
+    const contentRating = getFilterValue("contentRating") as
+      | Record<string, "included">
+      | undefined;
     const demographics = getFilterValue("demographics") as
       | Record<string, "included" | "excluded">
       | undefined;
@@ -259,14 +280,10 @@ export class MangaparkExtension implements MangaparkImplementation {
       }
     };
 
+    addRecord(types);
     addRecord(genres);
     addRecord(demographics);
     addRecord(contentRating);
-
-    // Handle type (manga, manhua, manhwa) - always treated as included when selected
-    if (type && type !== "all" && typeof type === "string") {
-      includedTokens.push(type);
-    }
 
     // Build genres param with %7C as separator between included and excluded
     let genresParam = "";
@@ -312,7 +329,7 @@ export class MangaparkExtension implements MangaparkImplementation {
 
     // Add keyword if present
     if (query.title && query.title.trim()) {
-      searchUrl.addQuery("word", query.title.trim());
+      searchUrl.addQuery("word", query.title.trim().replaceAll(" ", "%20"));
     }
 
     searchUrl.addQuery("lang", "en");
@@ -328,18 +345,20 @@ export class MangaparkExtension implements MangaparkImplementation {
       const titleLink = unit.find("h3 a");
       const title = titleLink.find("span").text().trim();
       const imageSrc = unit.find("img").attr("src") || "";
-      const image = imageSrc.startsWith("http") ? imageSrc : `${baseUrl}${imageSrc}`;
+      const image = imageSrc.startsWith("http")
+        ? imageSrc
+        : `${baseUrl}${imageSrc}`;
       const mangaId = titleLink.attr("href")?.replace("/title/", "") || "";
       const chapterLink = unit.find(".flex.flex-nowrap.justify-between a");
       const latestChapter = chapterLink.find("span").text().trim();
       const latestChapterMatch = latestChapter.match(/Chapter (\d+)/);
       const subtitle = latestChapterMatch
-      ? `Ch. ${latestChapterMatch[1]}`
-      : undefined;
+        ? `Ch. ${latestChapterMatch[1]}`
+        : undefined;
       const chapterId = chapterLink.attr("href")?.split("/").pop() || "";
 
       if (!title || !mangaId || collectedIds.includes(mangaId)) {
-      return;
+        return;
       }
 
       collectedIds.push(mangaId);
@@ -357,7 +376,9 @@ export class MangaparkExtension implements MangaparkImplementation {
 
     return {
       items: searchResults,
-      metadata: hasNextPage ? { page: page + 1, searchCollectedIds: collectedIds } : undefined,
+      metadata: hasNextPage
+        ? { page: page + 1, searchCollectedIds: collectedIds }
+        : undefined,
     };
   }
 
@@ -375,7 +396,9 @@ export class MangaparkExtension implements MangaparkImplementation {
     let image = imageElem.attr("src") || imageElem.attr("data-src") || "";
     if (image && !image.startsWith("http")) {
       // normalize to absolute URL
-      image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+      image = image.startsWith("/")
+        ? `${baseUrl}${image.slice(1)}`
+        : `${baseUrl}${image}`;
     }
     const description =
       $(".limit-html").first().text().trim() ||
@@ -384,43 +407,15 @@ export class MangaparkExtension implements MangaparkImplementation {
     $("div[q\\:key='tz_4'] a").each((_, authorElement) => {
       authors.push($(authorElement).text().trim());
     });
-    let status = "UNKNOWN";
-    let statusText = "";
-    $("div[q\\:key='Yn_8'] span").last().each((_, element) => {
-      statusText = $(element).text().trim();
-    });
-
-    if (statusText.includes("Ongoing")) {
-      status = "ONGOING";
-    } else if (statusText.includes("Completed")) {
-      status = "COMPLETED";
-    } else if (
-      statusText.includes("hiatus") ||
-      statusText.includes("discontinued") ||
-      statusText.includes("not yet published") ||
-      statusText.includes("completed")
-    ) {
-      status = statusText.toLocaleUpperCase().replace(/\s+/g, "_");
-    }
+    const status = $("[q\\:key='Yn_5']").text();
 
     const tags: TagSection[] = [];
-    const genres: string[] = [];
-    let rating = 1;
+    const genres = $("[q\\:key='kd_0']")
+      .map((_, element) => $(element).text())
+      .get();
 
-    // Parse genres from the flex items-center flex-wrap div
-    $("div[q\\:key='30_2'] span").each((_, element) => {
-      const genreText = $(element).find("span").text().trim();
-      if (genreText && !genreText.includes(",") && genreText !== "Manga") {
-        genres.push(genreText);
-      }
-    });
-
-    // Try to get rating from the star rating section
-    const ratingText = $(".text-sm.opacity-80.whitespace-nowrap").first().text().trim();
-    const ratingMatch = ratingText.match(/(\d+(?:\.\d+)?)/);
-    if (ratingMatch) {
-      rating = parseFloat(ratingMatch[1]);
-    }
+    const ratingText = $("[q\\:key='lt_0']").text();
+    const rating = (parseFloat(ratingText) || 0) / 10;
 
     if (genres.length > 0) {
       tags.push({
@@ -445,8 +440,12 @@ export class MangaparkExtension implements MangaparkImplementation {
         synopsis: description,
         rating: rating,
         contentRating: ContentRating.EVERYONE,
-        status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
+        status: status,
         tagGroups: tags,
+        shareUrl: new URLBuilder(baseUrl)
+          .addPath("title")
+          .addPath(mangaId)
+          .build(),
       },
     };
   }
@@ -461,7 +460,10 @@ export class MangaparkExtension implements MangaparkImplementation {
 
     const $ = await this.fetchCheerio(request);
 
-    type ChapterCandidate = Chapter & { groupName?: string; groupViews?: number };
+    type ChapterCandidate = Chapter & {
+      groupName?: string;
+      groupViews?: number;
+    };
     const candidates: ChapterCandidate[] = [];
     const groupViewsAggregate: Map<string, number> = new Map();
 
@@ -477,13 +479,17 @@ export class MangaparkExtension implements MangaparkImplementation {
       // Remove any Volume prefix like "Vol.02" before extracting chapter
       const cleanedTitle = title.replace(/Vol\.?\s*\d+(?:\.\d+)?/gi, "").trim();
       let chapNum = 0;
-      const match = cleanedTitle.match(/(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i);
+      const match = cleanedTitle.match(
+        /(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i,
+      );
       if (match) {
         chapNum = parseFloat(match[1]);
       } else {
         // Fallback: try extracting from href like /.../ch-020 or /.../chapter-020
         const hrefLower = href.toLowerCase();
-        const hrefMatch = hrefLower.match(/\/(?:ch|chapter)[-_]?(\d+(?:\.\d+)?)(?:\b|\/|$)/i);
+        const hrefMatch = hrefLower.match(
+          /\/(?:ch|chapter)[-_]?(\d+(?:\.\d+)?)(?:\b|\/|$)/i,
+        );
         if (hrefMatch) {
           chapNum = parseFloat(hrefMatch[1]);
         }
@@ -626,10 +632,14 @@ export class MangaparkExtension implements MangaparkImplementation {
       label: "New Chapters",
     };
 
-    const searchResults = await this.getSearchResults(searchQuery, metadata, sortingOption);
+    const searchResults = await this.getSearchResults(
+      searchQuery,
+      metadata,
+      sortingOption,
+    );
 
     // Convert SearchResultItem[] to DiscoverSectionItem[]
-    const items: DiscoverSectionItem[] = searchResults.items.map(item => ({
+    const items: DiscoverSectionItem[] = searchResults.items.map((item) => ({
       type: "chapterUpdatesCarouselItem",
       mangaId: item.mangaId,
       chapterId: (item.metadata as { chapterId?: string })?.chapterId || "",
@@ -663,29 +673,37 @@ export class MangaparkExtension implements MangaparkImplementation {
     // Updated selectors based on current Mangapark HTML structure
     $(".relative.w-full.group").each((_, element) => {
       const unit = $(element);
-      const titleLink = unit.find("div.absolute a.link.link-hover.text-sm").first();
+      const titleLink = unit
+        .find("div.absolute a.link.link-hover.text-sm")
+        .first();
       const title = titleLink.text().trim();
       const imageSrc = unit.find("a.block.w-full img").attr("src") || "";
-      const image = imageSrc.startsWith("http") ? imageSrc : imageSrc.startsWith("/") ? `${baseUrl}${imageSrc.slice(1)}` : `${baseUrl}${imageSrc}`;
+      const image = imageSrc.startsWith("http")
+        ? imageSrc
+        : imageSrc.startsWith("/")
+          ? `${baseUrl}${imageSrc.slice(1)}`
+          : `${baseUrl}${imageSrc}`;
       const mangaId = titleLink.attr("href")?.replace("/title/", "") || "";
 
-      const chapterLink = unit.find("div.absolute span.line-clamp-1 a.link.link-hover.text-xs").first();
+      const chapterLink = unit
+        .find("div.absolute span.line-clamp-1 a.link.link-hover.text-xs")
+        .first();
       const latestChapter = chapterLink.text().trim();
       const latestChapterMatch = latestChapter.match(/Chapter (\d+)/);
       const supertitle = latestChapterMatch
-      ? `Ch. ${latestChapterMatch[1]}`
-      : undefined;
+        ? `Ch. ${latestChapterMatch[1]}`
+        : undefined;
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
-      collectedIds.push(mangaId);
-      items.push({
-        type: "featuredCarouselItem",
-        mangaId: mangaId,
-        imageUrl: image,
-        title: title,
-        supertitle: supertitle,
-        metadata: undefined,
-      });
+        collectedIds.push(mangaId);
+        items.push({
+          type: "featuredCarouselItem",
+          mangaId: mangaId,
+          imageUrl: image,
+          title: title,
+          supertitle: supertitle,
+          metadata: undefined,
+        });
       }
     });
 
@@ -712,10 +730,14 @@ export class MangaparkExtension implements MangaparkImplementation {
       label: "Recently Created",
     };
 
-    const searchResults = await this.getSearchResults(searchQuery, metadata, sortingOption);
+    const searchResults = await this.getSearchResults(
+      searchQuery,
+      metadata,
+      sortingOption,
+    );
 
     // Convert SearchResultItem[] to DiscoverSectionItem[]
-    const items: DiscoverSectionItem[] = searchResults.items.map(item => ({
+    const items: DiscoverSectionItem[] = searchResults.items.map((item) => ({
       type: "simpleCarouselItem",
       mangaId: item.mangaId,
       imageUrl: item.imageUrl,
