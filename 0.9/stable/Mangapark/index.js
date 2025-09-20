@@ -17444,15 +17444,24 @@ var source = (() => {
     async getSearchFilters() {
       const filters2 = [];
       const searchDetails = await this.getSearchDetails();
+      const blacklistedTypes = getBlacklistGenres();
+      const whitelistedTypes = getWhitelistGenres();
+      const typesValue = {};
+      for (const genreId of blacklistedTypes) {
+        typesValue[genreId] = "excluded";
+      }
+      for (const genreId of whitelistedTypes) {
+        typesValue[genreId] = "included";
+      }
       filters2.push({
         id: "type",
-        type: "dropdown",
-        options: [
-          { id: "all", value: "All" },
-          ...searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || []
-        ],
-        value: "all",
-        title: "Type Filter"
+        type: "multiselect",
+        options: searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) || [],
+        allowExclusion: true,
+        value: typesValue,
+        allowEmptySelection: false,
+        title: "Type Filter",
+        maximum: void 0
       });
       const blacklistedGenres = getBlacklistGenres();
       const whitelistedGenres = getWhitelistGenres();
@@ -17485,7 +17494,10 @@ var source = (() => {
       filters2.push({
         id: "contentRating",
         type: "multiselect",
-        options: searchDetails?.contentRating?.map((c) => ({ id: c.id, value: c.label })) || [],
+        options: searchDetails?.contentRating?.map((c) => ({
+          id: c.id,
+          value: c.label
+        })) || [],
         allowExclusion: true,
         value: {},
         title: "Content Rating",
@@ -17495,7 +17507,10 @@ var source = (() => {
       filters2.push({
         id: "demographics",
         type: "multiselect",
-        options: searchDetails?.demographics?.map((d) => ({ id: d.id, value: d.label })) || [],
+        options: searchDetails?.demographics?.map((d) => ({
+          id: d.id,
+          value: d.label
+        })) || [],
         allowExclusion: true,
         value: demographicValue,
         title: "Demographic Filter",
@@ -17542,7 +17557,7 @@ var source = (() => {
       const collectedIds = metadata2?.searchCollectedIds ?? [];
       const searchUrl = new URLBuilder(baseUrl).addPath("search").addQuery("page", page.toString());
       const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
-      const type = getFilterValue("type");
+      const types = getFilterValue("type");
       const genres = getFilterValue("genres");
       const contentRating = getFilterValue("contentRating");
       const demographics = getFilterValue("demographics");
@@ -17559,12 +17574,10 @@ var source = (() => {
           else if (v === "excluded") excludedTokens.push(id);
         }
       };
+      addRecord(types);
       addRecord(genres);
       addRecord(demographics);
       addRecord(contentRating);
-      if (type && type !== "all" && typeof type === "string") {
-        includedTokens.push(type);
-      }
       let genresParam = "";
       const includedStr = includedTokens.join(",");
       const excludedStr = excludedTokens.join(",");
@@ -17594,7 +17607,7 @@ var source = (() => {
         searchUrl.addQuery("sortby", sortingOption.id);
       }
       if (query.title && query.title.trim()) {
-        searchUrl.addQuery("word", query.title.trim());
+        searchUrl.addQuery("word", query.title.trim().replaceAll(" ", "%20"));
       }
       searchUrl.addQuery("lang", "en");
       const url = searchUrl.build();
@@ -17650,32 +17663,11 @@ var source = (() => {
       $2("div[q\\:key='tz_4'] a").each((_, authorElement) => {
         authors.push($2(authorElement).text().trim());
       });
-      let status = "UNKNOWN";
-      let statusText = "";
-      $2("div[q\\:key='Yn_8'] span").last().each((_, element) => {
-        statusText = $2(element).text().trim();
-      });
-      if (statusText.includes("Ongoing")) {
-        status = "ONGOING";
-      } else if (statusText.includes("Completed")) {
-        status = "COMPLETED";
-      } else if (statusText.includes("hiatus") || statusText.includes("discontinued") || statusText.includes("not yet published") || statusText.includes("completed")) {
-        status = statusText.toLocaleUpperCase().replace(/\s+/g, "_");
-      }
+      const status = $2("[q\\:key='Yn_5']").text();
       const tags = [];
-      const genres = [];
-      let rating = 1;
-      $2("div[q\\:key='30_2'] span").each((_, element) => {
-        const genreText = $2(element).find("span").text().trim();
-        if (genreText && !genreText.includes(",") && genreText !== "Manga") {
-          genres.push(genreText);
-        }
-      });
-      const ratingText = $2(".text-sm.opacity-80.whitespace-nowrap").first().text().trim();
-      const ratingMatch = ratingText.match(/(\d+(?:\.\d+)?)/);
-      if (ratingMatch) {
-        rating = parseFloat(ratingMatch[1]);
-      }
+      const genres = $2("[q\\:key='kd_0']").map((_, element) => $2(element).text()).get();
+      const ratingText = $2("[q\\:key='lt_0']").text();
+      const rating = (parseFloat(ratingText) || 0) / 10;
       if (genres.length > 0) {
         tags.push({
           id: "genres",
@@ -17696,7 +17688,8 @@ var source = (() => {
           rating,
           contentRating: import_types4.ContentRating.EVERYONE,
           status,
-          tagGroups: tags
+          tagGroups: tags,
+          shareUrl: new URLBuilder(baseUrl).addPath("title").addPath(mangaId).build()
         }
       };
     }
@@ -17718,12 +17711,16 @@ var source = (() => {
         const title = chapterElement.text().trim();
         const cleanedTitle = title.replace(/Vol\.?\s*\d+(?:\.\d+)?/gi, "").trim();
         let chapNum = 0;
-        const match = cleanedTitle.match(/(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i);
+        const match = cleanedTitle.match(
+          /(?:Ch(?:apter)?[.\s-]*(\d+(?:\.\d+)?))/i
+        );
         if (match) {
           chapNum = parseFloat(match[1]);
         } else {
           const hrefLower = href.toLowerCase();
-          const hrefMatch = hrefLower.match(/\/(?:ch|chapter)[-_]?(\d+(?:\.\d+)?)(?:\b|\/|$)/i);
+          const hrefMatch = hrefLower.match(
+            /\/(?:ch|chapter)[-_]?(\d+(?:\.\d+)?)(?:\b|\/|$)/i
+          );
           if (hrefMatch) {
             chapNum = parseFloat(hrefMatch[1]);
           }
@@ -17826,7 +17823,11 @@ var source = (() => {
         id: "field_update",
         label: "New Chapters"
       };
-      const searchResults = await this.getSearchResults(searchQuery, metadata2, sortingOption);
+      const searchResults = await this.getSearchResults(
+        searchQuery,
+        metadata2,
+        sortingOption
+      );
       const items = searchResults.items.map((item) => ({
         type: "chapterUpdatesCarouselItem",
         mangaId: item.mangaId,
@@ -17888,7 +17889,11 @@ var source = (() => {
         id: "field_create",
         label: "Recently Created"
       };
-      const searchResults = await this.getSearchResults(searchQuery, metadata2, sortingOption);
+      const searchResults = await this.getSearchResults(
+        searchQuery,
+        metadata2,
+        sortingOption
+      );
       const items = searchResults.items.map((item) => ({
         type: "simpleCarouselItem",
         mangaId: item.mangaId,
