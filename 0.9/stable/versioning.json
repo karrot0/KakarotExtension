@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-09-20T18:28:46.896Z",
+  "buildTime": "2025-09-24T20:08:29.247Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -201,6 +201,26 @@
         }
       ],
       "id": "NHentai"
+    },
+    {
+      "name": "NovelFire",
+      "description": "Extension that pulls content from novelfire.net.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "badges": [],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "NovelFire"
     },
     {
       "name": "ReadAllComics",
