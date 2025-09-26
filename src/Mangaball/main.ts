@@ -140,7 +140,7 @@ export class MangaballExtension implements MangaballImplementation {
       this.cachedXsrfToken = cookieToken || metaToken || scriptToken || "";
       this.cachedFormToken = metaToken || cookieToken || scriptToken || "";
       this.csrfReady = true;
-      console.log("[init] Cached CSRF token:", this.cachedCsrfToken, "XSRF:", this.cachedXsrfToken);
+      // console.log("[init] Cached CSRF token:", this.cachedCsrfToken, "XSRF:", this.cachedXsrfToken);
     } catch (err) {
       this.csrfReady = false;
       console.error("[init] Failed to fetch CSRF/cookie:", err);
@@ -193,7 +193,7 @@ export class MangaballExtension implements MangaballImplementation {
     const ua =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
     if (!this.csrfReady) {
-      console.warn("[searchAPI] CSRF/cookie not ready, attempting to re-initialize...");
+      // console.warn("[searchAPI] CSRF/cookie not ready, attempting to re-initialize...");
       await this.initialise();
       if (!this.csrfReady) throw new Error("[searchAPI] CSRF/cookie fetch failed");
     }

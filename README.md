@@ -4,9 +4,16 @@ A repository for paperback that includes both manga and comic extensions
 
 ## 📚 Available Sources
 
+- Atsumaru
 - Batcave
-- Mangafire
-- Mangabuddy
+- Hentai2Read
+- MangaBall
+- MangaBuddy
+- MangaFire
+- MangaPark
+- MangaTaro
+- NHentai
+- NovelFire
 - ReadAllComics
 - ReadComicsOnline
 

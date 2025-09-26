@@ -123,7 +123,7 @@ export class NovelFireExtension implements NovelFireImplementation {
     const [, data] = await Application.scheduleRequest(request);
     const jsonString = Application.arrayBufferToUTF8String(data);
     const result = JSON.parse(jsonString) as { html: string };
-    const $ = cheerio.load(result.html) as CheerioAPI;
+    const $ = cheerio.load(result.html);
     const items: SearchResultItem[] = [];
     $(".novel-item").each((_, el) => {
       const novel = $(el);
@@ -150,7 +150,7 @@ export class NovelFireExtension implements NovelFireImplementation {
       url: new URLBuilder(baseUrl).addPath("book").addPath(mangaId).build(),
       method: "GET",
     };
-    const $ = (await this.fetchCheerio(request)) as CheerioAPI;
+    const $ = (await this.fetchCheerio(request));
     const title = String($(".novel-title").text()).trim();
     const coverUrl = String($(".novel-header img").attr("src")) || "";
     const genres: string[] = [];
@@ -214,7 +214,7 @@ export class NovelFireExtension implements NovelFireImplementation {
       method: "GET",
     };
 
-    const $ = (await this.fetchCheerio(request)) as CheerioAPI;
+    const $ = (await this.fetchCheerio(request));
     const chapters: Chapter[] = [];
     $(".chapter-list li").each((_, el) => {
       const li = $(el);
@@ -473,7 +473,7 @@ export class NovelFireExtension implements NovelFireImplementation {
     this.checkCloudflareStatus((data as any)?.status ?? 200);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
-    return cheerio.load(dom) as CheerioAPI;
+    return cheerio.load(dom);
   }
 }
 
