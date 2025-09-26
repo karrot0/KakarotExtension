@@ -2521,7 +2521,7 @@ var source = (() => {
       var PaperbackInterceptor_1 = require_PaperbackInterceptor();
       var URL_1 = require_URL();
       var cookieStateKey = "cookie_store_cookies";
-      var CookieStorageInterceptor2 = class extends PaperbackInterceptor_1.PaperbackInterceptor {
+      var CookieStorageInterceptor = class extends PaperbackInterceptor_1.PaperbackInterceptor {
         options;
         _cookies = {};
         get cookies() {
@@ -2678,7 +2678,7 @@ var source = (() => {
           Application.setState(this.cookies.filter((x) => x.expires), cookieStateKey);
         }
       };
-      exports.CookieStorageInterceptor = CookieStorageInterceptor2;
+      exports.CookieStorageInterceptor = CookieStorageInterceptor;
     }
   });
 
@@ -3065,11 +3065,11 @@ var source = (() => {
     }
   });
 
-  // src/Mangaball/main.ts
+  // src/Mangataro/main.ts
   var main_exports = {};
   __export(main_exports, {
-    Mangaball: () => Mangaball,
-    MangaballExtension: () => MangaballExtension
+    Mangataro: () => Mangataro,
+    MangataroExtension: () => MangataroExtension
   });
   init_buffer();
   var import_types3 = __toESM(require_lib(), 1);
@@ -16965,15 +16965,14 @@ var source = (() => {
     }
   };
 
-  // src/Mangaball/interceptors.ts
+  // src/Mangataro/interceptors.ts
   init_buffer();
   var import_types2 = __toESM(require_lib(), 1);
   var Interceptor = class extends import_types2.PaperbackInterceptor {
     async interceptRequest(request) {
       request.headers = {
         ...request.headers,
-        origin: `https://mangaball.net`,
-        referer: `https://mangaball.net`,
+        referer: `https://mangataro.org`,
         "user-agent": await Application.getDefaultUserAgent()
       };
       return request;
@@ -16983,488 +16982,20 @@ var source = (() => {
     }
   };
 
-  // src/Mangaball/model.ts
-  init_buffer();
-  var STATIC_SEARCH_DETAILS = {
-    sortBy: [
-      { id: "none", label: "None" },
-      { id: "created_at_desc", label: "Latest Created" },
-      { id: "created_at_asc", label: "Oldest Created" },
-      { id: "updated_at_desc", label: "Latest Updated" },
-      { id: "updated_at_asc", label: "Oldest Updated" },
-      { id: "name_asc", label: "Title A-Z" },
-      { id: "name_desc", label: "Title Z-A" },
-      { id: "views_desc", label: "Views High to Low" },
-      { id: "views_asc", label: "Views Low to High" },
-      { id: "rating_desc", label: "Rating High to Low" },
-      { id: "rating_asc", label: "Rating Low to High" },
-      { id: "updated_chapters_desc", label: "Latest Updated Chapters" },
-      { id: "updated_chapters_asc", label: "Oldest Updated Chapters" }
-    ],
-    tagCategories: [
-      {
-        id: "content",
-        label: "Content",
-        tags: [
-          { id: "685148d115e8b86aae68e4f3", name: "Gore", slug: "gore" },
-          { id: "685146c5f3ed681c80f257e7", name: "Sexual Violence", slug: "sexual-violence" }
-        ]
-      },
-      {
-        id: "format",
-        label: "Format",
-        tags: [
-          { id: "685148d115e8b86aae68e4ec", name: "4-Koma", slug: "4-koma" },
-          { id: "685148cf15e8b86aae68e4de", name: "Adaptation", slug: "adaptation" },
-          { id: "685148e915e8b86aae68e558", name: "Anthology", slug: "anthology" },
-          { id: "685148fe15e8b86aae68e5a7", name: "Award Winning", slug: "award-winning" },
-          { id: "6851490e15e8b86aae68e5da", name: "Doujinshi", slug: "doujinshi" },
-          { id: "6851498215e8b86aae68e704", name: "Fan Colored", slug: "fan-colored" },
-          { id: "685148d615e8b86aae68e502", name: "Full Color", slug: "full-color" },
-          { id: "685148d915e8b86aae68e517", name: "Long Strip", slug: "long-strip" },
-          { id: "6851493515e8b86aae68e64a", name: "Official Colored", slug: "official-colored" },
-          { id: "685148eb15e8b86aae68e56c", name: "Oneshot", slug: "oneshot" },
-          { id: "6851492e15e8b86aae68e633", name: "Self-Published", slug: "self-published" },
-          { id: "685148d715e8b86aae68e50d", name: "Web Comic", slug: "web-comic" }
-        ]
-      },
-      {
-        id: "genre",
-        label: "Genre",
-        tags: [
-          { id: "685146c5f3ed681c80f257e3", name: "Action", slug: "action" },
-          { id: "689371f0a943baf927094f03", name: "Adult", slug: "adult" },
-          { id: "685146c5f3ed681c80f257e6", name: "Adventure", slug: "adventure" },
-          { id: "685148ef15e8b86aae68e573", name: "Boys' Love", slug: "boys-love" },
-          { id: "685146c5f3ed681c80f257e5", name: "Comedy", slug: "comedy" },
-          { id: "685148da15e8b86aae68e51f", name: "Crime", slug: "crime" },
-          { id: "685148cf15e8b86aae68e4dd", name: "Drama", slug: "drama" },
-          { id: "6892a73ba943baf927094e37", name: "Ecchi", slug: "ecchi" },
-          { id: "685146c5f3ed681c80f257ea", name: "Fantasy", slug: "fantasy" },
-          { id: "685148da15e8b86aae68e524", name: "Girls' Love", slug: "girls-love" },
-          { id: "685148db15e8b86aae68e527", name: "Historical", slug: "historical" },
-          { id: "685148da15e8b86aae68e520", name: "Horror", slug: "horror" },
-          { id: "685146c5f3ed681c80f257e9", name: "Isekai", slug: "isekai" },
-          { id: "6851490d15e8b86aae68e5d4", name: "Magical Girls", slug: "magical-girls" },
-          { id: "68932d11a943baf927094e7b", name: "Mature", slug: "mature" },
-          { id: "6851490c15e8b86aae68e5d2", name: "Mecha", slug: "mecha" },
-          { id: "6851494e15e8b86aae68e66e", name: "Medical", slug: "medical" },
-          { id: "685148d215e8b86aae68e4f4", name: "Mystery", slug: "mystery" },
-          { id: "685148e215e8b86aae68e544", name: "Philosophical", slug: "philosophical" },
-          { id: "685148d715e8b86aae68e507", name: "Psychological", slug: "psychological" },
-          { id: "685148cf15e8b86aae68e4db", name: "Romance", slug: "romance" },
-          { id: "685148cf15e8b86aae68e4da", name: "Sci-Fi", slug: "sci-fi" },
-          { id: "689f0ab1f2e66744c6091524", name: "Shounen Ai", slug: "shounen-ai" },
-          { id: "685148d015e8b86aae68e4e3", name: "Slice of Life", slug: "slice-of-life" },
-          { id: "689371f2a943baf927094f04", name: "Smut", slug: "smut" },
-          { id: "685148f515e8b86aae68e588", name: "Sports", slug: "sports" },
-          { id: "6851492915e8b86aae68e61c", name: "Superhero", slug: "superhero" },
-          { id: "685148d915e8b86aae68e51e", name: "Thriller", slug: "thriller" },
-          { id: "685148db15e8b86aae68e529", name: "Tragedy", slug: "tragedy" },
-          { id: "68932c3ea943baf927094e77", name: "User Created", slug: "user-created" },
-          { id: "6851490715e8b86aae68e5c3", name: "Wuxia", slug: "wuxia" },
-          { id: "68932f68a943baf927094eaa", name: "Yaoi", slug: "yaoi" },
-          { id: "6896a885a943baf927094f66", name: "Yuri", slug: "yuri" }
-        ]
-      },
-      {
-        id: "theme",
-        label: "Theme",
-        tags: [
-          { id: "6851490d15e8b86aae68e5d5", name: "Aliens", slug: "aliens" },
-          { id: "685148e715e8b86aae68e54b", name: "Animals", slug: "animals" },
-          { id: "68bf09ff8fdeab0b6a9bc2b7", name: "Comics", slug: "comics" },
-          { id: "685148d215e8b86aae68e4f8", name: "Cooking", slug: "cooking" },
-          { id: "685148df15e8b86aae68e534", name: "Crossdressing", slug: "crossdressing" },
-          { id: "685148d915e8b86aae68e519", name: "Delinquents", slug: "delinquents" },
-          { id: "685146c5f3ed681c80f257e4", name: "Demons", slug: "demons" },
-          { id: "685148d715e8b86aae68e505", name: "Genderswap", slug: "genderswap" },
-          { id: "685148d615e8b86aae68e501", name: "Ghosts", slug: "ghosts" },
-          { id: "685148d015e8b86aae68e4e8", name: "Gyaru", slug: "gyaru" },
-          { id: "685146c5f3ed681c80f257e8", name: "Harem", slug: "harem" },
-          { id: "68bfceaf4dbc442a26519889", name: "Hentai", slug: "hentai" },
-          { id: "685148f215e8b86aae68e584", name: "Incest", slug: "incest" },
-          { id: "685148d715e8b86aae68e506", name: "Loli", slug: "loli" },
-          { id: "685148d915e8b86aae68e518", name: "Mafia", slug: "mafia" },
-          { id: "685148d715e8b86aae68e509", name: "Magic", slug: "magic" },
-          { id: "6851490615e8b86aae68e5c2", name: "Martial Arts", slug: "martial-arts" },
-          { id: "685148e215e8b86aae68e541", name: "Military", slug: "military" },
-          { id: "685148db15e8b86aae68e52c", name: "Monster Girls", slug: "monster-girls" },
-          { id: "685146c5f3ed681c80f257e2", name: "Monsters", slug: "monsters" },
-          { id: "685148d015e8b86aae68e4e4", name: "Music", slug: "music" },
-          { id: "685148d715e8b86aae68e508", name: "Ninja", slug: "ninja" },
-          { id: "685148d315e8b86aae68e4fd", name: "Office Workers", slug: "office-workers" },
-          { id: "6851498815e8b86aae68e714", name: "Police", slug: "police" },
-          { id: "685148e215e8b86aae68e540", name: "Post-Apocalyptic", slug: "post-apocalyptic" },
-          { id: "685146c5f3ed681c80f257e1", name: "Reincarnation", slug: "reincarnation" },
-          { id: "685148df15e8b86aae68e533", name: "Reverse Harem", slug: "reverse-harem" },
-          { id: "6851490415e8b86aae68e5b9", name: "Samurai", slug: "samurai" },
-          { id: "685148d015e8b86aae68e4e7", name: "School Life", slug: "school-life" },
-          { id: "685148d115e8b86aae68e4ed", name: "Shota", slug: "shota" },
-          { id: "685148db15e8b86aae68e528", name: "Supernatural", slug: "supernatural" },
-          { id: "685148cf15e8b86aae68e4dc", name: "Survival", slug: "survival" },
-          { id: "6851490c15e8b86aae68e5d1", name: "Time Travel", slug: "time-travel" },
-          { id: "6851493515e8b86aae68e645", name: "Traditional Games", slug: "traditional-games" },
-          { id: "685148f915e8b86aae68e597", name: "Vampires", slug: "vampires" },
-          { id: "685148e115e8b86aae68e53c", name: "Video Games", slug: "video-games" },
-          { id: "6851492115e8b86aae68e602", name: "Villainess", slug: "villainess" },
-          { id: "68514a1115e8b86aae68e83e", name: "Virtual Reality", slug: "virtual-reality" },
-          { id: "6851490c15e8b86aae68e5d3", name: "Zombies", slug: "zombies" }
-        ]
-      }
-    ],
-    demographics: [
-      { id: "any", label: "Any" },
-      { id: "shounen", label: "Shounen" },
-      { id: "shoujo", label: "Shoujo" },
-      { id: "seinen", label: "Seinen" },
-      { id: "josei", label: "Josei" },
-      { id: "yuri", label: "Yuri" },
-      { id: "yaoi", label: "Yaoi" }
-    ],
-    person: [],
-    // Populated dynamically
-    artists: [],
-    // Populated dynamically
-    publicationYear: [],
-    // Populated dynamically or via input
-    translatedLanguages: [
-      { id: "ar", label: "Arabic" },
-      { id: "bg", label: "Bulgarian" },
-      { id: "bn", label: "Bengali" },
-      { id: "ca", label: "Catalan" },
-      { id: "ca-ad", label: "Catalan (Andorra)" },
-      { id: "ca-es", label: "Catalan (Spain)" },
-      { id: "ca-fr", label: "Catalan (France)" },
-      { id: "ca-it", label: "Catalan (Italy)" },
-      { id: "ca-pt", label: "Catalan (Portugal)" },
-      { id: "cn", label: "Chinese" },
-      { id: "cs", label: "Czech" },
-      { id: "da", label: "Danish" },
-      { id: "de", label: "German" },
-      { id: "el", label: "Greek" },
-      { id: "en", label: "English" },
-      { id: "es", label: "Spanish" },
-      { id: "es-ar", label: "Spanish (Argentina)" },
-      { id: "es-mx", label: "Spanish (Mexico)" },
-      { id: "es-es", label: "Spanish (Spain)" },
-      { id: "es-la", label: "Spanish (Latin America)" },
-      { id: "es-419", label: "Spanish (Latin America)" },
-      { id: "fa", label: "Persian" },
-      { id: "fi", label: "Finnish" },
-      { id: "fr", label: "French" },
-      { id: "he", label: "Hebrew" },
-      { id: "hi", label: "Hindi" },
-      { id: "hu", label: "Hungarian" },
-      { id: "id", label: "Indonesian" },
-      { id: "it", label: "Italian" },
-      { id: "it-it", label: "Italian (Italy)" },
-      { id: "ja", label: "Japanese" },
-      { id: "jp", label: "Japanese (Japan)" },
-      { id: "ko", label: "Korean" },
-      { id: "kr", label: "Korean" },
-      { id: "kn", label: "Kannada" },
-      { id: "kn-in", label: "Kannada (India)" },
-      { id: "kn-my", label: "Kannada (Malaysia)" },
-      { id: "kn-sg", label: "Kannada (Singapore)" },
-      { id: "kn-tw", label: "Kannada (Taiwan)" },
-      { id: "ml", label: "Malayalam" },
-      { id: "ml-in", label: "Malayalam (India)" },
-      { id: "ml-my", label: "Malayalam (Malaysia)" },
-      { id: "ml-sg", label: "Malayalam (Singapore)" },
-      { id: "ml-tw", label: "Malayalam (Taiwan)" },
-      { id: "ms", label: "Malay" },
-      { id: "ne", label: "Nepali" },
-      { id: "nl", label: "Dutch" },
-      { id: "nl-be", label: "Dutch (Belgium)" },
-      { id: "no", label: "Norwegian" },
-      { id: "pl", label: "Polish" },
-      { id: "pt-br", label: "Portuguese (Brazil)" },
-      { id: "pt-pt", label: "Portuguese (Portugal)" },
-      { id: "ro", label: "Romanian" },
-      { id: "ru", label: "Russian" },
-      { id: "sk", label: "Slovak" },
-      { id: "sl", label: "Slovenian" },
-      { id: "sq", label: "Albanian" },
-      { id: "sr", label: "Serbian" },
-      { id: "sr-cyrl", label: "Serbian (Cyrillic)" },
-      { id: "sv", label: "Swedish" },
-      { id: "ta", label: "Tamil" },
-      { id: "th", label: "Thai" },
-      { id: "th-hk", label: "Thai (Hong Kong)" },
-      { id: "th-kh", label: "Thai (Cambodia)" },
-      { id: "th-la", label: "Thai (Laos)" },
-      { id: "th-my", label: "Thai (Malaysia)" },
-      { id: "th-sg", label: "Thai (Singapore)" },
-      { id: "tr", label: "Turkish" },
-      { id: "uk", label: "Ukrainian" },
-      { id: "vi", label: "Vietnamese" },
-      { id: "zh", label: "Chinese" },
-      { id: "zh-cn", label: "Chinese (Simplified)" },
-      { id: "zh-hk", label: "Chinese (Hong Kong)" },
-      { id: "zh-mo", label: "Chinese (Macau)" },
-      { id: "zh-sg", label: "Chinese (Singapore)" },
-      { id: "zh-tw", label: "Chinese (Taiwan)" }
-    ],
-    originalLanguages: [
-      { id: "ar", label: "Arabic" },
-      { id: "bg", label: "Bulgarian" },
-      { id: "bn", label: "Bengali" },
-      { id: "ca", label: "Catalan" },
-      { id: "ca-ad", label: "Catalan (Andorra)" },
-      { id: "ca-es", label: "Catalan (Spain)" },
-      { id: "ca-fr", label: "Catalan (France)" },
-      { id: "ca-it", label: "Catalan (Italy)" },
-      { id: "ca-pt", label: "Catalan (Portugal)" },
-      { id: "cn", label: "Chinese" },
-      { id: "cs", label: "Czech" },
-      { id: "da", label: "Danish" },
-      { id: "de", label: "German" },
-      { id: "el", label: "Greek" },
-      { id: "en", label: "English" },
-      { id: "es", label: "Spanish" },
-      { id: "es-ar", label: "Spanish (Argentina)" },
-      { id: "es-mx", label: "Spanish (Mexico)" },
-      { id: "es-es", label: "Spanish (Spain)" },
-      { id: "es-la", label: "Spanish (Latin America)" },
-      { id: "es-419", label: "Spanish (Latin America)" },
-      { id: "fa", label: "Persian" },
-      { id: "fi", label: "Finnish" },
-      { id: "fr", label: "French" },
-      { id: "he", label: "Hebrew" },
-      { id: "hi", label: "Hindi" },
-      { id: "hu", label: "Hungarian" },
-      { id: "id", label: "Indonesian" },
-      { id: "it", label: "Italian" },
-      { id: "it-it", label: "Italian (Italy)" },
-      { id: "ja", label: "Japanese" },
-      { id: "jp", label: "Japanese (Japan)" },
-      { id: "ko", label: "Korean" },
-      { id: "kr", label: "Korean" },
-      { id: "kn", label: "Kannada" },
-      { id: "kn-in", label: "Kannada (India)" },
-      { id: "kn-my", label: "Kannada (Malaysia)" },
-      { id: "kn-sg", label: "Kannada (Singapore)" },
-      { id: "kn-tw", label: "Kannada (Taiwan)" },
-      { id: "ml", label: "Malayalam" },
-      { id: "ml-in", label: "Malayalam (India)" },
-      { id: "ml-my", label: "Malayalam (Malaysia)" },
-      { id: "ml-sg", label: "Malayalam (Singapore)" },
-      { id: "ml-tw", label: "Malayalam (Taiwan)" },
-      { id: "ms", label: "Malay" },
-      { id: "ne", label: "Nepali" },
-      { id: "nl", label: "Dutch" },
-      { id: "nl-be", label: "Dutch (Belgium)" },
-      { id: "no", label: "Norwegian" },
-      { id: "pl", label: "Polish" },
-      { id: "pt-br", label: "Portuguese (Brazil)" },
-      { id: "pt-pt", label: "Portuguese (Portugal)" },
-      { id: "ro", label: "Romanian" },
-      { id: "ru", label: "Russian" },
-      { id: "sk", label: "Slovak" },
-      { id: "sl", label: "Slovenian" },
-      { id: "sq", label: "Albanian" },
-      { id: "sr", label: "Serbian" },
-      { id: "sr-cyrl", label: "Serbian (Cyrillic)" },
-      { id: "sv", label: "Swedish" },
-      { id: "ta", label: "Tamil" },
-      { id: "th", label: "Thai" },
-      { id: "th-hk", label: "Thai (Hong Kong)" },
-      { id: "th-kh", label: "Thai (Cambodia)" },
-      { id: "th-la", label: "Thai (Laos)" },
-      { id: "th-my", label: "Thai (Malaysia)" },
-      { id: "th-sg", label: "Thai (Singapore)" },
-      { id: "tr", label: "Turkish" },
-      { id: "uk", label: "Ukrainian" },
-      { id: "vi", label: "Vietnamese" },
-      { id: "zh", label: "Chinese" },
-      { id: "zh-cn", label: "Chinese (Simplified)" },
-      { id: "zh-hk", label: "Chinese (Hong Kong)" },
-      { id: "zh-mo", label: "Chinese (Macau)" },
-      { id: "zh-sg", label: "Chinese (Singapore)" },
-      { id: "zh-tw", label: "Chinese (Taiwan)" }
-    ]
-  };
-
-  // src/Mangaball/parsers.ts
-  init_buffer();
-  function parseApiItemsToDiscoverItems(apiItems, collectedIds, options) {
-    const items = [];
-    const seen = new Set(collectedIds || []);
-    const { itemType = "featuredCarouselItem", extractChapterInfo = false, customSubtitleExtractor } = options || {};
-    for (const raw of apiItems || []) {
-      const mangaId = raw.url.replace("https://mangaball.net/title-detail/", "").replace(/\/$/, "");
-      if (!mangaId || seen.has(mangaId)) continue;
-      seen.add(mangaId);
-      const title = String(raw.name || "");
-      const cover = String(raw.cover || raw.background || "");
-      let supertitle = void 0;
-      if (raw.alternateName) {
-        const $alt = load(String(raw.alternateName) || "");
-        const altBadges = $alt(".badge").map((_, el) => $alt(el).text().trim()).get();
-        if (altBadges.length) supertitle = altBadges.join(" ");
-      }
-      let description = "";
-      if (raw.description) {
-        const $desc = load(String(raw.description) || "");
-        description = ($desc("p").first().text().trim() || $desc.root().text().trim()).replace(/\s+/g, " ");
-      }
-      const tagIds = [];
-      const tagLabels = [];
-      if (raw.tags) {
-        const $tags = load(String(raw.tags) || "");
-        $tags(".badge[data-tag-id]").each((_, el) => {
-          const id = $tags(el).attr("data-tag-id") || "";
-          const label = $tags(el).text().trim();
-          if (id) tagIds.push(id);
-          if (label) tagLabels.push(label);
-        });
-      }
-      const authorIds = [];
-      const authorNames = [];
-      if (raw.authors) {
-        const $auth = load(String(raw.authors) || "");
-        $auth("[data-person-id]").each((_, el) => {
-          const id = $auth(el).attr("data-person-id") || "";
-          const name = $auth(el).text().trim();
-          if (id) authorIds.push(id);
-          if (name) authorNames.push(name);
-        });
-      }
-      let status = "";
-      if (raw.status) {
-        const $stat = load(String(raw.status) || "");
-        status = ($stat(".badge").first().text().trim() || $stat.root().text().trim()).replace(/\s+/g, " ");
-      }
-      let chapterId = "";
-      let subtitle = void 0;
-      if (extractChapterInfo && raw.last_chapter) {
-        try {
-          const $lc = load(String(raw.last_chapter));
-          const anchor = $lc("a").first();
-          const href = anchor.attr("href") || anchor.attr("data-href") || "";
-          chapterId = deriveIdFromUrl(href || "") || "";
-          const txt = anchor.text().trim();
-          if (txt) subtitle = txt;
-        } catch {
-          chapterId = "";
-          subtitle = void 0;
-        }
-      }
-      if (customSubtitleExtractor) {
-        const customSubtitle = customSubtitleExtractor(raw);
-        if (customSubtitle !== void 0) subtitle = customSubtitle;
-      }
-      if (!subtitle && !extractChapterInfo) {
-        subtitle = String(raw.updated_at || "");
-      }
-      const baseItem = {
-        mangaId,
-        imageUrl: cover,
-        title,
-        supertitle,
-        subtitle,
-        additionalInfo: {
-          description,
-          tags: tagLabels,
-          tagIds,
-          authors: authorNames,
-          authorIds,
-          status,
-          originalId: raw._id,
-          originalUrl: raw.url
-        }
-      };
-      if (itemType === "chapterUpdatesCarouselItem") {
-        items.push({
-          type: "chapterUpdatesCarouselItem",
-          chapterId,
-          ...baseItem
-        });
-      } else {
-        items.push({
-          type: "featuredCarouselItem",
-          ...baseItem
-        });
-      }
-    }
-    return { items, collectedIds: Array.from(seen) };
-  }
-  function deriveIdFromUrl(url) {
-    if (!url) return "";
-    const segments = url.split("/").filter(Boolean);
-    return segments.pop()?.split(/[?#]/)[0] || "";
-  }
-
-  // src/Mangaball/main.ts
-  var baseUrl = "https://mangaball.net/";
-  var MangaballExtension = class {
+  // src/Mangataro/main.ts
+  var baseUrl = "https://mangataro.org";
+  var MangataroExtension = class {
     requestManager = new Interceptor("main");
-    cookieStorageInterceptor = new import_types3.CookieStorageInterceptor({ storage: "stateManager" });
     globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
       numberOfRequests: 10,
+      // Reduced from 10 to be more conservative
       bufferInterval: 1,
+      // Increased from 1 to 2 seconds
       ignoreImages: true
     });
-    // Cached CSRF/cookie state
-    cachedCsrfToken;
-    cachedXsrfToken;
-    cachedFormToken;
-    csrfReady = false;
     async initialise() {
       this.requestManager.registerInterceptor();
-      this.cookieStorageInterceptor.registerInterceptor();
       this.globalRateLimiter.registerInterceptor();
-      try {
-        const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-        const [homeResp, homeData] = await Application.scheduleRequest({
-          url: baseUrl,
-          method: "GET",
-          headers: {
-            Accept: "*/*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "User-Agent": ua
-          }
-        });
-        this.checkCloudflareStatus(homeResp.status);
-        const homeHtml = Application.arrayBufferToUTF8String(homeData);
-        const dom = parseDocument(homeHtml);
-        const $2 = load(dom);
-        const metaToken = ($2('meta[name="csrf-token"]').attr("content") || "").trim();
-        let cookieToken;
-        try {
-          const cookies = this.cookieStorageInterceptor?.cookies ?? [];
-          for (const c of cookies) {
-            const name = (c.name || "").toLowerCase();
-            if (name.includes("xsrf") || name.includes("csrf")) {
-              try {
-                cookieToken = decodeURIComponent(c.value || "");
-              } catch {
-                cookieToken = c.value || "";
-              }
-              break;
-            }
-          }
-        } catch {
-        }
-        let scriptToken;
-        if (!metaToken) {
-          const scriptsCombined = $2("script").map((_, el) => $2(el).html() || "").get().join("\n");
-          const m1 = scriptsCombined.match(/csrfToken\s*[:=]\s*["']([^"']+)["']/i);
-          if (m1) scriptToken = m1[1];
-          else {
-            const m2 = scriptsCombined.match(/window\.Laravel\s*=\s*\{[\s\S]*?csrfToken\s*:\s*["']([^"']+)["']/i);
-            if (m2) scriptToken = m2[1];
-          }
-        }
-        this.cachedCsrfToken = metaToken || cookieToken || scriptToken || "";
-        this.cachedXsrfToken = cookieToken || metaToken || scriptToken || "";
-        this.cachedFormToken = metaToken || cookieToken || scriptToken || "";
-        this.csrfReady = true;
-      } catch (err) {
-        this.csrfReady = false;
-        console.error("[init] Failed to fetch CSRF/cookie:", err);
-      }
     }
     async getDiscoverSections() {
       return [
@@ -17474,494 +17005,419 @@ var source = (() => {
           type: import_types3.DiscoverSectionType.featured
         },
         {
-          id: "latest_releases_section",
-          title: "Latest Releases",
-          type: import_types3.DiscoverSectionType.chapterUpdates
-        },
-        {
-          id: "manga_recommend_section",
-          title: "Manga Recommend",
+          id: "trending_section",
+          title: "Trending",
           type: import_types3.DiscoverSectionType.prominentCarousel
         },
         {
-          id: "manga_of_day_section",
-          title: "Manga of the Day",
-          type: import_types3.DiscoverSectionType.simpleCarousel
-        },
-        {
-          id: "chapter_of_day_section",
-          title: "Chapter of the Day",
-          type: import_types3.DiscoverSectionType.simpleCarousel
+          id: "recently_updated_section",
+          title: "Recently Updated",
+          type: import_types3.DiscoverSectionType.chapterUpdates
         }
       ];
     }
-    formEncode(params) {
-      return Object.entries(params).filter(([, v]) => v !== void 0).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join("&");
-    }
-    async searchAPI(search_type, search_limit) {
-      const bodyParams = { search_type };
-      if (search_limit !== void 0) bodyParams.search_limit = search_limit;
-      const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-      if (!this.csrfReady) {
-        await this.initialise();
-        if (!this.csrfReady) throw new Error("[searchAPI] CSRF/cookie fetch failed");
-      }
-      const headers = {
-        Accept: "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        Origin: baseUrl.replace(/\/$/, ""),
-        Referer: baseUrl,
-        "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": ua
-      };
-      if (this.cachedCsrfToken) {
-        headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
-      }
-      if (this.cachedXsrfToken) {
-        headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
-      }
-      if (this.cachedFormToken) {
-        bodyParams._token = this.cachedFormToken;
-      }
-      const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("v1").addPath("title").addPath("search").build();
-      const formBody = this.formEncode(bodyParams);
-      const request = {
-        url: apiUrl,
-        method: "POST",
-        body: formBody,
-        headers
-      };
-      try {
-        const [, data2] = await Application.scheduleRequest(request);
-        const jsonStr = Application.arrayBufferToUTF8String(data2);
-        const response = JSON.parse(jsonStr);
-        return response;
-      } catch (err) {
-        console.error(`[searchAPI] Failed for type=${search_type}:`, err);
-        throw err;
-      }
-    }
-    async getDiscoverSectionItems(section, metadata2) {
+    async getDiscoverSectionItems(section, metadata) {
       switch (section.id) {
         case "popular_updates_section":
-          return this.getPopularSectionItems(section, metadata2);
-        case "latest_releases_section":
-          return this.getUpdatedSectionItems(section, metadata2);
-        case "manga_of_day_section":
-          return this.getMangaOfDaySectionItems(section, metadata2);
-        case "manga_recommend_section":
-          return this.getMangaRecommendSectionItems(section, metadata2);
-        case "chapter_of_day_section":
-          return this.getChapterOfDaySectionItems(section, metadata2);
+          return this.getPopularSectionItems(section, metadata);
+        case "trending_section":
+          return this.getTrendingSectionItems(section, metadata);
+        case "recently_updated_section":
+          return this.getRecentlyUpdatedSectionItems(section, metadata);
         default:
           return { items: [] };
       }
     }
-    async getSearchDetails() {
-      return STATIC_SEARCH_DETAILS;
-    }
     async getSearchFilters() {
+      const request = { url: `${baseUrl}/browse`, method: "GET" };
+      const $2 = await this.fetchCheerio(request);
       const filters2 = [];
-      const searchDetails = await this.getSearchDetails();
-      if (searchDetails?.tagCategories?.length) {
-        for (const cat of searchDetails.tagCategories) {
-          filters2.push({
-            id: `tags_${cat.id}`,
-            type: "multiselect",
-            options: cat.tags.map((t) => ({ id: t.id, value: t.name })),
-            allowExclusion: true,
-            value: {},
-            allowEmptySelection: true,
-            title: cat.label,
-            maximum: void 0
-          });
+      const tagOptions = [];
+      const tagSeen = /* @__PURE__ */ new Set();
+      $2("#genre-list .genre-btn").each((_, el) => {
+        const text3 = $2(el).text().trim();
+        const dataValue = $2(el).attr("data-value");
+        if (text3 && dataValue) {
+          const tagName = text3.split(" ")[0];
+          const id = dataValue;
+          const key = `${id}-${tagName}`;
+          if (!tagSeen.has(key)) {
+            tagSeen.add(key);
+            tagOptions.push({ id, title: tagName, value: tagName });
+          }
         }
-      }
-      if (searchDetails?.demographics?.length) {
+      });
+      if (tagOptions.length > 0) {
         filters2.push({
-          id: "demographics",
+          id: "tags",
+          title: "Tags",
+          type: "multiselect",
+          value: {},
+          allowExclusion: false,
+          allowEmptySelection: true,
+          maximum: 10,
+          options: tagOptions
+        });
+      }
+      const typeOptions = [];
+      const typeSeen = /* @__PURE__ */ new Set();
+      $2('h3:contains("Type")').next().find("button").each((_, el) => {
+        const text3 = $2(el).text().trim();
+        const typeName = text3.split(" ")[0];
+        const id = typeName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        const key = `${id}-${typeName}`;
+        if (!typeSeen.has(key)) {
+          typeSeen.add(key);
+          typeOptions.push({ id, title: typeName, value: typeName });
+        }
+      });
+      if (typeOptions.length > 0) {
+        filters2.push({
+          id: "type",
+          title: "Type",
           type: "dropdown",
-          options: searchDetails.demographics.map((d) => ({ id: d.id, value: d.label })),
-          value: "any",
-          title: "Demographic"
+          value: "",
+          options: typeOptions
         });
       }
-      if (searchDetails?.translatedLanguages?.length) {
+      const statusOptions = [];
+      const statusSeen = /* @__PURE__ */ new Set();
+      $2('h3:contains("Status")').next().find("button").each((_, el) => {
+        const text3 = $2(el).text().trim();
+        const statusName = text3.split(" ")[0];
+        const id = statusName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        const key = `${id}-${statusName}`;
+        if (!statusSeen.has(key)) {
+          statusSeen.add(key);
+          statusOptions.push({ id, title: statusName, value: statusName });
+        }
+      });
+      if (statusOptions.length > 0) {
         filters2.push({
-          id: "translatedLanguages",
-          type: "multiselect",
-          options: searchDetails.translatedLanguages.map((l) => ({ id: l.id, value: l.label })),
-          allowExclusion: false,
-          value: {},
-          allowEmptySelection: true,
-          title: "Translated Languages",
-          maximum: void 0
+          id: "status",
+          title: "Status",
+          type: "dropdown",
+          value: "",
+          options: statusOptions
         });
       }
-      if (searchDetails?.originalLanguages?.length) {
+      const releaseYearOptions = [];
+      const yearSeen = /* @__PURE__ */ new Set();
+      $2('h3:contains("Release Year")').next().find("button").each((_, el) => {
+        const text3 = $2(el).text().trim();
+        const id = text3.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        const key = `${id}-${text3}`;
+        if (!yearSeen.has(key)) {
+          yearSeen.add(key);
+          releaseYearOptions.push({ id, title: text3, value: text3 });
+        }
+      });
+      if (releaseYearOptions.length > 0) {
         filters2.push({
-          id: "originalLanguages",
-          type: "multiselect",
-          options: searchDetails.originalLanguages.map((l) => ({ id: l.id, value: l.label })),
-          allowExclusion: false,
-          value: {},
-          allowEmptySelection: true,
-          title: "Original Languages",
-          maximum: void 0
+          id: "releaseYear",
+          title: "Release Year",
+          type: "dropdown",
+          value: "",
+          options: releaseYearOptions
         });
       }
       return filters2;
     }
-    async getSortingOptions() {
-      const searchDetails = await this.getSearchDetails();
-      if (!searchDetails || !searchDetails.sortBy) {
-        return [];
-      }
-      return searchDetails.sortBy.map((sort) => ({
-        id: sort.id,
-        label: sort.label
-      }));
-    }
-    async getSearchResults(query, metadata2, sortingOption) {
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.searchCollectedIds ?? [];
-      const getFilterValue = (id) => query.filters.find((filter4) => filter4.id == id)?.value;
-      const tag_included_ids = [];
-      const tag_excluded_ids = [];
-      if (STATIC_SEARCH_DETAILS.tagCategories) {
-        for (const cat of STATIC_SEARCH_DETAILS.tagCategories) {
-          const tags = getFilterValue(`tags_${cat.id}`);
-          if (tags) {
-            for (const [slugOrId, v] of Object.entries(tags)) {
-              let tagId = slugOrId;
-              const found = cat.tags.find((t) => t.id === slugOrId || t.slug === slugOrId);
-              if (found) tagId = found.id;
-              if (v === "included") tag_included_ids.push(tagId);
-              else if (v === "excluded") tag_excluded_ids.push(tagId);
-            }
-          }
-        }
-      }
-      const contentRating = getFilterValue("contentRating");
-      const demographic = getFilterValue("demographics");
-      const person = getFilterValue("person");
-      const originalLanguages = getFilterValue("originalLanguages");
-      const publicationYear = getFilterValue("publicationYear");
-      const publicationStatus = getFilterValue("publicationStatus");
-      const translatedLanguages = getFilterValue("translatedLanguages");
-      const sort = sortingOption?.id || "none";
-      const search_input = query.title?.trim() || "";
-      const filters2 = {
-        sort,
-        tag_included_mode: "and",
-        tag_excluded_mode: "and"
-      };
-      if (tag_included_ids.length > 0) filters2["tag_included_ids[]"] = tag_included_ids;
-      if (tag_excluded_ids.length > 0) filters2["tag_excluded_ids[]"] = tag_excluded_ids;
-      if (contentRating && contentRating !== "any") filters2["contentRating"] = contentRating;
-      if (demographic && demographic !== "any") filters2["demographic"] = demographic;
-      if (person && person !== "") filters2["person"] = person;
-      if (originalLanguages) {
-        for (const lang of Object.keys(originalLanguages)) {
-          if (!Array.isArray(filters2["originalLanguages[]"])) filters2["originalLanguages[]"] = [];
-          filters2["originalLanguages[]"].push(lang);
-        }
-      }
-      if (publicationYear && publicationYear !== "") filters2["publicationYear"] = publicationYear;
-      if (publicationStatus && publicationStatus !== "any") filters2["publicationStatus"] = publicationStatus;
-      if (translatedLanguages) {
-        for (const lang of Object.keys(translatedLanguages)) {
-          if (!Array.isArray(filters2["translatedLanguage[]"])) filters2["translatedLanguage[]"] = [];
-          filters2["translatedLanguage[]"].push(lang);
-        }
-      }
-      filters2["page"] = page;
-      const formBody = [
-        `search_input=${encodeURIComponent(search_input)}`,
-        ...Object.entries(filters2).flatMap(([k, v]) => {
-          if (Array.isArray(v)) {
-            return v.map((val2) => `${encodeURIComponent("filters[" + k + "]")}=${encodeURIComponent(String(val2))}`);
-          } else {
-            return `${encodeURIComponent("filters[" + k + "]")}=${encodeURIComponent(String(v))}`;
-          }
-        })
-      ].join("&");
-      const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-      if (!this.csrfReady) {
-        console.warn("[getSearchResults] CSRF/cookie not ready, attempting to re-initialize...");
-        await this.initialise();
-        if (!this.csrfReady) throw new Error("[getSearchResults] CSRF/cookie fetch failed");
-      }
-      const headers = {
-        Accept: "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        Origin: baseUrl.replace(/\/$/, ""),
-        Referer: baseUrl + "search-advanced",
-        "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": ua
-      };
-      if (this.cachedCsrfToken) headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
-      if (this.cachedXsrfToken) headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
-      if (this.cachedFormToken) headers["x-csrf-token"] = this.cachedFormToken;
-      const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("v1").addPath("title").addPath("search-advanced").build();
-      const request = {
-        url: apiUrl,
-        method: "POST",
-        body: formBody,
-        headers
-      };
+    async getSearchResults(query, metadata, sortingOption) {
       try {
-        const [, data2] = await Application.scheduleRequest(request);
-        const jsonStr = Application.arrayBufferToUTF8String(data2);
-        const response = JSON.parse(jsonStr);
-        const searchResults = [];
-        for (const raw of response.data ?? []) {
-          const mangaId = raw.url.replace("https://mangaball.net/title-detail/", "").replace(/\/$/, "");
-          console.log("Computed mangaId:", mangaId);
-          collectedIds.push(mangaId);
-          let altTitles = [];
-          if (raw.alternateName) {
-            try {
-              const $alt = load(String(raw.alternateName));
-              altTitles = $alt("span").map((_, el) => $alt(el).text().trim()).get();
-            } catch {
-            }
-          }
-          let tagNames = [];
-          if (raw.tags) {
-            try {
-              const $tags = load(String(raw.tags));
-              tagNames = $tags("span").map((_, el) => $tags(el).text().trim()).get();
-            } catch {
-            }
-          }
-          let authorNames = [];
-          if (raw.authors) {
-            try {
-              const $auth = load(String(raw.authors));
-              authorNames = $auth("span").map((_, el) => $auth(el).text().trim()).get();
-            } catch {
-            }
-          }
-          let statusText = "";
-          if (raw.status) {
-            try {
-              const $status = load(String(raw.status));
-              statusText = $status("span").first().text().trim();
-            } catch {
-              statusText = String(raw.status);
-            }
-          }
-          console.log(raw.updated_at);
-          searchResults.push({
-            mangaId,
-            imageUrl: String(raw.cover || raw.background || ""),
-            title: String(raw.name || ""),
-            subtitle: toRelativeTime(raw.updated_at),
-            metadata: {
-              chapterId: raw.last_chapter || void 0,
-              altTitles,
-              tagNames,
-              authorNames,
-              statusText,
-              originalId: raw._id,
-              originalUrl: raw.url
+        const page = metadata?.page ?? 0;
+        const getFilterValue = (id) => query.filters?.find((filter4) => filter4.id === id)?.value;
+        const genres = getFilterValue("tags");
+        const types = getFilterValue("type");
+        const statuses = getFilterValue("status");
+        const years = getFilterValue("releaseYear");
+        const genreIds = [];
+        if (genres && typeof genres === "object") {
+          Object.entries(genres).forEach(([id, value]) => {
+            if (value === "included") {
+              genreIds.push(id);
             }
           });
         }
-        let nextPage = void 0;
-        if (response.pagination && response.pagination.current_page < response.pagination.last_page) {
-          nextPage = response.pagination.current_page + 1;
+        const typeValue = types && types !== "all" ? types : void 0;
+        const statusValue = statuses && statuses !== "all" ? statuses : void 0;
+        const yearValue = years && years !== "all" ? years : void 0;
+        const sort = sortingOption?.id || "post_desc";
+        const request = {
+          url: `${baseUrl}/wp-json/manga/v1/load`,
+          method: "POST",
+          headers: {
+            "accept": "*/*",
+            "content-type": "application/json",
+            origin: baseUrl,
+            referer: `${baseUrl}/browse`
+          },
+          body: JSON.stringify({
+            page: page + 1,
+            search: query.title || "",
+            years: JSON.stringify(yearValue ? [yearValue] : []),
+            genres: JSON.stringify(genreIds),
+            types: JSON.stringify(typeValue ? [typeValue] : []),
+            statuses: JSON.stringify(statusValue ? [statusValue] : []),
+            sort,
+            genreMatchMode: "any"
+          })
+        };
+        await Application.sleep(0.2);
+        const data2 = await this.fetchJson(request);
+        const searchItems = Array.isArray(data2) ? data2 : data2?.data || [];
+        const items = [];
+        for (const hit of searchItems || []) {
+          try {
+            if (!hit || typeof hit !== "object") continue;
+            if (!hit.url || !hit.title) continue;
+            const mangaId = hit.url.replace(/^https?:\/\/mangataro\.org\/manga\//, "").split("/")[0];
+            const imgSrc = hit.cover || hit.thumbnail || "";
+            const imageUrl = imgSrc.startsWith("http") ? imgSrc : `${baseUrl}${imgSrc}`;
+            const subtitle = hit.score ? `\u2B50 ${hit.score}` : void 0;
+            items.push({
+              mangaId,
+              imageUrl,
+              title: String(hit.title),
+              subtitle,
+              metadata: void 0
+            });
+          } catch (itemError) {
+            console.error("Error processing search item:", itemError, hit);
+            continue;
+          }
         }
         return {
-          items: searchResults,
-          metadata: nextPage ? { page: nextPage, searchCollectedIds: collectedIds } : void 0
+          items,
+          metadata: items.length > 0 ? { page: page + 1 } : void 0
         };
-      } catch (err) {
-        console.error(`[getSearchResults] Failed:`, err);
-        throw err;
+      } catch (error) {
+        console.error("Error in getSearchResults:", error);
+        return { items: [] };
       }
     }
     async getMangaDetails(mangaId) {
-      const request = {
-        url: new URLBuilder(baseUrl).addPath("title-detail").addPath(mangaId).build(),
-        method: "GET"
-      };
+      const apiUrl = new URLBuilder(baseUrl).addPath("title").addPath(mangaId).build();
+      const request = { url: apiUrl, method: "GET" };
       const $2 = await this.fetchCheerio(request);
-      const title = $2(".comic-title").first().text().trim();
-      const altTitles = [];
-      $2(".alternate-name-container span").each((_, el) => {
-        const t = $2(el).text().trim();
-        if (t) altTitles.push(t);
+      const title = $2("h1.text-3xl.font-bold").first().text().trim();
+      const altTitlesRaw = $2("p.text-sm.text-neutral-400").first().text().trim();
+      const altTitles = altTitlesRaw.split(" / ").map((t) => t.trim()).filter(Boolean);
+      const description = $2("#description-content-tab").text().trim();
+      const imageUrl = $2(".rounded-xl img").first().attr("src") ?? "";
+      let status = "UNKNOWN";
+      $2(".flex.items-center.gap-1.capitalize").each((_, el) => {
+        const txt = $2(el).text().toLowerCase();
+        if (txt.includes("ongoing")) status = "ONGOING";
+        else if (txt.includes("completed")) status = "COMPLETED";
       });
-      let image = $2(".featured-cover").attr("src") || $2(".featured-cover").attr("data-src") || "";
-      if (image && !image.startsWith("http")) {
-        image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
-      }
-      const description = $2(".description-text p").html() || "";
-      const authors = [];
-      $2(".badge.bg-secondary.bg-opacity-75 i.fa-user-edit").parent().nextAll("span").each((_, el) => {
-        const t = $2(el).text().trim();
-        if (t) authors.push(t);
-      });
-      let status = $2(".badge.bg-success.me-3").first().text().trim();
-      if (!status) status = $2(".badge.bg-danger.me-3").first().text().trim();
-      const tagGroups = [];
-      const tagBadges = $2(".badge.bg-success,.badge.bg-info,.badge.bg-warning,.badge.bg-danger").filter(function() {
-        return !!$2(this).attr("data-tag-id");
-      });
-      if (tagBadges.length > 0) {
-        tagGroups.push({
+      const tags = [
+        {
           id: "tags",
           title: "Tags",
-          tags: tagBadges.map((_, el) => ({
-            id: $2(el).attr("data-tag-id") || "",
-            title: $2(el).text().trim()
-          })).get()
-        });
-      }
-      let rating = 0;
-      const ratingText = $2(".fa-star.text-warning").parent().find("span").text().trim();
-      if (ratingText) {
-        const parsed = parseFloat(ratingText);
-        if (!isNaN(parsed)) rating = parsed;
-      }
+          tags: $2(".flex.flex-wrap.justify-center.md\\:justify-start.gap-1\\.5.sm\\:gap-2 a").map((_, el) => {
+            const rawId = $2(el).attr("href")?.split("/").pop() ?? "";
+            const id = rawId.replace(/[^a-zA-Z0-9]/g, "");
+            const title2 = $2(el).text().trim();
+            if (!title2) return null;
+            return {
+              id,
+              title: title2
+            };
+          }).get().filter((tag) => tag !== null)
+          // Filter out nulls
+        }
+      ];
       return {
         mangaId,
         mangaInfo: {
           primaryTitle: title,
           secondaryTitles: altTitles,
-          thumbnailUrl: image,
+          thumbnailUrl: imageUrl,
           synopsis: description,
-          rating,
+          rating: 1,
+          // API doesn't provide rating
           contentRating: import_types3.ContentRating.EVERYONE,
           status,
-          tagGroups,
-          shareUrl: request.url,
-          author: authors.join(", ")
+          tagGroups: tags
         }
       };
     }
     async getChapters(sourceManga) {
       const mangaId = sourceManga.mangaId;
-      const match = mangaId.match(/([a-f0-9]{24})$/);
-      const titleId = match ? match[1] : mangaId;
-      const csrfToken = this.cachedFormToken || this.cachedCsrfToken || "";
-      const apiUrl = `${baseUrl}api/v1/chapter/chapter-listing-by-title-id/`;
-      const headers = {
-        "accept": "*/*",
-        "accept-language": "en-US,en;q=0.9",
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "origin": baseUrl.replace(/\/$/, ""),
-        "referer": `${baseUrl}title-detail/${mangaId}/`,
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-        "x-csrf-token": csrfToken,
-        "x-requested-with": "XMLHttpRequest"
-      };
-      const body = `title_id=${encodeURIComponent(titleId)}`;
       const request = {
-        url: apiUrl,
-        method: "POST",
-        headers,
-        body
+        url: `${baseUrl}/title/${mangaId}`,
+        method: "GET"
       };
-      const [, data2] = await Application.scheduleRequest(request);
-      const json = JSON.parse(Application.arrayBufferToUTF8String(data2));
+      const $2 = await this.fetchCheerio(request);
       const chapters = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const ch of json.ALL_CHAPTERS ?? []) {
-        for (const t of ch.translations ?? []) {
-          if (seen.has(t.id)) continue;
-          seen.add(t.id);
+      $2("#tab-chapters .chapter-list a").each((_, el) => {
+        const link = $2(el);
+        const href = link.attr("href") || "";
+        const match = href.match(/read\/([^/]+)\/(ch\d+-\d+)/);
+        if (match) {
+          const chapterId = match[2];
+          const chapNumMatch = chapterId.match(/ch(\d+)-/);
+          const chapNum = chapNumMatch ? parseFloat(chapNumMatch[1]) : 0;
+          const nameRaw = link.find("p").first().text().trim();
+          const name = !nameRaw || nameRaw === "No title available" || nameRaw === "N/A" ? `Ch. ${chapNum}` : nameRaw;
+          const timeStr = link.find('span:contains("ago")').text().trim();
+          const publishDate = this.parseRelativeTime(timeStr);
           chapters.push({
-            chapterId: t.id,
+            chapterId,
             sourceManga,
-            title: t.name || ch.title || ch.number || "",
-            volume: t.volume || 0,
-            chapNum: ch.number_float || 0,
-            publishDate: t.date ? new Date(t.date) : void 0,
-            langCode: t.languageName || t.language || "",
-            version: t.group?.name || ""
+            title: name,
+            volume: 0,
+            chapNum,
+            publishDate,
+            langCode: "\u{1F1EC}\u{1F1E7}"
+            // Could parse from title attribute if needed
           });
         }
-      }
+      });
       return chapters;
     }
     async getChapterDetails(chapter) {
+      const mangaId = chapter.sourceManga.mangaId;
       const request = {
-        url: `${baseUrl}chapter-detail/${chapter.chapterId}`,
+        url: `${baseUrl}/read/${mangaId}/${chapter.chapterId}`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const pages = [];
-      const script = $2("script").filter((_, el) => {
-        const html3 = $2(el).html() || "";
-        return html3.includes("const chapterImages = JSON.parse(");
-      }).first().html();
-      if (script) {
-        const match = script.match(/const chapterImages\s*=\s*JSON\.parse\(`(.+?)`\)/s);
-        if (match) {
-          try {
-            const images = JSON.parse(match[1]);
-            if (Array.isArray(images)) {
-              pages.push(...images);
-            }
-          } catch {
-          }
+      $2(".comic-image-container img").each((_, el) => {
+        const img = $2(el);
+        const src = img.attr("data-src") || img.attr("src") || "";
+        if (src) {
+          const imageUrl = src.startsWith("http") ? src : `${baseUrl}${src}`;
+          pages.push(imageUrl);
         }
-      }
+      });
       return {
         id: chapter.chapterId,
-        mangaId: chapter.sourceManga.mangaId,
+        mangaId,
         pages
       };
     }
-    async getUpdatedSectionItems(section, metadata2) {
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.collectedIds ?? [];
-      const latest = await this.searchAPI("getLatestTable");
-      const parsed = parseApiItemsToDiscoverItems(latest?.data ?? [], collectedIds, {
-        itemType: "chapterUpdatesCarouselItem",
-        extractChapterInfo: true,
-        customSubtitleExtractor: (raw) => {
-          return String(raw.updated_at || "");
+    getMangaShareUrl(mangaId) {
+      return `${baseUrl}/title/${mangaId}`;
+    }
+    async getTrendingSectionItems(section, metadata) {
+      const request = {
+        url: `${baseUrl}/home`,
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const items = [];
+      const dataInitial = $2("#highscore-manga-slider").attr("data-initial");
+      if (dataInitial) {
+        const trendingItems = JSON.parse(dataInitial);
+        for (const item of trendingItems) {
+          const mangaId = item.permalink.replace(/^https?:\/\/mangataro\.org\/manga\//, "").split("/")[0];
+          const imageUrl = item.cover.startsWith("http") ? item.cover : `${baseUrl}${item.cover}`;
+          items.push({
+            type: "prominentCarouselItem",
+            mangaId,
+            imageUrl,
+            title: item.title,
+            subtitle: void 0,
+            metadata: void 0
+          });
+        }
+      }
+      return {
+        items
+      };
+    }
+    async getPopularSectionItems(section, metadata) {
+      const request = {
+        url: `${baseUrl}/home`,
+        method: "GET"
+      };
+      const $2 = await this.fetchCheerio(request);
+      const items = [];
+      const dataInitial = $2("#unified-manga-slider").attr("data-initial");
+      if (dataInitial) {
+        const popularItems = JSON.parse(dataInitial);
+        for (const item of popularItems) {
+          const mangaId = item.permalink.replace(/^https?:\/\/mangataro\.org\/manga\//, "").split("/")[0];
+          const imageUrl = item.cover.startsWith("http") ? item.cover : `${baseUrl}${item.cover}`;
+          items.push({
+            type: "featuredCarouselItem",
+            mangaId,
+            imageUrl,
+            title: item.title,
+            supertitle: item.manga_type,
+            metadata: void 0
+          });
+        }
+      }
+      return {
+        items
+      };
+    }
+    async getRecentlyUpdatedSectionItems(section, metadata) {
+      const page = metadata?.page ?? 1;
+      const collectedIds = metadata?.collectedIds ?? [];
+      const request = {
+        url: `${baseUrl}/wp-json/manga/v1/latest-chapters?page=${page}`,
+        method: "POST",
+        headers: {
+          accept: "*/*",
+          "content-type": "application/json",
+          origin: baseUrl,
+          referer: `${baseUrl}/home`
+        },
+        // The endpoint accepts a POST with empty body
+        body: ""
+      };
+      const data2 = await this.fetchJson(request);
+      const items = [];
+      for (const entry of data2.data || []) {
+        let mangaId = "";
+        let chapterId = "";
+        if (entry.permalink) {
+          const match = entry.permalink.match(/read\/([^/]+)\/(ch[^-]+-\d+)/);
+          mangaId = match ? match[1] : entry.manga_id;
+          chapterId = match ? match[2] : typeof entry.chapter === "string" ? entry.chapter : "";
+        } else {
+          mangaId = entry.manga_id;
+          chapterId = typeof entry.chapter === "string" ? entry.chapter : "";
+        }
+        if (collectedIds.includes(mangaId)) continue;
+        collectedIds.push(mangaId);
+        const imageUrl = entry.cover?.startsWith("http") ? entry.cover : `${baseUrl}${entry.cover ?? ""}`;
+        items.push({
+          type: "chapterUpdatesCarouselItem",
+          mangaId,
+          chapterId,
+          // <-- added property
+          imageUrl,
+          title: entry.title,
+          subtitle: entry.chapter || entry.time || void 0,
+          metadata: void 0
+        });
+      }
+      return {
+        items,
+        metadata: items.length > 0 ? { page: page + 1, collectedIds } : void 0
+      };
+    }
+    async getSortingOptions() {
+      const request = { url: `${baseUrl}/browse`, method: "GET" };
+      const $2 = await this.fetchCheerio(request);
+      const sortOptions = [];
+      const seen = /* @__PURE__ */ new Set();
+      $2('h3:contains("Sort By")').next().find("button").each((_, el) => {
+        const text3 = $2(el).text().trim();
+        const id = text3.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+        const key = `${id}-${text3}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          sortOptions.push({ id, label: text3 });
         }
       });
-      return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
-    }
-    async getPopularSectionItems(section, metadata2) {
-      const Popular = await this.searchAPI("getFeatured");
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.collectedIds ?? [];
-      const parsed = parseApiItemsToDiscoverItems(Popular.data, collectedIds);
-      return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
-    }
-    async getMangaOfDaySectionItems(section, metadata2) {
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.collectedIds ?? [];
-      const recent = await this.searchAPI("getRecentRead");
-      const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
-        customSubtitleExtractor: (raw) => String(raw.updated_at || "")
-      });
-      return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
-    }
-    async getMangaRecommendSectionItems(section, metadata2) {
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.collectedIds ?? [];
-      const recommend = await this.searchAPI("getRecommend");
-      const parsed = parseApiItemsToDiscoverItems(recommend?.data ?? [], collectedIds);
-      return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
-    }
-    async getChapterOfDaySectionItems(section, metadata2) {
-      const page = metadata2?.page ?? 1;
-      const collectedIds = metadata2?.collectedIds ?? [];
-      const recent = await this.searchAPI("getRecentChapterRead");
-      const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
-        customSubtitleExtractor: (raw) => String(raw.updated_at || "")
-      });
-      return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
+      return sortOptions;
     }
     checkCloudflareStatus(status) {
       if (status == 503 || status == 403) {
@@ -17975,53 +17431,48 @@ var source = (() => {
       const dom = parseDocument(htmlStr);
       return load(dom);
     }
+    async fetchJson(request) {
+      const [response, data2] = await Application.scheduleRequest(request);
+      this.checkCloudflareStatus(response.status);
+      const jsonStr = Application.arrayBufferToUTF8String(data2);
+      return JSON.parse(jsonStr);
+    }
+    parseRelativeTime(timeStr) {
+      const now = Date.now();
+      const match = timeStr.trim().match(/^(\d+)([mhdwMy])\s+ago$/);
+      if (!match) return void 0;
+      const value = parseInt(match[1]);
+      const unit = match[2];
+      let ms = 0;
+      switch (unit) {
+        case "m":
+          ms = value * 60 * 1e3;
+          break;
+        // minutes
+        case "h":
+          ms = value * 60 * 60 * 1e3;
+          break;
+        // hours
+        case "d":
+          ms = value * 24 * 60 * 60 * 1e3;
+          break;
+        // days
+        case "w":
+          ms = value * 7 * 24 * 60 * 60 * 1e3;
+          break;
+        // weeks
+        case "M":
+          ms = value * 30 * 24 * 60 * 60 * 1e3;
+          break;
+        // months approx
+        case "y":
+          ms = value * 365 * 24 * 60 * 60 * 1e3;
+          break;
+      }
+      return new Date(now - ms);
+    }
   };
-  function toRelativeTime(dateText) {
-    if (!dateText || typeof dateText !== "string" || !dateText.trim()) {
-      return "";
-    }
-    const now = Date.now();
-    let date;
-    const trimmed = dateText.trim();
-    if (/^\d{10,13}$/.test(trimmed)) {
-      if (trimmed.length === 13) {
-        date = new Date(Number(trimmed));
-      } else if (trimmed.length === 10) {
-        date = new Date(Number(trimmed) * 1e3);
-      }
-    } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
-      const m = dateText.trim().match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
-      if (m) {
-        date = new Date(
-          Number(m[1]),
-          // year
-          Number(m[2]) - 1,
-          // month (0-based)
-          Number(m[3]),
-          // day
-          Number(m[4]),
-          // hour
-          Number(m[5]),
-          // minute
-          Number(m[6])
-          // second
-        );
-      }
-    } else if (!isNaN(Date.parse(trimmed))) {
-      date = new Date(trimmed);
-    }
-    if (!date || isNaN(date.getTime())) {
-      return trimmed;
-    }
-    const diff = Math.floor((now - date.getTime()) / 1e3);
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)} minute${Math.floor(diff / 60) === 1 ? "" : "s"} ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) === 1 ? "" : "s"} ago`;
-    if (diff < 2592e3) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) === 1 ? "" : "s"} ago`;
-    if (diff < 31536e3) return `${Math.floor(diff / 2592e3)} month${Math.floor(diff / 2592e3) === 1 ? "" : "s"} ago`;
-    return `${Math.floor(diff / 31536e3)} year${Math.floor(diff / 31536e3) === 1 ? "" : "s"} ago`;
-  }
-  var Mangaball = new MangaballExtension();
+  var Mangataro = new MangataroExtension();
   return __toCommonJS(main_exports);
 })();
 /*! Bundled license information:
