@@ -6,6 +6,7 @@ A repository for paperback that includes both manga and comic extensions
 
 - Atsumaru
 - Batcave
+- Elftoon
 - Hentai2Read
 - MangaBall
 - MangaBuddy
