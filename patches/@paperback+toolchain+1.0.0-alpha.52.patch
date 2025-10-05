@@ -1,0 +1,476 @@
+diff --git a/node_modules/@paperback/toolchain/dist/homepage/index.html b/node_modules/@paperback/toolchain/dist/homepage/index.html
+index c83cc0a..c569df9 100644
+--- a/node_modules/@paperback/toolchain/dist/homepage/index.html
++++ b/node_modules/@paperback/toolchain/dist/homepage/index.html
+@@ -17,34 +17,179 @@
+       defer
+       src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+     ></script>
++    <style>
++      .gradient-bg {
++        background: linear-gradient(135deg, #1e1b4b 0%, #1f2937 50%, #111827 100%);
++        position: relative;
++      }
++      .gradient-bg::before {
++        content: '';
++        position: absolute;
++        top: 0;
++        left: 0;
++        right: 0;
++        bottom: 0;
++        background: 
++          radial-gradient(circle at 20% 20%, rgba(84, 120, 219, 0.1) 0%, transparent 50%),
++          radial-gradient(circle at 80% 80%, rgba(246, 75, 75, 0.1) 0%, transparent 50%),
++          radial-gradient(circle at 40% 60%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
++        pointer-events: none;
++      }
++      .glass-effect {
++        backdrop-filter: blur(16px) saturate(180%);
++        background: rgba(30, 41, 59, 0.75);
++        border: 1px solid rgba(255, 255, 255, 0.125);
++        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
++      }
++      .glass-strong {
++        backdrop-filter: blur(20px) saturate(200%);
++        background: rgba(15, 23, 42, 0.85);
++        border: 1px solid rgba(255, 255, 255, 0.2);
++        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
++      }
++      .glass-card {
++        backdrop-filter: blur(12px) saturate(180%);
++        background: rgba(51, 65, 85, 0.6);
++        border: 1px solid rgba(255, 255, 255, 0.1);
++        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
++      }
++      .hover-glow {
++        transition: all 0.3s ease;
++      }
++      .hover-glow:hover {
++        box-shadow: 0 0 30px rgba(84, 120, 219, 0.4), 0 0 60px rgba(84, 120, 219, 0.2);
++        border-color: rgba(84, 120, 219, 0.3);
++      }
++      .floating-animation {
++        animation: float 6s ease-in-out infinite;
++      }
++      @keyframes float {
++        0%, 100% { transform: translateY(0px); }
++        50% { transform: translateY(-10px); }
++      }
++      .pulse-glow {
++        animation: pulse-glow 3s ease-in-out infinite alternate;
++      }
++      @keyframes pulse-glow {
++        from { 
++          box-shadow: 0 0 20px rgba(84, 120, 219, 0.4), 0 0 40px rgba(84, 120, 219, 0.2); 
++        }
++        to { 
++          box-shadow: 0 0 40px rgba(84, 120, 219, 0.8), 0 0 80px rgba(246, 75, 75, 0.4), 0 0 120px rgba(168, 85, 247, 0.3); 
++        }
++      }
++      .card-hover {
++        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
++      }
++      .card-hover:hover {
++        transform: translateY(-8px) scale(1.03);
++        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(84, 120, 219, 0.3);
++        border-color: rgba(84, 120, 219, 0.4);
++      }
++      .glow-blue {
++        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5), 0 0 40px rgba(59, 130, 246, 0.3);
++      }
++      .glow-purple {
++        box-shadow: 0 0 20px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3);
++      }
++      .glow-red {
++        box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.3);
++      }
++      .shimmer {
++        position: relative;
++        overflow: hidden;
++      }
++      .shimmer::before {
++        content: '';
++        position: absolute;
++        top: 0;
++        left: -100%;
++        width: 100%;
++        height: 100%;
++        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
++        animation: shimmer 3s infinite;
++      }
++      @keyframes shimmer {
++        0% { left: -100%; }
++        100% { left: 100%; }
++      }
++      .aurora {
++        background: linear-gradient(45deg, 
++          rgba(84, 120, 219, 0.1), 
++          rgba(168, 85, 247, 0.1), 
++          rgba(246, 75, 75, 0.1),
++          rgba(34, 197, 94, 0.1)
++        );
++        background-size: 400% 400%;
++        animation: aurora 8s ease-in-out infinite;
++      }
++      @keyframes aurora {
++        0%, 100% { background-position: 0% 50%; }
++        50% { background-position: 100% 50%; }
++      }
++      .filter-included {
++        border: 2px solid rgba(34, 197, 94, 0.6);
++        box-shadow: 0 0 15px rgba(34, 197, 94, 0.4), inset 0 1px 0 rgba(34, 197, 94, 0.2);
++      }
++      .filter-excluded {
++        border: 2px solid rgba(239, 68, 68, 0.6);
++        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(239, 68, 68, 0.2);
++        opacity: 0.7;
++      }
++      .filter-neutral {
++        border: 1px solid rgba(255, 255, 255, 0.1);
++        opacity: 0.8;
++      }
++      .filter-tooltip {
++        position: absolute;
++        bottom: 100%;
++        left: 50%;
++        transform: translateX(-50%);
++        background: rgba(0, 0, 0, 0.9);
++        color: white;
++        padding: 4px 8px;
++        border-radius: 6px;
++        font-size: 12px;
++        white-space: nowrap;
++        opacity: 0;
++        pointer-events: none;
++        transition: opacity 0.2s;
++        z-index: 1000;
++      }
++      .filter-button:hover .filter-tooltip {
++        opacity: 1;
++      }
++    </style>
+   </head>
+ 
+   <body
+-    class="bg-[#1b1b1f] text-gray-200 font-[Inter] p-4 md:p-8 lg:p-12 text-center"
++    class="gradient-bg text-gray-100 font-[Inter] p-4 md:p-8 lg:p-12 text-center min-h-screen relative overflow-x-hidden"
+     x-data="repositoryData()"
+     x-init="await initialize()"
+   >
+-    <div class="container mx-auto max-w-7xl">
+-      <header class="flex flex-col items-center relative mt-4">
++    <div class="container mx-auto max-w-7xl relative z-10">
++      <header class="flex flex-col items-center relative mt-8 mb-12 glass-strong rounded-3xl p-8 mx-4 shimmer">
+         <div
+-          class="absolute w-28 h-28 md:w-40 md:h-40 -top-4 left-1/2 -translate-x-1/2 rounded-full"
++          class="absolute w-32 h-32 md:w-48 md:h-48 -top-6 left-1/2 -translate-x-1/2 rounded-full pulse-glow"
+           style="
+             background: radial-gradient(
+                 circle at 30% 30%,
+-                rgba(84, 120, 219, 0.4) 0%,
++                rgba(84, 120, 219, 0.6) 0%,
++                rgba(84, 120, 219, 0.2) 40%,
+                 transparent 70%
+               ),
+               radial-gradient(
+                 circle at 70% 70%,
+-                rgba(246, 75, 75, 0.4) 0%,
++                rgba(246, 75, 75, 0.6) 0%,
++                rgba(246, 75, 75, 0.2) 40%,
+                 transparent 70%
+               );
+-            filter: blur(25px);
++            filter: blur(30px);
+           "
+         ></div>
+-        <div class="relative z-10">
++        <div class="relative z-10 floating-animation">
+           <img
+-            class="md:max-h-32 max-h-20 rounded-lg"
++            class="md:max-h-36 max-h-24 rounded-xl shadow-2xl"
+             src="https://paperback.moe/pb-logo.svg"
+             alt="Repository logo"
+           />
+@@ -53,29 +198,32 @@
+         <h1
+           x-show="repository"
+           x-text="repository?.name"
+-          class="text-xl mt-4 md:text-3xl font-bold"
++          class="text-2xl mt-6 md:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-red-400 bg-clip-text text-transparent"
+         ></h1>
+ 
+         <p
+           x-show="repository"
+           x-text="repository?.description"
+-          class="mt-4 text-center"
++          class="mt-6 text-center text-gray-300 max-w-2xl mx-auto text-lg leading-relaxed"
+         ></p>
+ 
+         <a
+-          class="addToPaperbackButton inline-block leading-7 mt-4 mx-1 py-2 px-4 text-white bg-[#f64b4b] border-b border-red-700 rounded-full transition-colors duration-100 hover:bg-[#f46565] hover:cursor-pointer"
++          class="addToPaperbackButton inline-flex items-center gap-2 leading-7 mt-8 mx-1 py-3 px-6 text-white bg-gradient-to-r from-[#f64b4b] to-[#e63946] border border-red-600/30 rounded-full transition-all duration-300 hover:from-[#f46565] hover:to-[#f64b4b] hover:cursor-pointer transform hover:-translate-y-1 hover:scale-105 glass-effect shimmer glow-red"
+           @click="addToPaperback()"
+           x-show="repository"
+         >
++          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
++            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
++          </svg>
+           Add Repository to Paperback
+         </a>
+       </header>
+ 
+-      <div class="mx-auto text-left">
++      <div class="mx-auto text-left glass-effect rounded-2xl p-6 mx-4 aurora">
+         <!-- Error message -->
+         <div
+           x-show="error"
+-          class="bg-red-500 text-white p-4 rounded-lg mt-6 text-center"
++          class="glass-strong border-red-500/30 text-red-100 p-6 rounded-xl mt-8 text-center shadow-xl glow-red"
+         >
+           <p class="font-bold">Error loading repository data</p>
+           <p x-text="error" class="mt-2"></p>
+@@ -100,7 +248,7 @@
+               id="source-search"
+               x-model="searchTerm"
+               placeholder="Search sources..."
+-              class="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5478db]"
++              class="w-full px-4 py-3 glass-strong rounded-xl text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5478db] focus:border-transparent transition-all duration-300 focus:glow-blue shimmer"
+             />
+           </div>
+ 
+@@ -111,7 +259,7 @@
+                 id="badge-filter-label"
+                 class="block text-sm font-medium text-gray-400 mb-2"
+               >
+-                Filter
++                Filter by Tags <span class="text-xs text-gray-500">(Click: Include • Right-click: Exclude)</span>
+               </label>
+               <div
+                 class="inline-flex gap-2 pb-2"
+@@ -121,12 +269,28 @@
+                 <template x-for="badge in availableBadges" :key="badge.label">
+                   <button
+                     @click="toggleBadgeFilter(badge)"
+-                    class="px-3 py-2 rounded-lg text-md font-medium transition-all duration-200 shrink-0 hover:cursor-pointer"
+-                    :style="selectedBadges.some(b => b.label === badge.label) ?
+-                            `background-color: ${badge.backgroundColor}; color: ${badge.textColor};` :
++                    @contextmenu.prevent="toggleBadgeFilter(badge, 'excluded')"
++                    class="px-3 py-2 rounded-xl text-md font-medium transition-all duration-300 shrink-0 hover:cursor-pointer glass-card hover:scale-105 shimmer filter-button relative"
++                    :class="getBadgeFilterClass(badge)"
++                    :style="getBadgeFilterState(badge) === 'included' ?
++                            `background-color: ${badge.backgroundColor}; color: ${badge.textColor}; box-shadow: 0 0 20px ${badge.backgroundColor}60;` :
++                            getBadgeFilterState(badge) === 'excluded' ?
++                            `background-color: ${badge.backgroundColor}20; color: ${badge.textColor}80; text-decoration: line-through;` :
+                             `background-color: ${badge.backgroundColor + '40'}; color: ${badge.textColor};`"
+-                    x-text="badge.label"
+-                  ></button>
++                  >
++                    <span x-text="badge.label"></span>
++                    <template x-if="getBadgeFilterState(badge) === 'included'">
++                      <span class="ml-1 text-green-400">✓</span>
++                    </template>
++                    <template x-if="getBadgeFilterState(badge) === 'excluded'">
++                      <span class="ml-1 text-red-400">✗</span>
++                    </template>
++                    <div class="filter-tooltip">
++                      <span x-show="!getBadgeFilterState(badge)">Click: Include • Right-click: Exclude</span>
++                      <span x-show="getBadgeFilterState(badge) === 'included'">Click: Exclude • Right-click: Clear</span>
++                      <span x-show="getBadgeFilterState(badge) === 'excluded'">Click: Clear • Right-click: Include</span>
++                    </div>
++                  </button>
+                 </template>
+               </div>
+             </div>
+@@ -142,6 +306,18 @@
+               <p class="text-sm text-gray-400">
+                 Click on sources to select them for installation
+               </p>
++              <div x-show="badgeFilters.size > 0" class="mt-2 text-sm">
++                <span class="text-gray-400">Active filters: </span>
++                <template x-for="[label, state] of badgeFilters.entries()" :key="label">
++                  <span 
++                    class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs mr-1 mb-1"
++                    :class="state === 'included' ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'"
++                  >
++                    <span x-text="label"></span>
++                    <span x-text="state === 'included' ? '✓' : '✗'"></span>
++                  </span>
++                </template>
++              </div>
+             </div>
+           </div>
+ 
+@@ -152,8 +328,8 @@
+             <template x-for="source in filteredSources" :key="source.id">
+               <div
+                 @click="toggleSource(source.id)"
+-                class="bg-zinc-800 rounded-lg shadow-lg overflow-hidden hover:cursor-pointer transition-all duration-200 relative"
+-                :class="selectedSources.has(source.id) ? 'ring-2 ring-[#5478db]' : ''"
++                class="glass-card rounded-2xl shadow-2xl overflow-hidden hover:cursor-pointer card-hover relative group shimmer"
++                :class="selectedSources.has(source.id) ? 'ring-2 ring-[#5478db] ring-opacity-60 glow-blue' : 'hover-glow'"
+                 @keydown.enter="toggleSource(source.id)"
+                 tabindex="0"
+               >
+@@ -279,16 +455,19 @@
+           <!-- Empty state when no sources match filter -->
+           <div
+             x-show="repository && filteredSources.length === 0"
+-            class="p-10 text-center"
++            class="p-10 text-center glass-strong rounded-xl"
+           >
+-            <p class="text-lg text-gray-400">
++            <p class="text-lg text-gray-400 mb-2">
+               No sources found matching your filters
+             </p>
++            <p class="text-sm text-gray-500 mb-4" x-show="badgeFilters.size > 0 || searchTerm">
++              Try adjusting your search term or filter criteria
++            </p>
+             <button
+               @click="resetFilters()"
+-              class="mt-3 bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg transition-colors"
++              class="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg transition-all duration-300 glass-effect hover:scale-105"
+             >
+-              Reset Filters
++              Reset All Filters
+             </button>
+           </div>
+         </div>
+@@ -297,7 +476,7 @@
+ 
+     <!-- Build Information Footer -->
+     <footer
+-      class="mt-4 md:mt-12 text-center text-sm text-gray-400"
++      class="mt-8 md:mt-16 text-center text-sm text-gray-400 glass-strong rounded-2xl p-8 max-w-2xl mx-auto shimmer aurora"
+       x-show="buildInfo?.buildTime && buildInfo?.builtWith"
+     >
+       <div class="space-y-1">
+@@ -331,7 +510,7 @@
+     >
+       <button
+         @click="installSelectedSources()"
+-        class="py-3 px-6 bg-[#f64b4b] text-white rounded-full hover:bg-[#f46565] transition-colors duration-100 shadow-lg hover:cursor-pointer flex items-center space-x-2"
++        class="py-4 px-8 bg-gradient-to-r from-[#f64b4b] to-[#e63946] text-white rounded-full hover:from-[#f46565] hover:to-[#f64b4b] transition-all duration-300 shadow-2xl hover:cursor-pointer flex items-center space-x-3 transform hover:scale-110 glass-effect shimmer glow-red"
+       >
+         <span>Install</span>
+         <span
+@@ -354,7 +533,8 @@
+         selectedSources: new Set(),
+         buildInfo: null,
+         searchTerm: "",
+-        selectedBadges: [],
++        selectedBadges: [], // Legacy support
++        badgeFilters: new Map(), // New: Map of badge.label -> 'included'|'excluded'
+         availableBadges: [],
+         error: null,
+ 
+@@ -369,14 +549,37 @@
+                 .toLowerCase()
+                 .includes(this.searchTerm.toLowerCase());
+ 
+-            // Badge filter
+-            const matchesBadges =
+-              this.selectedBadges.length === 0 ||
+-              this.selectedBadges.every((selectedBadge) =>
+-                source.badges?.some(
+-                  (badge) => badge.label === selectedBadge.label
+-                )
++            // Enhanced badge filter with include/exclude logic
++            const sourceBadgeLabels = source.badges?.map(b => b.label) || [];
++            let matchesBadges = true;
++
++            // Check if source should be excluded
++            for (const [badgeLabel, filterState] of this.badgeFilters.entries()) {
++              if (filterState === 'excluded' && sourceBadgeLabels.includes(badgeLabel)) {
++                matchesBadges = false;
++                break;
++              }
++            }
++
++            // Check if source matches all included filters
++            if (matchesBadges) {
++              const includedFilters = Array.from(this.badgeFilters.entries())
++                .filter(([_, state]) => state === 'included')
++                .map(([label, _]) => label);
++              
++              if (includedFilters.length > 0) {
++                matchesBadges = includedFilters.every(includedLabel => 
++                  sourceBadgeLabels.includes(includedLabel)
++                );
++              }
++            }
++
++            // Legacy support for old selectedBadges
++            if (this.selectedBadges.length > 0 && this.badgeFilters.size === 0) {
++              matchesBadges = this.selectedBadges.every((selectedBadge) =>
++                source.badges?.some((badge) => badge.label === selectedBadge.label)
+               );
++            }
+ 
+             return matchesSearch && matchesBadges;
+           });
+@@ -487,16 +690,58 @@
+         resetFilters() {
+           this.searchTerm = "";
+           this.selectedBadges = [];
++          this.badgeFilters.clear();
+         },
+ 
+-        toggleBadgeFilter(badge) {
+-          const index = this.selectedBadges.findIndex(
+-            (b) => b.label === badge.label
+-          );
+-          if (index === -1) {
+-            this.selectedBadges.push(badge);
++        toggleBadgeFilter(badge, forceState = null) {
++          const currentState = this.badgeFilters.get(badge.label);
++          let newState;
++
++          if (forceState) {
++            newState = forceState;
+           } else {
+-            this.selectedBadges.splice(index, 1);
++            // Cycle through states: neutral -> included -> excluded -> neutral
++            switch (currentState) {
++              case undefined:
++              case null:
++                newState = 'included';
++                break;
++              case 'included':
++                newState = 'excluded';
++                break;
++              case 'excluded':
++                newState = null;
++                break;
++              default:
++                newState = 'included';
++            }
++          }
++
++          if (newState === null) {
++            this.badgeFilters.delete(badge.label);
++          } else {
++            this.badgeFilters.set(badge.label, newState);
++          }
++
++          // Clear legacy selectedBadges when using new system
++          if (this.badgeFilters.size > 0) {
++            this.selectedBadges = [];
++          }
++        },
++
++        getBadgeFilterState(badge) {
++          return this.badgeFilters.get(badge.label) || null;
++        },
++
++        getBadgeFilterClass(badge) {
++          const state = this.getBadgeFilterState(badge);
++          switch (state) {
++            case 'included':
++              return 'filter-included';
++            case 'excluded':
++              return 'filter-excluded';
++            default:
++              return 'filter-neutral';
+           }
+         },
+ 
