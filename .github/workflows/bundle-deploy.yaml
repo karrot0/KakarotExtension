@@ -1,33 +1,52 @@
 name: Bundle and Deploy
+
 on:
   push:
     branches:
       - "*.*/stable"
       - "*.*/testing"
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  bundle-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Branch
         uses: actions/checkout@v4
+        
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          
       - name: Install Dependencies
         run: npm ci
+        
       - name: Apply Patches
         run: npm run postinstall
+        
       - name: Bundle Extensions
         run: npm run bundle
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: bundles
-          destination_dir: ${{ github.ref_name }}
+          path: bundles
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
