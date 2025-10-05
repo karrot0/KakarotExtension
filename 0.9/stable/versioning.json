@@ -1,12 +1,12 @@
 {
-  "buildTime": "2025-10-05T15:56:08.217Z",
+  "buildTime": "2025-10-05T15:58:05.313Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
   },
   "repository": {
     "name": "KakarotExtension",
-    "description": "Mangafire extension"
+    "description": "Kakarot extensions for Paperback"
   },
   "sources": [
     {
