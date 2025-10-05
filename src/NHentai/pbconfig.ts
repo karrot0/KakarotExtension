@@ -6,7 +6,7 @@ export default {
   version: "1.0.0-alpha.1",
   icon: "icon.png",
   language: "multi",
-  contentRating: ContentRating.MATURE,
+  contentRating: ContentRating.ADULT,
   capabilities: [
     SourceIntents.DISCOVER_SECIONS,
     SourceIntents.MANGA_SEARCH,

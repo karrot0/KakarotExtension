@@ -328,6 +328,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         mangaId: mangaId,
         imageUrl: image ?? "",
         title: title,
+        contentRating: ContentRating.ADULT,
         subtitle: subtitle,
         metadata: undefined,
       });
@@ -403,7 +404,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         thumbnailUrl: image,
         synopsis: description,
         rating: rating,
-        contentRating: ContentRating.EVERYONE,
+        contentRating: ContentRating.ADULT,
         status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
         tagGroups: tags,
       },
@@ -513,6 +514,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         id: mangaId,
         image: image,
         title: title,
+        contentRating: ContentRating.ADULT,
         type: "simpleCarouselItem",
         }),
       );
@@ -571,6 +573,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         id: mangaId,
         image: image,
         title: title,
+        contentRating: ContentRating.ADULT,
         type: "simpleCarouselItem",
         }),
       );
@@ -605,6 +608,7 @@ function createDiscoverSectionItem(options: {
   image: string;
   title: string;
   subtitle?: string;
+  contentRating?: ContentRating;
   type: "simpleCarouselItem";
 }): DiscoverSectionItem {
   return {
@@ -612,6 +616,7 @@ function createDiscoverSectionItem(options: {
     mangaId: options.id,
     imageUrl: options.image,
     title: options.title,
+    contentRating: options.contentRating ?? ContentRating.EVERYONE,
     subtitle: options.subtitle,
     metadata: undefined,
   };

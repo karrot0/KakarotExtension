@@ -304,6 +304,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
         mangaId: mangaId,
         imageUrl: image ?? "",
         title: title,
+        contentRating: ContentRating.ADULT,
         subtitle: subtitle,
         metadata: undefined,
       });
@@ -437,7 +438,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
         thumbnailUrl: image,
         synopsis: description,
         rating: rating,
-        contentRating: ContentRating.EVERYONE,
+        contentRating: ContentRating.ADULT,
         status: status,
         tagGroups: tags,
       },
@@ -585,6 +586,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
             id: mangaId,
             image: image,
             title: title,
+            contentRating: ContentRating.ADULT,
             type: "simpleCarouselItem",
           }),
         );
@@ -633,6 +635,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
         items.push(
           createDiscoverSectionItem({
             id: mangaId,
+            contentRating: ContentRating.ADULT,
             image: image,
             title: title,
             type: "simpleCarouselItem",
@@ -688,6 +691,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
           imageUrl: image,
           title: title,
           supertitle: supertitle,
+          contentRating: ContentRating.ADULT,
           metadata: undefined,
         });
       }
@@ -746,6 +750,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
             chapterId: chapterId,
             imageUrl: image,
             title: title,
+            contentRating: ContentRating.ADULT,
             subtitle: subtitle,
             metadata: undefined,
           });
@@ -780,6 +785,7 @@ function createDiscoverSectionItem(options: {
   image: string;
   title: string;
   subtitle?: string;
+  contentRating?: ContentRating;
   type: "simpleCarouselItem";
 }): DiscoverSectionItem {
   return {
@@ -787,6 +793,7 @@ function createDiscoverSectionItem(options: {
     mangaId: options.id,
     imageUrl: options.image,
     title: options.title,
+    contentRating: options.contentRating ?? ContentRating.EVERYONE,
     subtitle: options.subtitle,
     metadata: undefined,
   };
