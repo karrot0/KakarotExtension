@@ -17181,6 +17181,7 @@ var source = (() => {
           mangaId,
           imageUrl: image ?? "",
           title,
+          contentRating: import_types3.ContentRating.ADULT,
           subtitle,
           metadata: void 0
         });
@@ -17289,7 +17290,7 @@ var source = (() => {
           thumbnailUrl: image,
           synopsis: description,
           rating,
-          contentRating: import_types3.ContentRating.EVERYONE,
+          contentRating: import_types3.ContentRating.ADULT,
           status,
           tagGroups: tags
         }
@@ -17404,6 +17405,7 @@ var source = (() => {
               id: mangaId,
               image,
               title,
+              contentRating: import_types3.ContentRating.ADULT,
               type: "simpleCarouselItem"
             })
           );
@@ -17439,6 +17441,7 @@ var source = (() => {
           items.push(
             createDiscoverSectionItem({
               id: mangaId,
+              contentRating: import_types3.ContentRating.ADULT,
               image,
               title,
               type: "simpleCarouselItem"
@@ -17481,6 +17484,7 @@ var source = (() => {
             imageUrl: image,
             title,
             supertitle,
+            contentRating: import_types3.ContentRating.ADULT,
             metadata: void 0
           });
         }
@@ -17523,6 +17527,7 @@ var source = (() => {
             chapterId,
             imageUrl: image,
             title,
+            contentRating: import_types3.ContentRating.ADULT,
             subtitle,
             metadata: void 0
           });
@@ -17553,6 +17558,7 @@ var source = (() => {
       mangaId: options.id,
       imageUrl: options.image,
       title: options.title,
+      contentRating: options.contentRating ?? import_types3.ContentRating.EVERYONE,
       subtitle: options.subtitle,
       metadata: void 0
     };

@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-10-02T19:47:23.006Z",
+  "buildTime": "2025-10-05T15:56:08.217Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -92,7 +92,7 @@
       "version": "1.0.0-alpha.1",
       "icon": "icon.png",
       "language": "multi",
-      "contentRating": "MATURE",
+      "contentRating": "ADULT",
       "capabilities": [
         4,
         64,
@@ -248,7 +248,7 @@
       "version": "1.0.0-alpha.1",
       "icon": "icon.png",
       "language": "multi",
-      "contentRating": "MATURE",
+      "contentRating": "ADULT",
       "capabilities": [
         4,
         64,
