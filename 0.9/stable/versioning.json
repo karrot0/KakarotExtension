@@ -1,5 +1,5 @@
 {
-  "buildTime": "2025-10-05T16:16:36.106Z",
+  "buildTime": "2025-10-11T22:01:08.081Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -12,7 +12,7 @@
     {
       "name": "Atsumaru",
       "description": "Extension that pulls content from atsu.moe",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "English",
       "contentRating": "SAFE",
@@ -25,6 +25,9 @@
       "developers": [
         {
           "name": "Karrot"
+        },
+        {
+          "name": "LucifersCircle"
         }
       ],
       "id": "Atsumaru"

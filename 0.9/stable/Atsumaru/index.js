@@ -17137,23 +17137,50 @@ var source = (() => {
     }
     async getChapters(sourceManga) {
       const mangaId = sourceManga.mangaId;
-      const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("manga").addPath("page").addQuery("id", mangaId).build();
-      const request = { url: apiUrl, method: "GET" };
-      const data2 = await this.fetchJson(request);
       const chapters = [];
-      for (const chapterItem of data2.mangaPage.chapters) {
-        const publishDate = new Date(chapterItem.createdAt);
-        chapters.push({
-          chapterId: chapterItem.id,
-          sourceManga,
-          title: chapterItem.title,
-          volume: 0,
-          chapNum: chapterItem.number,
-          publishDate,
-          langCode: "\u{1F1EC}\u{1F1E7}"
-        });
-      }
+      let currentPage = 0;
+      let totalPages = 1;
+      do {
+        const request = {
+          url: `${baseUrl}api/manga/chapters?id=${mangaId}&filter=all&sort=desc&page=${currentPage}`,
+          method: "GET"
+        };
+        try {
+          const response = await this.fetchJson(request);
+          if (!response?.chapters?.length) {
+            console.warn(
+              `[chapters] No chapters found on page ${currentPage} for ${mangaId}`
+            );
+            break;
+          }
+          for (const ch of response.chapters) {
+            const stripped = ch.title?.replace(/^Chapter\s*/i, "").trim();
+            const isNumeric = /^\d+$/.test(stripped ?? "");
+            chapters.push({
+              chapterId: ch.id,
+              sourceManga,
+              title: isNumeric ? void 0 : stripped,
+              // let Paperback generate title if number only
+              volume: 0,
+              chapNum: ch.number ?? 0,
+              publishDate: new Date(ch.createdAt),
+              langCode: "\u{1F1EC}\u{1F1E7}"
+            });
+          }
+          totalPages = response.pages ?? 1;
+          currentPage++;
+        } catch (err) {
+          console.error(
+            `[chapters] fetchJson error on page ${currentPage}:`,
+            err
+          );
+          break;
+        }
+      } while (currentPage < totalPages);
       chapters.sort((a, b) => (b.chapNum ?? 0) - (a.chapNum ?? 0));
+      console.log(
+        `[chapters] Loaded ${chapters.length} chapters for ${mangaId} (${totalPages} pages)`
+      );
       return chapters;
     }
     async getChapterDetails(chapter) {
@@ -17204,7 +17231,9 @@ var source = (() => {
       const request = { url: apiUrl, method: "GET" };
       const data2 = await this.fetchJson(request);
       const homePage = data2.homePage;
-      const trendingSection = homePage.sections.find((s) => s.type === "slideshow" && s.key === "trending");
+      const trendingSection = homePage.sections.find(
+        (s) => s.type === "slideshow" && s.key === "trending"
+      );
       const items = [];
       if (trendingSection) {
         for (const item of trendingSection.items || []) {
