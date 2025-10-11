@@ -19,15 +19,21 @@ jobs:
     steps:
       - name: Checkout Branch
         uses: actions/checkout@v4
+        
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: 20
+          
       - name: Install Dependencies
         run: npm ci
+        
+      - name: Apply Patches
+        run: npm run postinstall
+        
       - name: Bundle Extensions
         run: npm run bundle
+        
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
