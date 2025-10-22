@@ -17043,7 +17043,7 @@ var source = (() => {
           const mangaId = item.id;
           if (collectedIds.includes(mangaId)) continue;
           collectedIds.push(mangaId);
-          const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}${item.image.slice(1)}`;
+          const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}static/${item.image}`;
           items2.push({
             mangaId,
             imageUrl,
@@ -17066,7 +17066,7 @@ var source = (() => {
         const mangaId = hit.id;
         if (collectedIds.includes(mangaId)) continue;
         collectedIds.push(mangaId);
-        const imageUrl = hit.image.startsWith("http") ? hit.image : `${baseUrl}${hit.image}`;
+        const imageUrl = hit.image.startsWith("http") ? hit.image : `${baseUrl}static/${hit.image}`;
         items.push({
           mangaId,
           imageUrl,
@@ -17088,7 +17088,7 @@ var source = (() => {
       const title = mangaPage.englishTitle || mangaPage.title;
       const altTitles = mangaPage.otherNames || [];
       const image = mangaPage.poster?.image;
-      const imageUrl = image && !image.startsWith("http") ? `${baseUrl}${image.slice(1)}` : image;
+      const imageUrl = image && !image.startsWith("http") ? `${baseUrl}static/${image}` : image;
       const description = mangaPage.synopsis || "";
       const authors = mangaPage.authors?.map((author) => author.name) || [];
       let status = "UNKNOWN";
@@ -17188,7 +17188,7 @@ var source = (() => {
       const request = { url: apiUrl, method: "GET" };
       const data2 = await this.fetchJson(request);
       const pages = data2.readChapter.pages.map((page) => {
-        const imageUrl = page.image.startsWith("http") ? page.image : `${baseUrl}${page.image}`;
+        const imageUrl = page.image.startsWith("http") ? page.image : `${baseUrl}static/${page.image}`;
         return imageUrl;
       });
       return {
@@ -17211,7 +17211,7 @@ var source = (() => {
         const mangaId = item.id;
         if (collectedIds.includes(mangaId)) continue;
         collectedIds.push(mangaId);
-        const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}${item.image.slice(1)}`;
+        const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}static/${item.image}`;
         items.push({
           type: "prominentCarouselItem",
           mangaId,
@@ -17264,7 +17264,7 @@ var source = (() => {
         const mangaId = item.id;
         if (collectedIds.includes(mangaId)) continue;
         collectedIds.push(mangaId);
-        const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}${item.image.slice(1)}`;
+        const imageUrl = item.image.startsWith("http") ? item.image : `${baseUrl}static/${item.image}`;
         items.push({
           type: "simpleCarouselItem",
           mangaId,
