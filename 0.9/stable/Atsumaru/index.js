@@ -17087,8 +17087,7 @@ var source = (() => {
       const mangaPage = data2.mangaPage;
       const title = mangaPage.englishTitle || mangaPage.title;
       const altTitles = mangaPage.otherNames || [];
-      const image = mangaPage.poster?.image;
-      const imageUrl = image && !image.startsWith("http") ? `${baseUrl}static/${image}` : image;
+      const thumbnailUrl = mangaPage.poster?.image?.startsWith("http") ? mangaPage.poster.image : `${baseUrl}static/${mangaPage.poster?.image}`;
       const description = mangaPage.synopsis || "";
       const authors = mangaPage.authors?.map((author) => author.name) || [];
       let status = "UNKNOWN";
@@ -17125,7 +17124,7 @@ var source = (() => {
         mangaInfo: {
           primaryTitle: title,
           secondaryTitles: altTitles,
-          thumbnailUrl: imageUrl,
+          thumbnailUrl,
           synopsis: description,
           rating: 1,
           // API doesn't provide rating
@@ -17188,7 +17187,7 @@ var source = (() => {
       const request = { url: apiUrl, method: "GET" };
       const data2 = await this.fetchJson(request);
       const pages = data2.readChapter.pages.map((page) => {
-        const imageUrl = page.image.startsWith("http") ? page.image : `${baseUrl}static/${page.image}`;
+        const imageUrl = page.image.startsWith("http") ? page.image : page.image.startsWith("/") ? `${baseUrl}${page.image.substring(1)}` : `${baseUrl}static/${page.image}`;
         return imageUrl;
       });
       return {
