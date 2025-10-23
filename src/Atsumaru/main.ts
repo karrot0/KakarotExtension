@@ -193,11 +193,9 @@ export class AtsumaruExtension implements AtsumaruImplementation {
 
         const title = mangaPage.englishTitle || mangaPage.title;
         const altTitles = mangaPage.otherNames || [];
-        const image = mangaPage.poster?.image;
-        const imageUrl =
-            image && !image.startsWith("http")
-                ? `${baseUrl}static/${image}`
-                : image;
+        const thumbnailUrl = mangaPage.poster?.image?.startsWith("http")
+            ? mangaPage.poster.image
+            : `${baseUrl}static/${mangaPage.poster?.image}`;
         const description = mangaPage.synopsis || "";
         const authors: string[] =
             mangaPage.authors?.map((author) => author.name) || [];
@@ -247,7 +245,7 @@ export class AtsumaruExtension implements AtsumaruImplementation {
             mangaInfo: {
                 primaryTitle: title,
                 secondaryTitles: altTitles,
-                thumbnailUrl: imageUrl,
+                thumbnailUrl: thumbnailUrl,
                 synopsis: description,
                 rating: 1, // API doesn't provide rating
                 contentRating: ContentRating.EVERYONE,
@@ -332,7 +330,9 @@ export class AtsumaruExtension implements AtsumaruImplementation {
         const pages: string[] = data.readChapter.pages.map((page) => {
             const imageUrl = page.image.startsWith("http")
                 ? page.image
-                : `${baseUrl}static/${page.image}`;
+                : page.image.startsWith("/")
+                    ? `${baseUrl}${page.image.substring(1)}`
+                    : `${baseUrl}static/${page.image}`;
             return imageUrl;
         });
 
