@@ -10,6 +10,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  Form,
   MangaProviding,
   PagedResults,
   Request,
@@ -17,25 +18,135 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SettingsFormProviding,
+  SortingOption,
   SourceManga,
+  Tag,
   TagSection,
 } from "@paperback/types";
-import * as cheerio from "cheerio";
-import { CheerioAPI } from "cheerio";
-import * as htmlparser2 from "htmlparser2";
-import { URLBuilder } from "../utils/url-builder/base";
+import { SettingsForm } from "./forms";
 import { NHentaiInterceptor } from "./interceptors";
 import {
-  NHentaiMetadata,
-} from "./model";
+  getExtraArgumentsSetting,
+  getLanguageAbbreviationFromSlug,
+  getLanguageToken,
+  SORT_OPTIONS,
+  getHideReadSetting,
+} from "./settings";
 
-const baseUrl = "https://nhentai.net";
+import tagsData from "./tags.json";
+
+const BASE_URL = "https://nhentai.net";
+const API_URL = `${BASE_URL}/api`;
+const THUMB_HOST = "https://i.nhentai.net";
+const IMAGE_HOST = "https://i3.nhentai.net";
+const EMPTY_QUERY = '""';
+const READ_STATE_KEY = "nhentai.readHistory";
+
+interface FilterOption {
+  id: string;
+  label: string;
+  token?: string;
+}
+
+const LENGTH_FILTER_OPTIONS: FilterOption[] = [
+  { id: "all", label: "All" },
+  { id: "gt20", label: "More than 20 pages", token: ">20" },
+  { id: "gt40", label: "More than 40 pages", token: ">40" },
+  { id: "gt80", label: "More than 80 pages", token: ">80" },
+  { id: "gt120", label: "More than 120 pages", token: ">120" },
+  { id: "gt200", label: "More than 200 pages", token: ">200" },
+  { id: "le20", label: "20 pages or less", token: "<=20" },
+];
+
+const FAVORITES_FILTER_OPTIONS: FilterOption[] = [
+  { id: "all", label: "All" },
+  { id: "fav_100", label: "More than 100 favorites", token: ">100" },
+  { id: "fav_250", label: "More than 250 favorites", token: ">250" },
+  { id: "fav_500", label: "More than 500 favorites", token: ">500" },
+  { id: "fav_1000", label: "More than 1k favorites", token: ">1000" },
+  { id: "fav_2500", label: "More than 2.5k favorites", token: ">2500" },
+  { id: "fav_5000", label: "More than 5k favorites", token: ">5000" },
+  { id: "fav_7500", label: "More than 7.5k favorites", token: ">7500" },
+  { id: "fav_10000", label: "More than 10k favorites", token: ">10000" },
+  { id: "fav_20000", label: "More than 20k favorites", token: ">20000" },
+  { id: "fav_50000", label: "More than 50k favorites", token: ">50000" },
+];
+
+const POPULAR_SECTIONS = [
+  { id: "popular_today", title: "Popular Today", sort: "popular-today" },
+  { id: "popular_week", title: "Popular Weekly", sort: "popular-week" },
+  { id: "popular_month", title: "Popular Monthly", sort: "popular-month" },
+  { id: "popular_all", title: "Popular All-Time", sort: "popular" },
+] as const;
+
+type TagDefinition = { id: string; label: string };
+const popularTags: TagDefinition[] = (
+  tagsData as { popularTags: TagDefinition[] }
+).popularTags;
+
+const IMAGE_TYPE_MAP: Record<string, string> = {
+  j: "jpg",
+  p: "png",
+  g: "gif",
+  w: "webp",
+};
+
+// NOTE: The readCache and associated functions assume single-threaded execution.
+// If used in a multi-threaded environment, race conditions may occur.
+// Consider implementing synchronization if concurrency is introduced.
+let readCache: Set<string> | undefined;
+
+interface GalleryTag {
+  id: number;
+  type: string;
+  name: string;
+  url: string;
+  count: number;
+}
+
+interface GalleryTitle {
+  english: string | null;
+  japanese: string | null;
+  pretty: string;
+}
+
+interface GalleryImage {
+  t: string;
+}
+
+interface Gallery {
+  id: number;
+  media_id: string;
+  title: GalleryTitle;
+  images: {
+    pages: GalleryImage[];
+    cover: GalleryImage;
+    thumbnail: GalleryImage;
+  };
+  tags: GalleryTag[];
+  num_pages: number;
+  num_favorites: number;
+  upload_date: number;
+}
+
+interface QueryResponse {
+  result?: Gallery[];
+  num_pages: number;
+  per_page: number;
+  error?: string;
+}
+
+interface PaginationMetadata {
+  page?: number;
+}
 
 type NHentaiImplementation = Extension &
+  SettingsFormProviding &
+  DiscoverSectionProviding &
   SearchResultsProviding &
   MangaProviding &
-  ChapterProviding &
-  DiscoverSectionProviding;
+  ChapterProviding;
 
 export class NHentaiExtension implements NHentaiImplementation {
   requestManager = new NHentaiInterceptor("main");
@@ -50,576 +161,683 @@ export class NHentaiExtension implements NHentaiImplementation {
     this.globalRateLimiter.registerInterceptor();
   }
 
+  async getSettingsForm(): Promise<Form> {
+    return new SettingsForm();
+  }
+
   async getDiscoverSections(): Promise<DiscoverSection[]> {
     return [
-      {
-        id: "popular_section",
-        title: "Popular",
-        type: DiscoverSectionType.simpleCarousel,
-      },
       {
         id: "new_uploads",
         title: "New Uploads",
         type: DiscoverSectionType.simpleCarousel,
-      }
+      },
+      ...POPULAR_SECTIONS.map((section) => ({
+        id: section.id,
+        title: section.title,
+        type: DiscoverSectionType.simpleCarousel,
+      })),
     ];
   }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: NHentaiMetadata | undefined,
+    metadata: PaginationMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    switch (section.id) {
-      case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
-      case "new_uploads":
-        return this.getNewUploadsSectionItems(section, metadata);
-      default:
-        return { items: [] };
+    const page = metadata?.page ?? 1;
+    const sortKey =
+      section.id === "new_uploads"
+        ? "date"
+        : (POPULAR_SECTIONS.find((entry) => entry.id === section.id)?.sort ??
+          "popular");
+
+    const query = this.buildQueryString();
+    const response = await this.fetchSearch(query, page, sortKey);
+    let galleries = response.result ?? [];
+    if (getHideReadSetting()) {
+      galleries = galleries.filter((g) => !isMangaRead(g.id.toString()));
     }
-  }
+    const items = galleries.map((gallery) => this.mapGalleryToDiscoverItem(gallery));
+    const hasNextPage = page < response.num_pages;
 
-  private async getSearchDetails() {
-    try {
-      const request = {
-        url: `${baseUrl}/filter`,
-        method: "GET",
-      };
-
-      const $ = await this.fetchCheerio(request);
-      const types: { id: string; label: string }[] = [];
-      const genres: { id: string; label: string }[] = [];
-      const status: { id: string; label: string }[] = [];
-      const languages: { id: string; label: string }[] = [];
-      const years: { id: string; label: string }[] = [];
-      const lengths: { id: string; label: string }[] = [];
-      const sorts: { id: string; label: string }[] = [];
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Type']) .dropdown-menu.noclose.c1 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label) {
-          types.push({ id, label });
-        }
-      });
-
-      $(".genres li").each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          genres.push({ id, label });
-        }
-      });
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Status']) .dropdown-menu.noclose.c1 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          status.push({ id, label });
-        }
-      });
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Language']) .dropdown-menu.noclose.c1 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          languages.push({ id, label });
-        }
-      });
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Year']) .dropdown-menu.noclose.md.c3 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          years.push({ id, label });
-        }
-      });
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Length']) .dropdown-menu.noclose.c1 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          lengths.push({ id, label });
-        }
-      });
-
-      $(
-        ".dropdown:has(button .value[data-placeholder='Sort']) .dropdown-menu.noclose.c1 li",
-      ).each((_, element) => {
-        const id = $(element).find("input").attr("value") ?? "";
-        const label = $(element).find("label").text().trim();
-        if (label && id) {
-          sorts.push({ id, label });
-        }
-      });
-
-      return {
-        types: types,
-        genres: genres,
-        status: status,
-        languages: languages,
-        years: years,
-        lengths: lengths,
-        sorts: sorts,
-      };
-    } catch (error) {
-      console.error("Error fetching search details:", error);
-    }
+    return {
+      items,
+      metadata: hasNextPage ? { page: page + 1 } : undefined,
+    };
   }
 
   async getSearchFilters(): Promise<SearchFilter[]> {
     const filters: SearchFilter[] = [];
-    const searchDetails = await this.getSearchDetails();
-    filters.push({
-      id: "type",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.types?.map((t) => ({ id: t.id, value: t.label })) ||
-          []),
-      ],
-      value: "all",
-      title: "Type Filter",
-    });
 
-    filters.push({
-      id: "genres",
-      type: "multiselect",
-      options:
-        searchDetails?.genres?.map((g) => ({ id: g.id, value: g.label })) || [],
-      allowExclusion: true,
-      value: {},
-      title: "Genre Filter",
-      allowEmptySelection: false,
-      maximum: undefined,
-    });
-
-    filters.push({
-      id: "status",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.status?.map((s) => ({ id: s.id, value: s.label })) ||
-          []),
-      ],
-      value: "all",
-      title: "Status Filter",
-    });
-
-    filters.push({
-      id: "language",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.languages?.map((l) => ({
-          id: l.id,
-          value: l.label,
-        })) || []),
-      ],
-      value: "all",
-      title: "Language Filter",
-    });
-
-    filters.push({
-      id: "year",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.years?.map((y) => ({ id: y.id, value: y.label })) ||
-          []),
-      ],
-      value: "all",
-      title: "Year Filter",
-    });
-
+    // Length
     filters.push({
       id: "length",
       type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        ...(searchDetails?.lengths?.map((l) => ({
-          id: l.id,
-          value: l.label,
-        })) || []),
-      ],
+      title: "Length",
       value: "all",
-      title: "Length Filter",
+      options: LENGTH_FILTER_OPTIONS.map((option) => ({
+        id: option.id,
+        value: option.label,
+      })),
+    });
+
+    // Favorites
+    filters.push({
+      id: "favorites",
+      type: "dropdown",
+      title: "Favorites",
+      value: "all",
+      options: FAVORITES_FILTER_OPTIONS.map((option) => ({
+        id: option.id,
+        value: option.label,
+      })),
+    });
+
+    // Popular Tags - Include
+    filters.push({
+      id: "tags",
+      type: "multiselect",
+      title: "Tags",
+      value: {},
+      options: popularTags.map((tag) => ({
+        id: tag.id,
+        value: tag.label,
+      })),
+        allowExclusion: true,
+        allowEmptySelection: true,
+        maximum: undefined
     });
 
     return filters;
   }
 
+  async getSortingOptions(): Promise<SortingOption[]> {
+    return SORT_OPTIONS.map((option) => ({
+      id: option.id,
+      label: option.label,
+    }));
+  }
+
   async getSearchResults(
     query: SearchQuery,
-    metadata: { page?: number } | undefined,
+    metadata: PaginationMetadata | undefined,
+    sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
+    const trimmedTitle = query.title?.trim() ?? "";
 
-    if (!query.title || query.title.trim() === "") {
-      const result = await this.getNewUploadsSectionItems({
-        id: "new_uploads",
-        title: "New Uploads",
-        type: DiscoverSectionType.simpleCarousel,
-      }, { page });
-      return {
-        items: result.items.map(item => {
-          const dItem = item as {
-            mangaId: string;
-            imageUrl: string;
-            title: string;
-            subtitle?: string;
-          };
-          return {
-            mangaId: dItem.mangaId,
-            imageUrl: dItem.imageUrl,
-            title: dItem.title,
-            subtitle: dItem.subtitle,
-            metadata: undefined,
-          };
-        }),
-        metadata: result.metadata,
-      };
+    if (trimmedTitle && /^\d+$/.test(trimmedTitle)) {
+      try {
+        const gallery = await this.fetchGallery(trimmedTitle);
+        return {
+          items: [this.mapGalleryToSearchResult(gallery)],
+          metadata: undefined,
+        };
+      } catch (error) {
+        console.error("Failed to fetch gallery by ID", error);
+        return { items: [], metadata: undefined };
+      }
     }
 
-    const searchUrl = new URLBuilder(baseUrl)
-      .addPath("search")
-      .addQuery("q", encodeURIComponent(query.title ?? ""))
-      .addQuery("page", page.toString());
+    const {
+      tokens: filterTokens,
+      favoritesConstraint,
+    } = this.buildFilterTokens(query.filters);
 
-    const url = searchUrl.build();
+    // Define interface for tags filter value
+    interface TagsFilterValue {
+      [tagId: string]: "included" | "excluded";
+    }
 
-    const request = { url, method: "GET" };
-
-    const $ = await this.fetchCheerio(request);
-    const searchResults: SearchResultItem[] = [];
-
-    $(".container.index-container .gallery").each((_, element) => {
-      const gallery = $(element);
-      const link = gallery.find("a.cover");
-      const href = link.attr("href") || "";
-      const mangaId = typeof href === "string" ? href.replace(/\/g\/(\d+)\//, "$1") : "";
-      const img = link.find("img");
-      let image = typeof img.attr("data-src") === "string" ? img.attr("data-src") :
-        typeof img.attr("src") === "string" ? img.attr("src") : "";
-      if (image && image.startsWith("//")) {
-        image = "https:" + image;
+    // Type guard for TagsFilterValue
+    function isTagsFilterValue(value: unknown): value is TagsFilterValue {
+      if (typeof value !== "object" || value === null) return false;
+      const obj = value as Record<string, unknown>;
+      for (const key of Object.keys(obj)) {
+        const v = obj[key];
+        if (v !== "included" && v !== "excluded") return false;
       }
-      if (!/^https?:\/\//.test(image ?? "")) {
-        return;
+      return true;
+    }
+
+    // Get tags from filter
+    const tagsFilter = query.filters?.find((f) => f.id === "tags");
+    const tagsValue: TagsFilterValue = isTagsFilterValue(tagsFilter?.value)
+      ? tagsFilter.value
+      : {};
+
+    const includedTags: Tag[] = [];
+    const excludedTags: Tag[] = [];
+
+    // Process tags based on their inclusion/exclusion state
+    for (const [tagId, state] of Object.entries(tagsValue)) {
+      const normalizedTagId = tagId.replaceAll("-", " ");
+      if (state === "excluded") {
+        excludedTags.push({ id: normalizedTagId, title: "" });
+      } else if (state === "included") {
+        includedTags.push({ id: normalizedTagId, title: "" });
       }
-      const title = typeof link.find(".caption").text() === "string" ? link.find(".caption").text().trim() : "";
-      const subtitle = undefined;
+    }
 
-      if (!title || !mangaId) {
-        return;
+    const tagTokens: string[] = [
+      ...this.buildTagTokens(includedTags, false),
+      ...this.buildTagTokens(excludedTags, true),
+    ];
+    const sortOrder = this.resolveSortOrder(query, sortingOption);
+    const searchQuery = this.buildQueryString(
+      trimmedTitle,
+      [...filterTokens, ...tagTokens]
+    );
+    let response: QueryResponse | undefined;
+    try {
+      response = await this.fetchSearch(searchQuery, page, sortOrder);
+    } catch (e) {
+      // Network or interceptor error during fetch; return an empty page instead of propagating to the app
+      if (e instanceof Error) {
+        console.error("Search fetch aborted or failed:", e.message, e);
+      } else {
+        console.error("Search fetch aborted or failed:", e);
       }
+      return { items: [], metadata: undefined };
+    }
 
-      searchResults.push({
-        mangaId: mangaId,
-        imageUrl: image ?? "",
-        title: title,
-        contentRating: ContentRating.ADULT,
-        subtitle: subtitle,
-        metadata: undefined,
-      });
-    });
+    const galleries = response?.result ?? [];
 
-    const hasNextPage = !!$("section.pagination a.next").length;
+    // Apply optional client-side favorites filtering if the API doesn't support the specific threshold
+    const filteredGalleries = favoritesConstraint
+      ? galleries.filter((g) => {
+          if (favoritesConstraint.type === "min")
+            return g.num_favorites >= favoritesConstraint.value;
+          return g.num_favorites <= favoritesConstraint.value;
+        })
+      : galleries;
+
+    let items = filteredGalleries.map((gallery) => this.mapGalleryToSearchResult(gallery));
+    if (getHideReadSetting()) {
+      items = items.filter((item) => !isMangaRead(item.mangaId));
+    }
+    const hasNextPage = page < response.num_pages;
 
     return {
-      items: searchResults,
+      items,
       metadata: hasNextPage ? { page: page + 1 } : undefined,
     };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    const request = {
-      url: new URLBuilder(baseUrl).addPath("g").addPath(mangaId).build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-
-    const title = $(".title .pretty").first().text().trim();
-    const altTitles: string[] = [];
-    $(".title").each((_, el) => {
-      const alt = $(el).text().trim();
-      if (alt && alt !== title) altTitles.push(alt);
-    });
-
-    const image =
-      $("#cover img").attr("data-src") ||
-      $("#cover img").attr("src") ||
-      "";
-
-    const description = "";
-
-    const status: "ONGOING" | "COMPLETED" | "UNKNOWN" = "UNKNOWN";
-
-    const tags: TagSection[] = [];
-    $("#tags .tag-container").each((_, el) => {
-      const sectionTitle = $(el).contents().first().text().replace(":", "").trim();
-      const tagList: { id: string; title: string }[] = [];
-      $(el)
-      .find(".tags a.tag")
-      .each((_, tagEl) => {
-        const id =
-        $(tagEl).attr("href")?.split("/").filter(Boolean).pop() ||
-        $(tagEl).find(".name").text().trim().toLowerCase().replace(/\s+/g, "-");
-        const title = $(tagEl).find(".name").text().trim();
-        if (id && title) tagList.push({ id, title });
-      });
-      if (tagList.length > 0) {
-      tags.push({
-        id: sectionTitle.toLowerCase(),
-        title: sectionTitle,
-        tags: tagList,
-      });
-      }
-    });
-
-    const rating = 0;
-
-    const authors: string[] = [];
-    $("#tags .tag-container:contains('Artists') .tags a.tag").each((_, el) => {
-      const name = $(el).find(".name").text().trim();
-      if (name) authors.push(name);
-    });
+    const gallery = await this.fetchGallery(mangaId);
+    const tagSections = this.createTagSections(gallery);
+    const secondaryTitles = [
+      gallery.title.english,
+      gallery.title.japanese,
+      gallery.title.pretty,
+    ].filter((title): title is string => !!title);
 
     return {
-      mangaId: mangaId,
+      mangaId: gallery.id.toString(),
       mangaInfo: {
-        primaryTitle: title,
-        secondaryTitles: altTitles,
-        thumbnailUrl: image,
-        synopsis: description,
-        rating: rating,
+        primaryTitle: gallery.title.pretty,
+        secondaryTitles: Array.from(new Set(secondaryTitles)),
+        thumbnailUrl: this.buildCoverUrl(gallery),
+        synopsis: "",
+        rating: 0,
+        status: "COMPLETED",
         contentRating: ContentRating.ADULT,
-        status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
-        tagGroups: tags,
+        tagGroups: tagSections,
+        shareUrl: `${BASE_URL}/g/${gallery.id}`,
       },
     };
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const chapters: Chapter[] = [];
+    const gallery = await this.fetchGallery(sourceManga.mangaId);
+    const languageSlug = this.extractLanguageSlug(gallery.tags);
 
-    chapters.push({
-      chapterId: sourceManga.mangaId,
-      title: sourceManga.mangaInfo.primaryTitle,
+    const chapter: Chapter = {
+      chapterId: gallery.id.toString(),
       sourceManga,
+      title: gallery.title.pretty,
       chapNum: 1,
-      publishDate: undefined,
       volume: 1,
-      langCode: "N/A"
-    });
+      langCode: this.mapLanguageToChapterCode(languageSlug),
+      publishDate: new Date(gallery.upload_date * 1000),
+    };
 
-    return chapters;
+    return [chapter];
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const request = {
-      url: new URLBuilder(baseUrl).addPath("g").addPath(chapter.chapterId).build(),
-      method: "GET",
-    };
+    const gallery = await this.fetchGallery(chapter.chapterId);
+    const pages = gallery.images.pages.map((image, index) =>
+      this.buildPageUrl(gallery, index + 1, image),
+    );
 
-    const $ = await this.fetchCheerio(request);
+    // Persist read state for both resolved gallery and parent manga id
+    markMangaAsRead(gallery.id.toString());
+    markMangaAsRead(chapter.sourceManga.mangaId);
 
-    const thumbContainers = $(".thumbs .thumb-container");
-    const numberOfPages = thumbContainers.length;
-
-    const images: string[] = [];
-
-    const pageUrls = Array.from({ length: numberOfPages }, (_, i) => `${baseUrl}/g/${chapter.chapterId}/${i + 1}/`);
-    const pageRequests = pageUrls.map(url => this.fetchCheerio({ url, method: "GET" }));
-
-    const pageCheerios = await Promise.all(pageRequests);
-
-    for (const page$ of pageCheerios) {
-      let imgUrl =
-        page$("#image-container img").attr("data-src") ||
-        page$("#image-container img").attr("src") ||
-        "";
-      if (imgUrl.startsWith("//")) {
-        imgUrl = "https:" + imgUrl;
-      }
-      if (!/^https?:\/\//.test(imgUrl)) {
-        continue;
-      }
-      if (imgUrl) {
-        images.push(imgUrl);
-      }
-    }
-
-    return {
-      mangaId: chapter.sourceManga.mangaId,
+    const details: ChapterDetails = {
       id: chapter.chapterId,
-      pages: images,
+      mangaId: chapter.sourceManga.mangaId,
+      pages,
     };
+
+    return details;
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/manga/${mangaId}`;
-  }
-
-  async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: NHentaiMetadata | undefined,
-  ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
-
-    const request = {
-      url: baseUrl,
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const items: DiscoverSectionItem[] = [];
-
-    $(".container.index-popular .gallery").each((_, element) => {
-      const gallery = $(element);
-      const link = gallery.find("a.cover");
-      const href = link.attr("href") || "";
-
-      const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
-
-      const img = link.find("img");
-      let image =
-        img.attr("data-src") ||
-        img.attr("src") ||
-        "";
-      if (image && image.startsWith("//")) {
-        image = "https:" + image;
-      }
-      if (!image || !/^https?:\/\//.test(image)) {
-        return;
-      }
-      const title = link.find(".caption").text().trim();
-
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
-      collectedIds.push(mangaId);
-      items.push(
-        createDiscoverSectionItem({
-        id: mangaId,
-        image: image,
-        title: title,
-        contentRating: ContentRating.ADULT,
-        type: "simpleCarouselItem",
-        }),
-      );
-      }
-    });
-
-    const hasNextPage = false;
-
-    return {
-      items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
-    };
-  }
-
-  async getNewUploadsSectionItems(
-    section: DiscoverSection,
-    metadata: NHentaiMetadata | undefined,
-  ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
-
-    const request = {
-      url: `${baseUrl}/?page=${page}`,
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const items: DiscoverSectionItem[] = [];
-
-    $(".container.index-container .gallery").each((_, element) => {
-      if ($(element).closest(".index-popular").length > 0) return;
-
-      const gallery = $(element);
-      const link = gallery.find("a.cover");
-      const href = link.attr("href") || "";
-
-      const mangaId = href.replace(/\/g\/(\d+)\//, "$1");
-
-      const img = link.find("img");
-      let image =
-      img.attr("data-src") ||
-      img.attr("src") ||
-      "";
-      if (image && image.startsWith("//")) {
-        image = "https:" + image;
-      }
-      if (!image || !/^https?:\/\//.test(image)) {
-        return;
-      }
-      const title = link.find(".caption").text().trim();
-
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
-      collectedIds.push(mangaId);
-      items.push(
-        createDiscoverSectionItem({
-        id: mangaId,
-        image: image,
-        title: title,
-        contentRating: ContentRating.ADULT,
-        type: "simpleCarouselItem",
-        }),
-      );
-      }
-    });
-
-    const hasNextPage = !!$("section.pagination a.next").length;
-
-    return {
-      items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
-    };
+    return `${BASE_URL}/g/${mangaId}`;
   }
 
   checkCloudflareStatus(status: number): void {
-    if (status == 503 || status == 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
+    if (status === 503 || status === 403) {
+      throw new CloudflareError({ url: BASE_URL, method: "GET" });
     }
   }
 
-  async fetchCheerio(request: Request): Promise<CheerioAPI> {
+  private async fetchSearch(
+    query: string,
+    page: number,
+    sort: string,
+  ): Promise<QueryResponse> {
+    const request: Request = {
+      url: `${API_URL}/galleries/search?query=${encodeURIComponent(query)}&page=${page}&sort=${encodeURIComponent(sort)}`,
+      method: "GET",
+    };
+
+    return this.fetchJson<QueryResponse>(request);
+  }
+
+  private async fetchGallery(mangaId: string): Promise<Gallery> {
+    const request: Request = {
+      url: `${API_URL}/gallery/${mangaId}`,
+      method: "GET",
+    };
+
+    return this.fetchJson<Gallery>(request);
+  }
+
+  private async fetchJson<T>(request: Request): Promise<T> {
     const [response, data] = await Application.scheduleRequest(request);
     this.checkCloudflareStatus(response.status);
-    const htmlStr = Application.arrayBufferToUTF8String(data);
-    const dom = htmlparser2.parseDocument(htmlStr);
-    return cheerio.load(dom);
+    const text = Application.arrayBufferToUTF8String(data);
+    const parsed = JSON.parse(text) as T & { error?: string };
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "error" in parsed &&
+      parsed.error
+    ) {
+      throw new Error(parsed.error);
+    }
+
+    return parsed;
+  }
+
+  private buildQueryString(
+    title?: string,
+    filterTokens: string[] = [],
+    options?: { skipDefaultLanguage?: boolean },
+  ): string {
+    const tokens: string[] = [];
+
+    if (title && title.length > 0) {
+      tokens.push(title);
+    }
+
+    for (const token of filterTokens) {
+      if (token && token.length > 0) {
+        tokens.push(token);
+      }
+    }
+
+    const languageToken = getLanguageToken();
+    if (!options?.skipDefaultLanguage && languageToken) {
+      tokens.push(`language:${languageToken}`);
+    }
+
+    const baseSegment = tokens.join(" ").trim();
+    const extraArguments = getExtraArgumentsSetting().trim();
+    const combined = [baseSegment, extraArguments]
+      .filter((segment) => segment.length > 0)
+      .join(" ")
+      .trim();
+    
+    return combined.length > 0 ? combined : EMPTY_QUERY;
+  }
+
+  private buildFilterTokens(filters: SearchQuery["filters"] | undefined): {
+    tokens: string[];
+    favoritesConstraint?: { type: "min" | "max"; value: number };
+  } {
+    if (!filters || filters.length === 0) {
+      return {
+        tokens: [],
+        favoritesConstraint: undefined,
+      };
+    }
+
+    const tokens: string[] = [];
+    let favoritesConstraint: { type: "min" | "max"; value: number } | undefined;
+
+    const lengthToken = this.getDropdownValue(filters, "length");
+    const favoritesToken = this.getDropdownValue(filters, "favorites");
+
+    const lengthOptionToken = this.getOptionToken(
+      lengthToken,
+      LENGTH_FILTER_OPTIONS,
+    );
+    if (lengthOptionToken) {
+      tokens.push(`pages:${lengthOptionToken}`);
+    }
+
+    const favoritesOptionToken = this.getOptionToken(
+      favoritesToken,
+      FAVORITES_FILTER_OPTIONS,
+    );
+    if (favoritesOptionToken) {
+      tokens.push(`favorites:${favoritesOptionToken}`);
+      const favoritesMatch = favoritesOptionToken.match(/^(>=|<=|>|<)(\d+)$/);
+      if (favoritesMatch) {
+        const operator = favoritesMatch[1];
+        const value = Number(favoritesMatch[2]);
+        if (!Number.isNaN(value)) {
+          if (operator.startsWith(">")) {
+            favoritesConstraint = { type: "min", value };
+          } else if (operator.startsWith("<")) {
+            favoritesConstraint = { type: "max", value };
+          }
+        }
+      }
+    }
+
+    return { tokens, favoritesConstraint };
+  }
+
+  private getDropdownValue(filters: SearchQuery["filters"] | undefined, id: string): string | undefined {
+    if (!filters) return undefined;
+    const filter = filters.find((entry) => entry.id === id);
+    return typeof filter?.value === "string" ? filter.value : undefined;
+  }
+
+  private mapGalleryToDiscoverItem(gallery: Gallery): DiscoverSectionItem {
+    return {
+      type: "simpleCarouselItem",
+      mangaId: gallery.id.toString(),
+      imageUrl: this.buildCoverUrl(gallery),
+      title: gallery.title.pretty,
+      subtitle: this.createSubtitle(gallery),
+      contentRating: ContentRating.ADULT,
+      metadata: undefined,
+    };
+  }
+
+  private mapGalleryToSearchResult(gallery: Gallery): SearchResultItem {
+    return {
+      mangaId: gallery.id.toString(),
+      imageUrl: this.buildCoverUrl(gallery),
+      title: gallery.title.pretty,
+      subtitle: this.createSubtitle(gallery),
+      contentRating: ContentRating.ADULT,
+      metadata: undefined,
+    };
+  }
+
+  private buildCoverUrl(gallery: Gallery): string {
+    const extension = this.getImageExtension(gallery.images.pages[0]);
+    return `${THUMB_HOST}/galleries/${gallery.media_id}/1.${extension}`;
+  }
+
+  private buildPageUrl(
+    gallery: Gallery,
+    index: number,
+    image: GalleryImage,
+  ): string {
+    const extension = this.getImageExtension(image);
+    return `${IMAGE_HOST}/galleries/${gallery.media_id}/${index}.${extension}`;
+  }
+
+  private getImageExtension(image: GalleryImage): string {
+    return IMAGE_TYPE_MAP[image.t] ?? "jpg";
+  }
+
+  private createSubtitle(gallery: Gallery): string {
+    const languageSlug = this.extractLanguageSlug(gallery.tags);
+    const languageAbbrev = getLanguageAbbreviationFromSlug(languageSlug);
+    const subtitleParts: string[] = [];
+    if (isMangaRead(gallery.id.toString())) {
+      subtitleParts.push("rd");
+    }
+    if (languageAbbrev && languageAbbrev !== "UNK") {
+      subtitleParts.push(languageAbbrev.toUpperCase());
+    }
+    subtitleParts.push(gallery.num_pages.toString());
+    subtitleParts.push(gallery.num_favorites.toString());
+    return subtitleParts.join(" | ");
+  }
+
+  private extractLanguageSlug(tags: GalleryTag[]): string | undefined {
+    return tags.find(
+      (tag) => tag.type === "language",
+    )?.name;
+  }
+
+  private mapLanguageToChapterCode(slug: string | undefined): string {
+    switch (slug) {
+      case "english":
+        return "EN";
+      case "japanese":
+        return "JP";
+      case "chinese":
+        return "ZH";
+      case "korean":
+        return "KO";
+      default:
+        return "EN";
+    }
+  }
+
+  private buildTagTokens(tags: Tag[] | undefined, excluded: boolean): string[] {
+    if (!tags || tags.length === 0) {
+      return [];
+    }
+    const prefix = excluded ? "-" : "";
+    const escapeTagValue = (value: string): string =>
+      value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return tags
+      .map((tag) => {
+        const tagId = tag.id?.trim();
+        if (!tagId) {
+          return undefined;
+        }
+        if (tagId.includes(":")) {
+          const [type, ...rest] = tagId.split(":");
+          const value = rest.join(":");
+          if (!type || value.length === 0) {
+            return undefined;
+          }
+          const safeValue = escapeTagValue(value);
+          return `${prefix}${type}:"${safeValue}"`;
+        }
+        const safeValue = escapeTagValue(tagId);
+        return `${prefix}tag:"${safeValue}"`;
+      })
+      .filter((token): token is string => !!token && token.length > 0);
+  }
+
+  private extractTagSlug(tag: GalleryTag): string | undefined {
+    if (tag.url) {
+      const segments = tag.url
+        .split("/")
+        .filter((segment) => segment.length > 0);
+      if (segments.length > 0) {
+        const lastSegment = segments[segments.length - 1];
+        return lastSegment.split("?")[0];
+      }
+    }
+    if (tag.name) {
+      return tag.name.toLowerCase().replace(/\s+/g, "_");
+    }
+    return undefined;
+  }
+
+  private buildTagIdentifier(tag: GalleryTag): string {
+    const slug = this.extractTagSlug(tag) ?? tag.id.toString();
+    const type = tag.type || "tag";
+    return `${type}:${slug}`;
+  }
+
+  private createTagSections(gallery: Gallery): TagSection[] {
+    const sections: TagSection[] = [];
+    const grouped = new Map<string, TagSection>();
+
+    for (const tag of gallery.tags) {
+      if (tag.type === "language") {
+        continue;
+      }
+
+      const sectionId = this.resolveSectionId(tag.type);
+      const sectionTitle = this.resolveSectionTitle(tag.type);
+      const existing = grouped.get(sectionId);
+      const tagEntry: Tag = {
+        id: this.buildTagIdentifier(tag),
+        title: this.formatTagTitle(tag.name),
+      };
+
+      if (existing) {
+        existing.tags.push(tagEntry);
+      } else {
+        grouped.set(sectionId, {
+          id: sectionId,
+          title: sectionTitle,
+          tags: [tagEntry],
+        });
+      }
+    }
+
+    sections.push(
+      ...Array.from(grouped.values()).filter(
+        (section) => section.tags.length > 0,
+      ),
+    );
+
+    return sections;
+  }
+
+  private resolveSectionId(tagType: string): string {
+    switch (tagType) {
+      case "tag":
+        return "tags";
+      case "artist":
+        return "artists";
+      case "parody":
+        return "parodies";
+      case "character":
+        return "characters";
+      case "group":
+        return "groups";
+      case "category":
+        return "categories";
+      case "series":
+        return "series";
+      case "magazine":
+        return "magazines";
+      default:
+        return tagType;
+    }
+  }
+
+  private resolveSectionTitle(tagType: string): string {
+    switch (tagType) {
+      case "tag":
+        return "Tags";
+      case "artist":
+        return "Artists";
+      case "parody":
+        return "Parodies";
+      case "character":
+        return "Characters";
+      case "group":
+        return "Groups";
+      case "category":
+        return "Categories";
+      case "series":
+        return "Series";
+      case "magazine":
+        return "Magazines";
+      default:
+        return tagType.charAt(0).toUpperCase() + tagType.slice(1);
+    }
+  }
+
+  private formatTagTitle(name: string): string {
+    return name
+      .replace(/_/g, " ")
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  private resolveSortOrder(
+    query: SearchQuery,
+    sortingOption?: SortingOption,
+  ): string {
+    if (sortingOption?.id) {
+      return sortingOption.id;
+    }
+
+    const sortFilter = query.filters?.find((filter) => filter.id === "sort");
+    if (sortFilter && typeof sortFilter.value === "string") {
+      const match = SORT_OPTIONS.find(
+        (option) => option.id === sortFilter.value,
+      );
+      if (match) {
+        return match.id;
+      }
+    }
+
+    return SORT_OPTIONS[0].id;
+  }
+
+  private getOptionToken(
+    value: string | undefined,
+    options: FilterOption[],
+  ): string | undefined {
+    if (!value || value === "all") {
+      return undefined;
+    }
+    const match = options.find((option) => option.id === value);
+    if (!match) {
+      return undefined;
+    }
+    return match.token ?? match.id;
   }
 }
 
-function createDiscoverSectionItem(options: {
-  id: string;
-  image: string;
-  title: string;
-  subtitle?: string;
-  contentRating?: ContentRating;
-  type: "simpleCarouselItem";
-}): DiscoverSectionItem {
-  return {
-    type: options.type,
-    mangaId: options.id,
-    imageUrl: options.image,
-    title: options.title,
-    contentRating: options.contentRating ?? ContentRating.EVERYONE,
-    subtitle: options.subtitle,
-    metadata: undefined,
-  };
+function getReadCache(): Set<string> {
+  if (!readCache) {
+    const stored = Application.getState(READ_STATE_KEY) as string[] | undefined;
+    readCache = new Set(stored ?? []);
+  }
+  return readCache;
+}
+
+function persistReadCache(): void {
+  const cache = getReadCache();
+  Application.setState(Array.from(cache), READ_STATE_KEY);
+}
+
+function isMangaRead(mangaId: string): boolean {
+  return getReadCache().has(mangaId);
+}
+
+function markMangaAsRead(mangaId: string): void {
+  const cache = getReadCache();
+  if (!cache.has(mangaId)) {
+    cache.add(mangaId);
+    persistReadCache();
+  }
 }
 
 export const NHentai = new NHentaiExtension();
