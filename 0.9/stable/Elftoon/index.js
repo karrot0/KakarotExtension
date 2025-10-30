@@ -16992,12 +16992,17 @@ var source = (() => {
   var baseUrl = "https://elftoon.com/";
   var ElftoonExtension = class {
     requestManager = new ElftoonInterceptor("main");
-    cookieStorageInterceptor = new import_types3.CookieStorageInterceptor({ storage: "stateManager" });
+    cookieStorageInterceptor = new import_types3.CookieStorageInterceptor({
+      storage: "stateManager"
+    });
     globalRateLimiter = new import_types3.BasicRateLimiter("rateLimiter", {
       numberOfRequests: 4,
       bufferInterval: 1,
       ignoreImages: true
     });
+    // Add a small delay between paginated search requests to avoid CF/rate limits
+    searchPageDelayMs = 700;
+    // base delay in ms (converted to seconds for Application.sleep)
     async initialise() {
       this.requestManager.registerInterceptor();
       this.cookieStorageInterceptor.registerInterceptor();
@@ -17040,11 +17045,52 @@ var source = (() => {
     async getSearchResults(query, metadata) {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.searchCollectedIds ?? [];
-      const searchUrl = new URLBuilder(baseUrl).addQuery("s", query.title || "").addQuery("post_type", "wp-manga").addQuery("page", page.toString()).build();
+      const titleQuery = (query.title || "").trim();
+      if (!titleQuery) {
+        const listUrl = new URLBuilder(baseUrl).addPath("manga").addQuery("page", page.toString()).addQuery("order", "update").build();
+        const request2 = { url: listUrl, method: "GET" };
+        const $3 = await this.fetchCheerio(request2);
+        const items = [];
+        const bsElems2 = $3(".bs");
+        bsElems2.each((_, element) => {
+          const unit = $3(element);
+          const titleLink = unit.find(".bsx a").first();
+          const title = unit.find(".tt").text().trim();
+          const href = titleLink.attr("href") || "";
+          const mangaId = href.replace(baseUrl, "").replace("manga/", "").replace(/\/$/, "");
+          const imgElem = unit.find(".limit img").first();
+          let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
+          if (image && !image.startsWith("http")) {
+            image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+          }
+          const latestChapter = unit.find(".epxs").first().text().trim();
+          if (title && mangaId && !collectedIds.includes(mangaId)) {
+            collectedIds.push(mangaId);
+            items.push({
+              mangaId,
+              imageUrl: image,
+              title,
+              subtitle: latestChapter || void 0,
+              metadata: void 0
+            });
+          }
+        });
+        const hasNextPage2 = $3(".pagination a.next, .hpage .r").length > 0;
+        return {
+          items,
+          metadata: hasNextPage2 ? { page: page + 1, searchCollectedIds: collectedIds } : void 0
+        };
+      }
+      const searchBuilder = new URLBuilder(baseUrl);
+      if (page > 1) {
+        searchBuilder.addPath("page").addPath(page.toString());
+      }
+      const searchUrl = searchBuilder.addQuery("s", titleQuery).addQuery("post_type", "wp-manga").build();
       const request = { url: searchUrl, method: "GET" };
       const $2 = await this.fetchCheerio(request);
       const searchResults = [];
-      $2(".bs").each((_, element) => {
+      const bsElems = $2(".bs");
+      bsElems.each((_, element) => {
         const unit = $2(element);
         const titleLink = unit.find(".bsx a").first();
         const title = unit.find(".tt").text().trim();
@@ -17068,35 +17114,37 @@ var source = (() => {
         }
       });
       if (searchResults.length === 0) {
-        $2(".c-tabs-item__content, .row.c-tabs-item, .utao.styletwo").each((_, element) => {
-          const unit = $2(element);
-          let titleLink = unit.find(".post-title a").first();
-          if (!titleLink.length) {
-            titleLink = unit.find("h3 a, h4 a, .luf h4, .tt a").first();
-          }
-          const title = titleLink.text().trim();
-          const href = titleLink.attr("href") || "";
-          if (href.includes("/manga/")) {
-            const mangaId = href.replace(baseUrl, "").replace("manga/", "").replace(/\/$/, "");
-            const imgElem = unit.find(".tab-thumb img, .c-image-content img, .imgu img, img").first();
-            let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
-            if (image && !image.startsWith("http")) {
-              image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+        $2(".c-tabs-item__content, .row.c-tabs-item, .utao.styletwo").each(
+          (_, element) => {
+            const unit = $2(element);
+            let titleLink = unit.find(".post-title a").first();
+            if (!titleLink.length) {
+              titleLink = unit.find("h3 a, h4 a, .luf h4, .tt a").first();
             }
-            if (title && mangaId && !collectedIds.includes(mangaId)) {
-              collectedIds.push(mangaId);
-              searchResults.push({
-                mangaId,
-                imageUrl: image,
-                title,
-                subtitle: void 0,
-                metadata: void 0
-              });
+            const title = titleLink.text().trim();
+            const href = titleLink.attr("href") || "";
+            if (href.includes("/manga/")) {
+              const mangaId = href.replace(baseUrl, "").replace("manga/", "").replace(/\/$/, "");
+              const imgElem = unit.find(".tab-thumb img, .c-image-content img, .imgu img, img").first();
+              let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
+              if (image && !image.startsWith("http")) {
+                image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+              }
+              if (title && mangaId && !collectedIds.includes(mangaId)) {
+                collectedIds.push(mangaId);
+                searchResults.push({
+                  mangaId,
+                  imageUrl: image,
+                  title,
+                  subtitle: void 0,
+                  metadata: void 0
+                });
+              }
             }
           }
-        });
+        );
       }
-      const hasNextPage = $2(".hpage .r").length > 0;
+      const hasNextPage = $2(".pagination a.next, .hpage .r").length > 0;
       return {
         items: searchResults,
         metadata: hasNextPage ? { page: page + 1, searchCollectedIds: collectedIds } : void 0
@@ -17194,7 +17242,9 @@ var source = (() => {
         const href = chapterLink.attr("href") || "";
         const chapterNumText = chapterElement.find(".chapternum").text().trim();
         const chapterTitle = chapterNumText || chapterLink.text().trim();
-        const chapterId = href.replace(baseUrl, "").replace("manga/", "").replace(`${mangaId}/`, "").replace(/\/$/, "") || "";
+        const chapterId = href.replace(baseUrl, "").replace(/\/$/, "") || "";
+        const chapterMatch = chapterId.match(/-chapter-(\d+)$/);
+        const finalChapterId = chapterMatch ? `chapter-${chapterMatch[1]}` : chapterId;
         let chapNum = 0;
         const dataNum = chapterElement.attr("data-num");
         if (dataNum) {
@@ -17230,7 +17280,7 @@ var source = (() => {
         }
         if (chapterId && href) {
           chapters.push({
-            chapterId,
+            chapterId: finalChapterId,
             sourceManga,
             title: chapterTitle,
             volume: 0,
@@ -17243,46 +17293,46 @@ var source = (() => {
       return chapters.reverse();
     }
     async getChapterDetails(chapter) {
-      const chapterUrl = new URLBuilder(baseUrl).addPath("manga").addPath(chapter.sourceManga.mangaId).addPath(chapter.chapterId).build();
+      const chapterUrl = new URLBuilder(baseUrl).addPath(`${chapter.sourceManga.mangaId}-${chapter.chapterId}`).build();
       const request = {
         url: chapterUrl,
         method: "GET"
       };
-      const $2 = await this.fetchCheerio(request);
+      const [, htmlData] = await Application.scheduleRequest(request);
+      const htmlStr = Application.arrayBufferToUTF8String(htmlData);
       const pages = [];
-      $2("script").each((_, scriptElement) => {
-        const scriptContent = $2(scriptElement).html() || "";
-        const readerMatch = scriptContent.match(/ts_reader\.run\((\{.*?\})\);/s);
-        if (readerMatch) {
-          try {
-            const readerData = JSON.parse(readerMatch[1]);
-            if (typeof readerData === "object" && readerData !== null && "sources" in readerData && Array.isArray(readerData.sources)) {
-              for (const source of readerData.sources) {
-                if (typeof source === "object" && source !== null && "images" in source) {
-                  const sourceObj = source;
-                  if (Array.isArray(sourceObj.images)) {
-                    for (const imageUrl of sourceObj.images) {
-                      if (typeof imageUrl === "string" && imageUrl.startsWith("http") && !imageUrl.includes("readerarea.svg")) {
-                        pages.push(imageUrl);
-                      }
+      const readerMatch = htmlStr.match(/ts_reader\.run\((\{.*?\})\);/s);
+      if (readerMatch) {
+        try {
+          const readerData = JSON.parse(readerMatch[1]);
+          if (typeof readerData === "object" && readerData !== null && "sources" in readerData && Array.isArray(readerData.sources)) {
+            for (const source of readerData.sources) {
+              if (typeof source === "object" && source !== null && "images" in source) {
+                const sourceObj = source;
+                if (Array.isArray(sourceObj.images)) {
+                  for (const imageUrl of sourceObj.images) {
+                    if (typeof imageUrl === "string" && imageUrl.startsWith("http") && !imageUrl.includes("readerarea.svg")) {
+                      pages.push(imageUrl);
                     }
                   }
                 }
               }
             }
-          } catch {
-            const imageMatches = scriptContent.match(/"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi);
-            if (imageMatches) {
-              for (const match of imageMatches) {
-                const imageUrl = match.replace(/"/g, "");
-                if (!imageUrl.includes("readerarea.svg") && !pages.includes(imageUrl)) {
-                  pages.push(imageUrl);
-                }
+          }
+        } catch {
+          const imageMatches = htmlStr.match(
+            /"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi
+          );
+          if (imageMatches) {
+            for (const match of imageMatches) {
+              const imageUrl = match.replace(/"/g, "");
+              if (!imageUrl.includes("readerarea.svg") && !pages.includes(imageUrl)) {
+                pages.push(imageUrl);
               }
             }
           }
         }
-      });
+      }
       const uniquePages = [...new Set(pages)];
       return {
         id: chapter.chapterId,
@@ -17335,7 +17385,11 @@ var source = (() => {
       };
     }
     async getLatestUpdatesSectionItems(metadata) {
-      return this.getMangaListItems(metadata, "update", "chapterUpdatesCarouselItem");
+      return this.getMangaListItems(
+        metadata,
+        "update",
+        "chapterUpdatesCarouselItem"
+      );
     }
     async getPopularSectionItems(metadata) {
       return this.getMangaListItems(metadata, "popular", "simpleCarouselItem");
