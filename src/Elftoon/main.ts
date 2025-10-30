@@ -3,10 +3,10 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
-  Cookie,
   CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
+  Cookie,
   CookieStorageInterceptor,
   DiscoverSection,
   DiscoverSectionItem,
@@ -40,12 +40,16 @@ type ElftoonImplementation = Extension &
 
 export class ElftoonExtension implements ElftoonImplementation {
   requestManager = new ElftoonInterceptor("main");
-  cookieStorageInterceptor = new CookieStorageInterceptor({storage: "stateManager"})
+  cookieStorageInterceptor = new CookieStorageInterceptor({
+    storage: "stateManager",
+  });
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
     numberOfRequests: 4,
     bufferInterval: 1,
     ignoreImages: true,
   });
+  // Add a small delay between paginated search requests to avoid CF/rate limits
+  private readonly searchPageDelayMs = 700; // base delay in ms (converted to seconds for Application.sleep)
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
@@ -99,18 +103,77 @@ export class ElftoonExtension implements ElftoonImplementation {
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.searchCollectedIds ?? [];
+    const titleQuery = (query.title || "").trim();
 
-    const searchUrl = new URLBuilder(baseUrl)
-      .addQuery("s", query.title || "")
+    if (!titleQuery) {
+      const listUrl = new URLBuilder(baseUrl)
+        .addPath("manga")
+        .addQuery("page", page.toString())
+        .addQuery("order", "update")
+        .build();
+      const request = { url: listUrl, method: "GET" };
+      const $ = await this.fetchCheerio(request);
+
+      const items: SearchResultItem[] = [];
+      const bsElems = $(".bs");
+      bsElems.each((_, element) => {
+        const unit = $(element);
+        const titleLink = unit.find(".bsx a").first();
+        const title = unit.find(".tt").text().trim();
+        const href = titleLink.attr("href") || "";
+        const mangaId = href
+          .replace(baseUrl, "")
+          .replace("manga/", "")
+          .replace(/\/$/, "");
+
+        const imgElem = unit.find(".limit img").first();
+        let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
+        if (image && !image.startsWith("http")) {
+          image = image.startsWith("/")
+            ? `${baseUrl}${image.slice(1)}`
+            : `${baseUrl}${image}`;
+        }
+
+        const latestChapter = unit.find(".epxs").first().text().trim();
+
+        if (title && mangaId && !collectedIds.includes(mangaId)) {
+          collectedIds.push(mangaId);
+          items.push({
+            mangaId,
+            imageUrl: image,
+            title,
+            subtitle: latestChapter || undefined,
+            metadata: undefined,
+          });
+        }
+      });
+
+      const hasNextPage = $(".pagination a.next, .hpage .r").length > 0;
+
+      return {
+        items,
+        metadata: hasNextPage
+          ? { page: page + 1, searchCollectedIds: collectedIds }
+          : undefined,
+      };
+    }
+
+    // Elftoon (Madara) uses path-style pagination: /page/{n}/?s=...&post_type=wp-manga
+    const searchBuilder = new URLBuilder(baseUrl);
+    if (page > 1) {
+      searchBuilder.addPath("page").addPath(page.toString());
+    }
+    const searchUrl = searchBuilder
+      .addQuery("s", titleQuery)
       .addQuery("post_type", "wp-manga")
-      .addQuery("page", page.toString())
       .build();
 
     const request = { url: searchUrl, method: "GET" };
 
     const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
-    $(".bs").each((_, element) => {
+    const bsElems = $(".bs");
+    bsElems.each((_, element) => {
       const unit = $(element);
       const titleLink = unit.find(".bsx a").first();
       const title = unit.find(".tt").text().trim();
@@ -123,7 +186,9 @@ export class ElftoonExtension implements ElftoonImplementation {
       const imgElem = unit.find(".limit img").first();
       let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
       if (image && !image.startsWith("http")) {
-        image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+        image = image.startsWith("/")
+          ? `${baseUrl}${image.slice(1)}`
+          : `${baseUrl}${image}`;
       }
 
       const latestChapter = unit.find(".epxs").first().text().trim();
@@ -141,44 +206,51 @@ export class ElftoonExtension implements ElftoonImplementation {
     });
 
     if (searchResults.length === 0) {
-      $(".c-tabs-item__content, .row.c-tabs-item, .utao.styletwo").each((_, element) => {
-        const unit = $(element);
-        
-        let titleLink = unit.find(".post-title a").first();
-        if (!titleLink.length) {
-          titleLink = unit.find("h3 a, h4 a, .luf h4, .tt a").first();
-        }
-        
-        const title = titleLink.text().trim();
-        const href = titleLink.attr("href") || "";
-        
-        if (href.includes("/manga/")) {
-          const mangaId = href
-            .replace(baseUrl, "")
-            .replace("manga/", "")
-            .replace(/\/$/, "");
+      $(".c-tabs-item__content, .row.c-tabs-item, .utao.styletwo").each(
+        (_, element) => {
+          const unit = $(element);
 
-          const imgElem = unit.find(".tab-thumb img, .c-image-content img, .imgu img, img").first();
-          let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
-          if (image && !image.startsWith("http")) {
-            image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+          let titleLink = unit.find(".post-title a").first();
+          if (!titleLink.length) {
+            titleLink = unit.find("h3 a, h4 a, .luf h4, .tt a").first();
           }
 
-          if (title && mangaId && !collectedIds.includes(mangaId)) {
-            collectedIds.push(mangaId);
-            searchResults.push({
-              mangaId: mangaId,
-              imageUrl: image,
-              title: title,
-              subtitle: undefined,
-              metadata: undefined,
-            });
+          const title = titleLink.text().trim();
+          const href = titleLink.attr("href") || "";
+
+          if (href.includes("/manga/")) {
+            const mangaId = href
+              .replace(baseUrl, "")
+              .replace("manga/", "")
+              .replace(/\/$/, "");
+
+            const imgElem = unit
+              .find(".tab-thumb img, .c-image-content img, .imgu img, img")
+              .first();
+            let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
+            if (image && !image.startsWith("http")) {
+              image = image.startsWith("/")
+                ? `${baseUrl}${image.slice(1)}`
+                : `${baseUrl}${image}`;
+            }
+
+            if (title && mangaId && !collectedIds.includes(mangaId)) {
+              collectedIds.push(mangaId);
+              searchResults.push({
+                mangaId: mangaId,
+                imageUrl: image,
+                title: title,
+                subtitle: undefined,
+                metadata: undefined,
+              });
+            }
           }
-        }
-      });
+        },
+      );
     }
 
-    const hasNextPage = $(".hpage .r").length > 0;
+    // Detect next page via pagination markup
+    const hasNextPage = $(".pagination a.next, .hpage .r").length > 0;
 
     return {
       items: searchResults,
@@ -278,7 +350,10 @@ export class ElftoonExtension implements ElftoonImplementation {
         contentRating: ContentRating.MATURE,
         status: status,
         tagGroups: tags,
-        shareUrl: new URLBuilder(baseUrl).addPath("manga").addPath(mangaId).build(),
+        shareUrl: new URLBuilder(baseUrl)
+          .addPath("manga")
+          .addPath(mangaId)
+          .build(),
       },
     };
   }
@@ -297,15 +372,18 @@ export class ElftoonExtension implements ElftoonImplementation {
       const chapterElement = $(element);
       const chapterLink = chapterElement.find(".eph-num a").first();
       const href = chapterLink.attr("href") || "";
-      
+
       const chapterNumText = chapterElement.find(".chapternum").text().trim();
       const chapterTitle = chapterNumText || chapterLink.text().trim();
-      
-      const chapterId = href
-        .replace(baseUrl, "")
-        .replace("manga/", "")
-        .replace(`${mangaId}/`, "")
-        .replace(/\/$/, "") || "";
+
+      const chapterId =
+        href
+          .replace(baseUrl, "")
+          .replace(/\/$/, "") || "";
+
+      // Extract chapter number from the URL slug
+      const chapterMatch = chapterId.match(/-chapter-(\d+)$/);
+      const finalChapterId = chapterMatch ? `chapter-${chapterMatch[1]}` : chapterId;
 
       let chapNum = 0;
       const dataNum = chapterElement.attr("data-num");
@@ -344,7 +422,7 @@ export class ElftoonExtension implements ElftoonImplementation {
 
       if (chapterId && href) {
         chapters.push({
-          chapterId: chapterId,
+          chapterId: finalChapterId,
           sourceManga: sourceManga,
           title: chapterTitle,
           volume: 0,
@@ -360,9 +438,7 @@ export class ElftoonExtension implements ElftoonImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const chapterUrl = new URLBuilder(baseUrl)
-      .addPath("manga")
-      .addPath(chapter.sourceManga.mangaId)
-      .addPath(chapter.chapterId)
+      .addPath(`${chapter.sourceManga.mangaId}-${chapter.chapterId}`)
       .build();
 
     const request = {
@@ -370,62 +446,66 @@ export class ElftoonExtension implements ElftoonImplementation {
       method: "GET",
     };
 
-    const $ = await this.fetchCheerio(request);
+    // console.log(`[Elftoon][chapter] url=${chapterUrl} mangaId=${chapter.sourceManga.mangaId} chapterId=${chapter.chapterId}`);
+    const [, htmlData] = await Application.scheduleRequest(request);
+    const htmlStr = Application.arrayBufferToUTF8String(htmlData);
     const pages: string[] = [];
 
-    $("script").each((_, scriptElement) => {
-      const scriptContent = $(scriptElement).html() || "";
-      
-      const readerMatch = scriptContent.match(/ts_reader\.run\((\{.*?\})\);/s);
-      if (readerMatch) {
-        try {
-          const readerData: unknown = JSON.parse(readerMatch[1]);
-          
-          if (
-            typeof readerData === "object" &&
-            readerData !== null &&
-            "sources" in readerData &&
-            Array.isArray(readerData.sources)
-          ) {
-            for (const source of readerData.sources) {
-              if (
-                typeof source === "object" &&
-                source !== null &&
-                "images" in source
-              ) {
-                const sourceObj = source as Record<string, unknown>;
-                if (Array.isArray(sourceObj.images)) {
-                  for (const imageUrl of sourceObj.images) {
-                    if (
-                      typeof imageUrl === "string" &&
-                      imageUrl.startsWith("http") &&
-                      !imageUrl.includes("readerarea.svg")
-                    ) {
-                      pages.push(imageUrl);
-                    }
+    // Search for ts_reader.run in the entire HTML content
+    const readerMatch = htmlStr.match(/ts_reader\.run\((\{.*?\})\);/s);
+    if (readerMatch) {
+      // console.log(`[Elftoon][chapter] found ts_reader.run, parsing JSON`);
+      try {
+        const readerData: unknown = JSON.parse(readerMatch[1]);
+
+        if (
+          typeof readerData === "object" &&
+          readerData !== null &&
+          "sources" in readerData &&
+          Array.isArray(readerData.sources)
+        ) {
+          for (const source of readerData.sources) {
+            if (
+              typeof source === "object" &&
+              source !== null &&
+              "images" in source
+            ) {
+              const sourceObj = source as Record<string, unknown>;
+              if (Array.isArray(sourceObj.images)) {
+                for (const imageUrl of sourceObj.images) {
+                  if (
+                    typeof imageUrl === "string" &&
+                    imageUrl.startsWith("http") &&
+                    !imageUrl.includes("readerarea.svg")
+                  ) {
+                    pages.push(imageUrl);
                   }
                 }
               }
             }
           }
-        } catch {
-          const imageMatches = scriptContent.match(/"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi);
-          if (imageMatches) {
-            for (const match of imageMatches) {
-              const imageUrl = match.replace(/"/g, "");
-              if (
-                !imageUrl.includes("readerarea.svg") &&
-                !pages.includes(imageUrl)
-              ) {
-                pages.push(imageUrl);
-              }
+        }
+      } catch {
+        // console.log(`[Elftoon][chapter] JSON parse failed, trying regex fallback`);
+        const imageMatches = htmlStr.match(
+          /"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi,
+        );
+        if (imageMatches) {
+          for (const match of imageMatches) {
+            const imageUrl = match.replace(/"/g, "");
+            if (
+              !imageUrl.includes("readerarea.svg") &&
+              !pages.includes(imageUrl)
+            ) {
+              pages.push(imageUrl);
             }
           }
         }
       }
-    });
+    }
 
     const uniquePages = [...new Set(pages)];
+    // console.log(`[Elftoon][chapter] extracted ${uniquePages.length} unique pages`);
 
     return {
       id: chapter.chapterId,
@@ -444,7 +524,7 @@ export class ElftoonExtension implements ElftoonImplementation {
       .replace(/[^a-z0-9\s.-]/g, "")
       .replace(/\s+/g, "-")
       .replace(/^-+|-+$/g, "");
-    
+
     return cleanedChapterText;
   }
 
@@ -475,14 +555,12 @@ export class ElftoonExtension implements ElftoonImplementation {
       const imgElem = unit.find(".slidtrithumb img").first();
       let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
       if (image && !image.startsWith("http")) {
-        image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+        image = image.startsWith("/")
+          ? `${baseUrl}${image.slice(1)}`
+          : `${baseUrl}${image}`;
       }
 
-      const latestChapter = unit
-        .find(".slidlc")
-        .first()
-        .text()
-        .trim();
+      const latestChapter = unit.find(".slidlc").first().text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -506,7 +584,11 @@ export class ElftoonExtension implements ElftoonImplementation {
   private async getLatestUpdatesSectionItems(
     metadata: ElftoonMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    return this.getMangaListItems(metadata, "update", "chapterUpdatesCarouselItem");
+    return this.getMangaListItems(
+      metadata,
+      "update",
+      "chapterUpdatesCarouselItem",
+    );
   }
 
   private async getPopularSectionItems(
@@ -548,11 +630,13 @@ export class ElftoonExtension implements ElftoonImplementation {
       const imgElem = unit.find(".limit img").first();
       let image = imgElem.attr("src") || imgElem.attr("data-src") || "";
       if (image && !image.startsWith("http")) {
-        image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
+        image = image.startsWith("/")
+          ? `${baseUrl}${image.slice(1)}`
+          : `${baseUrl}${image}`;
       }
 
       const latestChapter = unit.find(".epxs").first().text().trim();
-      
+
       let chapterId = "";
       if (itemType === "chapterUpdatesCarouselItem" && latestChapter) {
         chapterId = this.generateChapterId(mangaId, latestChapter);
@@ -560,7 +644,7 @@ export class ElftoonExtension implements ElftoonImplementation {
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
-        
+
         if (itemType === "chapterUpdatesCarouselItem" && chapterId) {
           items.push({
             type: "chapterUpdatesCarouselItem",
@@ -581,7 +665,7 @@ export class ElftoonExtension implements ElftoonImplementation {
             metadata: undefined,
           });
         }
-        
+
         collectedIds.push(mangaId);
       }
     });
@@ -619,7 +703,7 @@ export class ElftoonExtension implements ElftoonImplementation {
               origin: baseUrl,
             },
           },
-          "Cloudflare bypass required, please complete the challenge."
+          "Cloudflare bypass required, please complete the challenge.",
         );
       case 404:
         throw new Error("Content not found");
