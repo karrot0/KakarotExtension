@@ -3166,8 +3166,8 @@ var source = (() => {
       this.reloadForm();
     }
     async updateExtraArguments(value) {
-      this.extraArguments = value;
-      setExtraArgumentsSetting(value);
+      this.extraArguments = value ?? "";
+      setExtraArgumentsSetting(this.extraArguments);
     }
     async updateHideRead(value) {
       const selected = value?.[0] ?? (this.hideRead ? "on" : "off");
@@ -3216,7 +3216,7 @@ var source = (() => {
             )
           }),
           (0, import_types.InputRow)("extraArguments", {
-            title: "Arguments",
+            title: "Additional Arguments (-tag excludes)",
             value: this.extraArguments,
             onValueChange: Application.Selector(
               this,
@@ -3247,1868 +3247,6 @@ var source = (() => {
     async interceptResponse(request, response, data) {
       return data;
     }
-  };
-
-  // src/NHentai/tags.json
-  var tags_default = {
-    popularTags: [
-      {
-        id: "big-breasts",
-        label: "Big Breasts"
-      },
-      {
-        id: "solo-female",
-        label: "Solo Female"
-      },
-      {
-        id: "solo-male",
-        label: "Solo Male"
-      },
-      {
-        id: "group",
-        label: "Group"
-      },
-      {
-        id: "anal",
-        label: "Anal"
-      },
-      {
-        id: "stockings",
-        label: "Stockings"
-      },
-      {
-        id: "nakadashi",
-        label: "Nakadashi"
-      },
-      {
-        id: "blowjob",
-        label: "Blowjob"
-      },
-      {
-        id: "schoolgirl-uniform",
-        label: "Schoolgirl Uniform"
-      },
-      {
-        id: "full-color",
-        label: "Full Color"
-      },
-      {
-        id: "glasses",
-        label: "Glasses"
-      },
-      {
-        id: "rape",
-        label: "Rape"
-      },
-      {
-        id: "yaoi",
-        label: "Yaoi"
-      },
-      {
-        id: "bondage",
-        label: "Bondage"
-      },
-      {
-        id: "ahegao",
-        label: "Ahegao"
-      },
-      {
-        id: "males-only",
-        label: "Males Only"
-      },
-      {
-        id: "incest",
-        label: "Incest"
-      },
-      {
-        id: "multi-work-series",
-        label: "Multi-Work Series"
-      },
-      {
-        id: "milf",
-        label: "MILF"
-      },
-      {
-        id: "x-ray",
-        label: "X-Ray"
-      },
-      {
-        id: "dark-skin",
-        label: "Dark Skin"
-      },
-      {
-        id: "paizuri",
-        label: "Paizuri"
-      },
-      {
-        id: "sex-toys",
-        label: "Sex Toys"
-      },
-      {
-        id: "futanari",
-        label: "Futanari"
-      },
-      {
-        id: "double-penetration",
-        label: "Double Penetration"
-      },
-      {
-        id: "netorare",
-        label: "Netorare"
-      },
-      {
-        id: "tankoubon",
-        label: "Tankoubon"
-      },
-      {
-        id: "defloration",
-        label: "Defloration"
-      },
-      {
-        id: "ffm-threesome",
-        label: "FFM Threesome"
-      },
-      {
-        id: "twintails",
-        label: "Twintails"
-      },
-      {
-        id: "full-censorship",
-        label: "Full Censorship"
-      },
-      {
-        id: "yuri",
-        label: "Yuri"
-      },
-      {
-        id: "swimsuit",
-        label: "Swimsuit"
-      },
-      {
-        id: "femdom",
-        label: "Femdom"
-      },
-      {
-        id: "impregnation",
-        label: "Impregnation"
-      },
-      {
-        id: "ponytail",
-        label: "Ponytail"
-      },
-      {
-        id: "collar",
-        label: "Collar"
-      },
-      {
-        id: "dilf",
-        label: "DILF"
-      },
-      {
-        id: "big-penis",
-        label: "Big Penis"
-      },
-      {
-        id: "hairy",
-        label: "Hairy"
-      },
-      {
-        id: "kemonomimi",
-        label: "Kemonomimi"
-      },
-      {
-        id: "cheating",
-        label: "Cheating"
-      },
-      {
-        id: "pantyhose",
-        label: "Pantyhose"
-      },
-      {
-        id: "anal-intercourse",
-        label: "Anal Intercourse"
-      },
-      {
-        id: "muscle",
-        label: "Muscle"
-      },
-      {
-        id: "bbm",
-        label: "BBM"
-      },
-      {
-        id: "sister",
-        label: "Sister"
-      },
-      {
-        id: "tentacles",
-        label: "Tentacles"
-      },
-      {
-        id: "story-arc",
-        label: "Story Arc"
-      },
-      {
-        id: "bikini",
-        label: "Bikini"
-      },
-      {
-        id: "big-ass",
-        label: "Big Ass"
-      },
-      {
-        id: "masturbation",
-        label: "Masturbation"
-      },
-      {
-        id: "mind-control",
-        label: "Mind Control"
-      },
-      {
-        id: "kissing",
-        label: "Kissing"
-      },
-      {
-        id: "uncensored",
-        label: "Uncensored"
-      },
-      {
-        id: "crossdressing",
-        label: "Crossdressing"
-      },
-      {
-        id: "lactation",
-        label: "Lactation"
-      },
-      {
-        id: "mind-break",
-        label: "Mind Break"
-      },
-      {
-        id: "sweating",
-        label: "Sweating"
-      },
-      {
-        id: "tomgirl",
-        label: "Tomgirl"
-      },
-      {
-        id: "schoolboy-uniform",
-        label: "Schoolboy Uniform"
-      },
-      {
-        id: "mmf-threesome",
-        label: "MMF Threesome"
-      },
-      {
-        id: "exhibitionism",
-        label: "Exhibitionism"
-      },
-      {
-        id: "pregnant",
-        label: "Pregnant"
-      },
-      {
-        id: "females-only",
-        label: "Females Only"
-      },
-      {
-        id: "huge-breasts",
-        label: "Huge Breasts"
-      },
-      {
-        id: "teacher",
-        label: "Teacher"
-      },
-      {
-        id: "unusual-pupils",
-        label: "Unusual Pupils"
-      },
-      {
-        id: "maid",
-        label: "Maid"
-      },
-      {
-        id: "fingering",
-        label: "Fingering"
-      },
-      {
-        id: "mother",
-        label: "Mother"
-      },
-      {
-        id: "handjob",
-        label: "Handjob"
-      },
-      {
-        id: "gloves",
-        label: "Gloves"
-      },
-      {
-        id: "beauty-mark",
-        label: "Beauty Mark"
-      },
-      {
-        id: "condom",
-        label: "Condom"
-      },
-      {
-        id: "lingerie",
-        label: "Lingerie"
-      },
-      {
-        id: "gender-bender",
-        label: "Gender Bender"
-      },
-      {
-        id: "harem",
-        label: "Harem"
-      },
-      {
-        id: "cunnilingus",
-        label: "Cunnilingus"
-      },
-      {
-        id: "footjob",
-        label: "Footjob"
-      },
-      {
-        id: "urination",
-        label: "Urination"
-      },
-      {
-        id: "catgirl",
-        label: "Catgirl"
-      },
-      {
-        id: "tail",
-        label: "Tail"
-      },
-      {
-        id: "piercing",
-        label: "Piercing"
-      },
-      {
-        id: "small-breasts",
-        label: "Small Breasts"
-      },
-      {
-        id: "horns",
-        label: "Horns"
-      },
-      {
-        id: "very-long-hair",
-        label: "Very Long Hair"
-      },
-      {
-        id: "gag",
-        label: "Gag"
-      },
-      {
-        id: "anthology",
-        label: "Anthology"
-      },
-      {
-        id: "drugs",
-        label: "Drugs"
-      },
-      {
-        id: "demon-girl",
-        label: "Demon Girl"
-      },
-      {
-        id: "garter-belt",
-        label: "Garter Belt"
-      },
-      {
-        id: "prostitution",
-        label: "Prostitution"
-      },
-      {
-        id: "stomach-deformation",
-        label: "Stomach Deformation"
-      },
-      {
-        id: "filming",
-        label: "Filming"
-      },
-      {
-        id: "elf",
-        label: "Elf"
-      },
-      {
-        id: "bunny-girl",
-        label: "Bunny Girl"
-      },
-      {
-        id: "big-areolae",
-        label: "Big Areolae"
-      },
-      {
-        id: "blindfold",
-        label: "Blindfold"
-      },
-      {
-        id: "scat",
-        label: "Scat"
-      },
-      {
-        id: "blackmail",
-        label: "Blackmail"
-      },
-      {
-        id: "bald",
-        label: "Bald"
-      },
-      {
-        id: "tanlines",
-        label: "Tanlines"
-      },
-      {
-        id: "extraneous-ads",
-        label: "Extraneous Ads"
-      },
-      {
-        id: "gyaru",
-        label: "Gyaru"
-      },
-      {
-        id: "virginity",
-        label: "Virginity"
-      },
-      {
-        id: "bukkake",
-        label: "Bukkake"
-      },
-      {
-        id: "bbw",
-        label: "BBW"
-      },
-      {
-        id: "inflation",
-        label: "Inflation"
-      },
-      {
-        id: "squirting",
-        label: "Squirting"
-      },
-      {
-        id: "rimjob",
-        label: "Rimjob"
-      },
-      {
-        id: "sleeping",
-        label: "Sleeping"
-      },
-      {
-        id: "sole-dickgirl",
-        label: "Sole Dickgirl"
-      },
-      {
-        id: "halo",
-        label: "Halo"
-      },
-      {
-        id: "no-penetration",
-        label: "No Penetration"
-      },
-      {
-        id: "deepthroat",
-        label: "Deepthroat"
-      },
-      {
-        id: "monster",
-        label: "Monster"
-      },
-      {
-        id: "rough-translation",
-        label: "Rough Translation"
-      },
-      {
-        id: "bloomers",
-        label: "Bloomers"
-      },
-      {
-        id: "nipple-stimulation",
-        label: "Nipple Stimulation"
-      },
-      {
-        id: "leotard",
-        label: "Leotard"
-      },
-      {
-        id: "inseki",
-        label: "Inseki"
-      },
-      {
-        id: "eye-covering-bang",
-        label: "Eye-Covering Bang"
-      },
-      {
-        id: "business-suit",
-        label: "Business Suit"
-      },
-      {
-        id: "inverted-nipples",
-        label: "Inverted Nipples"
-      },
-      {
-        id: "thigh-high-boots",
-        label: "Thigh High Boots"
-      },
-      {
-        id: "tomboy",
-        label: "Tomboy"
-      },
-      {
-        id: "corruption",
-        label: "Corruption"
-      },
-      {
-        id: "breast-feeding",
-        label: "Breast Feeding"
-      },
-      {
-        id: "school-swimsuit",
-        label: "School Swimsuit"
-      },
-      {
-        id: "crotch-tattoo",
-        label: "Crotch Tattoo"
-      },
-      {
-        id: "strap-on",
-        label: "Strap-On"
-      },
-      {
-        id: "bestiality",
-        label: "Bestiality"
-      },
-      {
-        id: "bodysuit",
-        label: "Bodysuit"
-      },
-      {
-        id: "wings",
-        label: "Wings"
-      },
-      {
-        id: "snuff",
-        label: "Snuff"
-      },
-      {
-        id: "daughter",
-        label: "Daughter"
-      },
-      {
-        id: "slave",
-        label: "Slave"
-      },
-      {
-        id: "dickgirl-on-dickgirl",
-        label: "Dickgirl on Dickgirl"
-      },
-      {
-        id: "enema",
-        label: "Enema"
-      },
-      {
-        id: "scanmark",
-        label: "Scanmark"
-      },
-      {
-        id: "magical-girl",
-        label: "Magical Girl"
-      },
-      {
-        id: "cervix-penetration",
-        label: "Cervix Penetration"
-      },
-      {
-        id: "humiliation",
-        label: "Humiliation"
-      },
-      {
-        id: "urethra-insertion",
-        label: "Urethra Insertion"
-      },
-      {
-        id: "blowjob-face",
-        label: "Blowjob Face"
-      },
-      {
-        id: "hair-buns",
-        label: "Hair Buns"
-      },
-      {
-        id: "fox-girl",
-        label: "Fox Girl"
-      },
-      {
-        id: "guro",
-        label: "Guro"
-      },
-      {
-        id: "nurse",
-        label: "Nurse"
-      },
-      {
-        id: "shemale",
-        label: "Shemale"
-      },
-      {
-        id: "breast-expansion",
-        label: "Breast Expansion"
-      },
-      {
-        id: "dick-growth",
-        label: "Dick Growth"
-      },
-      {
-        id: "tall-girl",
-        label: "Tall Girl"
-      },
-      {
-        id: "latex",
-        label: "Latex"
-      },
-      {
-        id: "shibari",
-        label: "Shibari"
-      },
-      {
-        id: "drunk",
-        label: "Drunk"
-      },
-      {
-        id: "dickgirl-on-male",
-        label: "Dickgirl on Male"
-      },
-      {
-        id: "prostate-massage",
-        label: "Prostate Massage"
-      },
-      {
-        id: "old-man",
-        label: "Old Man"
-      },
-      {
-        id: "replaced",
-        label: "Replaced"
-      },
-      {
-        id: "smell",
-        label: "Smell"
-      },
-      {
-        id: "ryona",
-        label: "Ryona"
-      },
-      {
-        id: "bisexual",
-        label: "Bisexual"
-      },
-      {
-        id: "hairy-armpits",
-        label: "Hairy Armpits"
-      },
-      {
-        id: "military",
-        label: "Military"
-      },
-      {
-        id: "apron",
-        label: "Apron"
-      },
-      {
-        id: "big-nipples",
-        label: "Big Nipples"
-      },
-      {
-        id: "hidden-sex",
-        label: "Hidden Sex"
-      },
-      {
-        id: "transformation",
-        label: "Transformation"
-      },
-      {
-        id: "leg-lock",
-        label: "Leg Lock"
-      },
-      {
-        id: "chikan",
-        label: "Chikan"
-      },
-      {
-        id: "bdsm",
-        label: "BDSM"
-      },
-      {
-        id: "vtuber",
-        label: "VTuber"
-      },
-      {
-        id: "oppai-loli",
-        label: "Oppai Loli"
-      },
-      {
-        id: "miko",
-        label: "Miko"
-      },
-      {
-        id: "spanking",
-        label: "Spanking"
-      },
-      {
-        id: "nun",
-        label: "Nun"
-      },
-      {
-        id: "facial-hair",
-        label: "Facial Hair"
-      },
-      {
-        id: "pixie-cut",
-        label: "Pixie Cut"
-      },
-      {
-        id: "torture",
-        label: "Torture"
-      },
-      {
-        id: "incomplete",
-        label: "Incomplete"
-      },
-      {
-        id: "tribadism",
-        label: "Tribadism"
-      },
-      {
-        id: "masked-face",
-        label: "Masked Face"
-      },
-      {
-        id: "gokkun",
-        label: "Gokkun"
-      },
-      {
-        id: "voyeurism",
-        label: "Voyeurism"
-      },
-      {
-        id: "tail-plug",
-        label: "Tail Plug"
-      },
-      {
-        id: "fisting",
-        label: "Fisting"
-      },
-      {
-        id: "bike-shorts",
-        label: "Bike Shorts"
-      },
-      {
-        id: "dickgirl-on-female",
-        label: "Dickgirl on Female"
-      },
-      {
-        id: "birth",
-        label: "Birth"
-      },
-      {
-        id: "male-on-dickgirl",
-        label: "Male on Dickgirl"
-      },
-      {
-        id: "possession",
-        label: "Possession"
-      },
-      {
-        id: "artbook",
-        label: "Artbook"
-      },
-      {
-        id: "facesitting",
-        label: "Facesitting"
-      },
-      {
-        id: "oyakodon",
-        label: "Oyakodon"
-      },
-      {
-        id: "cosplaying",
-        label: "Cosplaying"
-      },
-      {
-        id: "eyepatch",
-        label: "Eyepatch"
-      },
-      {
-        id: "vore",
-        label: "Vore"
-      },
-      {
-        id: "oni",
-        label: "Oni"
-      },
-      {
-        id: "leash",
-        label: "Leash"
-      },
-      {
-        id: "blood",
-        label: "Blood"
-      },
-      {
-        id: "tiara",
-        label: "Tiara"
-      },
-      {
-        id: "gyaru-oh",
-        label: "Gyaru-Oh"
-      },
-      {
-        id: "nipple-fuck",
-        label: "Nipple Fuck"
-      },
-      {
-        id: "chastity-belt",
-        label: "Chastity Belt"
-      },
-      {
-        id: "feminization",
-        label: "Feminization"
-      },
-      {
-        id: "twins",
-        label: "Twins"
-      },
-      {
-        id: "exposed-clothing",
-        label: "Exposed Clothing"
-      },
-      {
-        id: "body-modification",
-        label: "Body Modification"
-      },
-      {
-        id: "pegging",
-        label: "Pegging"
-      },
-      {
-        id: "tracksuit",
-        label: "Tracksuit"
-      },
-      {
-        id: "foot-licking",
-        label: "Foot Licking"
-      },
-      {
-        id: "piss-drinking",
-        label: "Piss Drinking"
-      },
-      {
-        id: "orgasm-denial",
-        label: "Orgasm Denial"
-      },
-      {
-        id: "emotionless-sex",
-        label: "Emotionless Sex"
-      },
-      {
-        id: "multiple-orgasms",
-        label: "Multiple Orgasms"
-      },
-      {
-        id: "huge-penis",
-        label: "Huge Penis"
-      },
-      {
-        id: "hotpants",
-        label: "Hotpants"
-      },
-      {
-        id: "solo-action",
-        label: "Solo Action"
-      },
-      {
-        id: "cowgirl",
-        label: "Cowgirl"
-      },
-      {
-        id: "small-penis",
-        label: "Small Penis"
-      },
-      {
-        id: "chloroform",
-        label: "Chloroform"
-      },
-      {
-        id: "focus-anal",
-        label: "Focus Anal"
-      },
-      {
-        id: "gaping",
-        label: "Gaping"
-      },
-      {
-        id: "cbt",
-        label: "CBT"
-      },
-      {
-        id: "amputee",
-        label: "Amputee"
-      },
-      {
-        id: "giantess",
-        label: "Giantess"
-      },
-      {
-        id: "smegma",
-        label: "Smegma"
-      },
-      {
-        id: "cousin",
-        label: "Cousin"
-      },
-      {
-        id: "cumflation",
-        label: "Cumflation"
-      },
-      {
-        id: "large-insertions",
-        label: "Large Insertions"
-      },
-      {
-        id: "triple-penetration",
-        label: "Triple Penetration"
-      },
-      {
-        id: "sumata",
-        label: "Sumata"
-      },
-      {
-        id: "asphyxiation",
-        label: "Asphyxiation"
-      },
-      {
-        id: "body-writing",
-        label: "Body Writing"
-      },
-      {
-        id: "demon",
-        label: "Demon"
-      },
-      {
-        id: "fishnets",
-        label: "Fishnets"
-      },
-      {
-        id: "robot",
-        label: "Robot"
-      },
-      {
-        id: "scar",
-        label: "Scar"
-      },
-      {
-        id: "pasties",
-        label: "Pasties"
-      },
-      {
-        id: "aunt",
-        label: "Aunt"
-      },
-      {
-        id: "farting",
-        label: "Farting"
-      },
-      {
-        id: "frottage",
-        label: "Frottage"
-      },
-      {
-        id: "brother",
-        label: "Brother"
-      },
-      {
-        id: "swinging",
-        label: "Swinging"
-      },
-      {
-        id: "thick-eyebrows",
-        label: "Thick Eyebrows"
-      },
-      {
-        id: "tall-man",
-        label: "Tall Man"
-      },
-      {
-        id: "mesuiki",
-        label: "Mesuiki"
-      },
-      {
-        id: "double-vaginal",
-        label: "Double Vaginal"
-      },
-      {
-        id: "cheerleader",
-        label: "Cheerleader"
-      },
-      {
-        id: "onahole",
-        label: "Onahole"
-      },
-      {
-        id: "body-swap",
-        label: "Body Swap"
-      },
-      {
-        id: "eggs",
-        label: "Eggs"
-      },
-      {
-        id: "moral-degeneration",
-        label: "Moral Degeneration"
-      },
-      {
-        id: "big-balls",
-        label: "Big Balls"
-      },
-      {
-        id: "miniguy",
-        label: "Miniguy"
-      },
-      {
-        id: "unusual-teeth",
-        label: "Unusual Teeth"
-      },
-      {
-        id: "full-packaged-futanari",
-        label: "Full-Packaged Futanari"
-      },
-      {
-        id: "shimaidon",
-        label: "Shimaidon"
-      },
-      {
-        id: "soushuuhen",
-        label: "Soushuuhen"
-      },
-      {
-        id: "mouth-mask",
-        label: "Mouth Mask"
-      },
-      {
-        id: "chinese-dress",
-        label: "Chinese Dress"
-      },
-      {
-        id: "randoseru",
-        label: "Randoseru"
-      },
-      {
-        id: "josou-seme",
-        label: "Josou Seme"
-      },
-      {
-        id: "freckles",
-        label: "Freckles"
-      },
-      {
-        id: "waitress",
-        label: "Waitress"
-      },
-      {
-        id: "witch",
-        label: "Witch"
-      },
-      {
-        id: "prolapse",
-        label: "Prolapse"
-      },
-      {
-        id: "lab-coat",
-        label: "Lab Coat"
-      },
-      {
-        id: "multimouth-blowjob",
-        label: "Multimouth Blowjob"
-      },
-      {
-        id: "dog-girl",
-        label: "Dog Girl"
-      },
-      {
-        id: "smalldom",
-        label: "Smalldom"
-      },
-      {
-        id: "kunoichi",
-        label: "Kunoichi"
-      },
-      {
-        id: "armpit-licking",
-        label: "Armpit Licking"
-      },
-      {
-        id: "phimosis",
-        label: "Phimosis"
-      },
-      {
-        id: "big-clit",
-        label: "Big Clit"
-      },
-      {
-        id: "niece",
-        label: "Niece"
-      },
-      {
-        id: "clothed-female-nude-male",
-        label: "Clothed Female Nude Male"
-      },
-      {
-        id: "shimapan",
-        label: "Shimapan"
-      },
-      {
-        id: "orc",
-        label: "Orc"
-      },
-      {
-        id: "tickling",
-        label: "Tickling"
-      },
-      {
-        id: "public-use",
-        label: "Public Use"
-      },
-      {
-        id: "vaginal-birth",
-        label: "Vaginal Birth"
-      },
-      {
-        id: "eyemask",
-        label: "Eyemask"
-      },
-      {
-        id: "double-anal",
-        label: "Double Anal"
-      },
-      {
-        id: "parasite",
-        label: "Parasite"
-      },
-      {
-        id: "nose-hook",
-        label: "Nose Hook"
-      },
-      {
-        id: "low-lolicon",
-        label: "Low Lolicon"
-      },
-      {
-        id: "dog",
-        label: "Dog"
-      },
-      {
-        id: "catboy",
-        label: "Catboy"
-      },
-      {
-        id: "machine",
-        label: "Machine"
-      },
-      {
-        id: "petplay",
-        label: "Petplay"
-      },
-      {
-        id: "bride",
-        label: "Bride"
-      },
-      {
-        id: "slime",
-        label: "Slime"
-      },
-      {
-        id: "gender-morph",
-        label: "Gender Morph"
-      },
-      {
-        id: "diaper",
-        label: "Diaper"
-      },
-      {
-        id: "large-tattoo",
-        label: "Large Tattoo"
-      },
-      {
-        id: "ball-sucking",
-        label: "Ball Sucking"
-      },
-      {
-        id: "wolf-girl",
-        label: "Wolf Girl"
-      },
-      {
-        id: "christmas",
-        label: "Christmas"
-      },
-      {
-        id: "crying",
-        label: "Crying"
-      },
-      {
-        id: "widow",
-        label: "Widow"
-      },
-      {
-        id: "dickgirls-only",
-        label: "Dickgirls Only"
-      },
-      {
-        id: "sunglasses",
-        label: "Sunglasses"
-      },
-      {
-        id: "goblin",
-        label: "Goblin"
-      },
-      {
-        id: "tutor",
-        label: "Tutor"
-      },
-      {
-        id: "painted-nails",
-        label: "Painted Nails"
-      },
-      {
-        id: "long-tongue",
-        label: "Long Tongue"
-      },
-      {
-        id: "human-pet",
-        label: "Human Pet"
-      },
-      {
-        id: "armpit-sex",
-        label: "Armpit Sex"
-      },
-      {
-        id: "watermarked",
-        label: "Watermarked"
-      },
-      {
-        id: "angel",
-        label: "Angel"
-      },
-      {
-        id: "corset",
-        label: "Corset"
-      },
-      {
-        id: "clit-stimulation",
-        label: "Clit Stimulation"
-      },
-      {
-        id: "first-person-perspective",
-        label: "First Person Perspective"
-      },
-      {
-        id: "ghost",
-        label: "Ghost"
-      },
-      {
-        id: "nipple-piercing",
-        label: "Nipple Piercing"
-      },
-      {
-        id: "stuck-in-wall",
-        label: "Stuck in Wall"
-      },
-      {
-        id: "high-heels",
-        label: "High Heels"
-      },
-      {
-        id: "vomit",
-        label: "Vomit"
-      },
-      {
-        id: "coprophagia",
-        label: "Coprophagia"
-      },
-      {
-        id: "sundress",
-        label: "Sundress"
-      },
-      {
-        id: "school-gym-uniform",
-        label: "School Gym Uniform"
-      },
-      {
-        id: "multiple-paizuri",
-        label: "Multiple Paizuri"
-      },
-      {
-        id: "forced-exposure",
-        label: "Forced Exposure"
-      },
-      {
-        id: "age-regression",
-        label: "Age Regression"
-      },
-      {
-        id: "all-the-way-through",
-        label: "All the Way Through"
-      },
-      {
-        id: "selfcest",
-        label: "Selfcest"
-      },
-      {
-        id: "unbirth",
-        label: "Unbirth"
-      },
-      {
-        id: "vampire",
-        label: "Vampire"
-      },
-      {
-        id: "time-stop",
-        label: "Time Stop"
-      },
-      {
-        id: "shaved-head",
-        label: "Shaved Head"
-      },
-      {
-        id: "insect",
-        label: "Insect"
-      },
-      {
-        id: "clothed-paizuri",
-        label: "Clothed Paizuri"
-      },
-      {
-        id: "kodomo-doushi",
-        label: "Kodomo Doushi"
-      },
-      {
-        id: "age-progression",
-        label: "Age Progression"
-      },
-      {
-        id: "domination-loss",
-        label: "Domination Loss"
-      },
-      {
-        id: "nudity-only",
-        label: "Nudity Only"
-      },
-      {
-        id: "skinsuit",
-        label: "Skinsuit"
-      },
-      {
-        id: "compilation",
-        label: "Compilation"
-      },
-      {
-        id: "netorase",
-        label: "Netorase"
-      },
-      {
-        id: "metal-armor",
-        label: "Metal Armor"
-      },
-      {
-        id: "coach",
-        label: "Coach"
-      },
-      {
-        id: "drill-hair",
-        label: "Drill Hair"
-      },
-      {
-        id: "minigirl",
-        label: "Minigirl"
-      },
-      {
-        id: "gender-change",
-        label: "Gender Change"
-      },
-      {
-        id: "bandages",
-        label: "Bandages"
-      },
-      {
-        id: "mmm-threesome",
-        label: "MMM Threesome"
-      },
-      {
-        id: "variant-set",
-        label: "Variant Set"
-      },
-      {
-        id: "fundoshi",
-        label: "Fundoshi"
-      },
-      {
-        id: "futanarization",
-        label: "Futanarization"
-      },
-      {
-        id: "focus-blowjob",
-        label: "Focus Blowjob"
-      },
-      {
-        id: "mesugaki",
-        label: "Mesugaki"
-      },
-      {
-        id: "policewoman",
-        label: "Policewoman"
-      },
-      {
-        id: "heterochromia",
-        label: "Heterochromia"
-      },
-      {
-        id: "living-clothes",
-        label: "Living Clothes"
-      },
-      {
-        id: "closed-eyes",
-        label: "Closed Eyes"
-      },
-      {
-        id: "makeup",
-        label: "Makeup"
-      },
-      {
-        id: "dougi",
-        label: "Dougi"
-      },
-      {
-        id: "detached-sleeves",
-        label: "Detached Sleeves"
-      },
-      {
-        id: "bunny-boy",
-        label: "Bunny Boy"
-      },
-      {
-        id: "dark-sclera",
-        label: "Dark Sclera"
-      },
-      {
-        id: "goudoushi",
-        label: "Goudoushi"
-      },
-      {
-        id: "double-blowjob",
-        label: "Double Blowjob"
-      },
-      {
-        id: "low-scat",
-        label: "Low Scat"
-      },
-      {
-        id: "pubic-stubble",
-        label: "Pubic Stubble"
-      },
-      {
-        id: "dark-nipples",
-        label: "Dark Nipples"
-      },
-      {
-        id: "shrinking",
-        label: "Shrinking"
-      },
-      {
-        id: "omorashi",
-        label: "Omorashi"
-      },
-      {
-        id: "wrestling",
-        label: "Wrestling"
-      },
-      {
-        id: "low-shotacon",
-        label: "Low Shotacon"
-      },
-      {
-        id: "assjob",
-        label: "Assjob"
-      },
-      {
-        id: "clothed-male-nude-female",
-        label: "Clothed Male Nude Female"
-      },
-      {
-        id: "mecha-girl",
-        label: "Mecha Girl"
-      },
-      {
-        id: "artistcg",
-        label: "ArtistCG"
-      },
-      {
-        id: "horse",
-        label: "Horse"
-      },
-      {
-        id: "ttf-threesome",
-        label: "TTF Threesome"
-      },
-      {
-        id: "underwater",
-        label: "Underwater"
-      },
-      {
-        id: "kodomo-only",
-        label: "Kodomo Only"
-      },
-      {
-        id: "harness",
-        label: "Harness"
-      },
-      {
-        id: "slime-girl",
-        label: "Slime Girl"
-      },
-      {
-        id: "human-cattle",
-        label: "Human Cattle"
-      },
-      {
-        id: "oil",
-        label: "Oil"
-      },
-      {
-        id: "electric-shocks",
-        label: "Electric Shocks"
-      },
-      {
-        id: "gothic-lolita",
-        label: "Gothic Lolita"
-      },
-      {
-        id: "petrification",
-        label: "Petrification"
-      },
-      {
-        id: "cum-swap",
-        label: "Cum Swap"
-      },
-      {
-        id: "wormhole",
-        label: "Wormhole"
-      },
-      {
-        id: "layer-cake",
-        label: "Layer Cake"
-      },
-      {
-        id: "missing-cover",
-        label: "Missing Cover"
-      },
-      {
-        id: "clone",
-        label: "Clone"
-      },
-      {
-        id: "clit-growth",
-        label: "Clit Growth"
-      },
-      {
-        id: "out-of-order",
-        label: "Out of Order"
-      },
-      {
-        id: "zombie",
-        label: "Zombie"
-      },
-      {
-        id: "stirrup-legwear",
-        label: "Stirrup Legwear"
-      },
-      {
-        id: "fairy",
-        label: "Fairy"
-      },
-      {
-        id: "multiple-penises",
-        label: "Multiple Penises"
-      },
-      {
-        id: "focus-paizuri",
-        label: "Focus Paizuri"
-      },
-      {
-        id: "mtf-threesome",
-        label: "MTF Threesome"
-      },
-      {
-        id: "brain-fuck",
-        label: "Brain Fuck"
-      },
-      {
-        id: "wet-clothes",
-        label: "Wet Clothes"
-      },
-      {
-        id: "autofellatio",
-        label: "Autofellatio"
-      },
-      {
-        id: "pig",
-        label: "Pig"
-      },
-      {
-        id: "poor-grammar",
-        label: "Poor Grammar"
-      },
-      {
-        id: "whip",
-        label: "Whip"
-      },
-      {
-        id: "big-lips",
-        label: "Big Lips"
-      },
-      {
-        id: "father",
-        label: "Father"
-      },
-      {
-        id: "necrophilia",
-        label: "Necrophilia"
-      },
-      {
-        id: "absorption",
-        label: "Absorption"
-      },
-      {
-        id: "penis-enlargement",
-        label: "Penis Enlargement"
-      },
-      {
-        id: "midget",
-        label: "Midget"
-      },
-      {
-        id: "multipanel-sequence",
-        label: "Multipanel Sequence"
-      },
-      {
-        id: "gang-rape",
-        label: "Gang Rape"
-      },
-      {
-        id: "saliva",
-        label: "Saliva"
-      },
-      {
-        id: "fff-threesome",
-        label: "FFF Threesome"
-      },
-      {
-        id: "comic",
-        label: "Comic"
-      },
-      {
-        id: "manga",
-        label: "Manga"
-      },
-      {
-        id: "low-bestiality",
-        label: "Low Bestiality"
-      },
-      {
-        id: "full-body-tattoo",
-        label: "Full Body Tattoo"
-      },
-      {
-        id: "tube",
-        label: "Tube"
-      },
-      {
-        id: "crown",
-        label: "Crown"
-      },
-      {
-        id: "weight-gain",
-        label: "Weight Gain"
-      },
-      {
-        id: "vaginal-sticker",
-        label: "Vaginal Sticker"
-      },
-      {
-        id: "invisible",
-        label: "Invisible"
-      },
-      {
-        id: "tights",
-        label: "Tights"
-      },
-      {
-        id: "gigantic-breasts",
-        label: "Gigantic Breasts"
-      },
-      {
-        id: "infantilism",
-        label: "Infantilism"
-      },
-      {
-        id: "glory-hole",
-        label: "Glory Hole"
-      },
-      {
-        id: "shared-senses",
-        label: "Shared Senses"
-      },
-      {
-        id: "dog-boy",
-        label: "Dog Boy"
-      },
-      {
-        id: "growth",
-        label: "Growth"
-      },
-      {
-        id: "bodystocking",
-        label: "Bodystocking"
-      },
-      {
-        id: "lizard-girl",
-        label: "Lizard Girl"
-      },
-      {
-        id: "wooden-horse",
-        label: "Wooden Horse"
-      },
-      {
-        id: "unusual-insertions",
-        label: "Unusual Insertions"
-      },
-      {
-        id: "butler",
-        label: "Butler"
-      },
-      {
-        id: "forniphilia",
-        label: "Forniphilia"
-      },
-      {
-        id: "cannibalism",
-        label: "Cannibalism"
-      },
-      {
-        id: "hairjob",
-        label: "Hairjob"
-      },
-      {
-        id: "defaced",
-        label: "Defaced"
-      },
-      {
-        id: "mermaid",
-        label: "Mermaid"
-      },
-      {
-        id: "transparent-clothing",
-        label: "Transparent Clothing"
-      },
-      {
-        id: "personality-excretion",
-        label: "Personality Excretion"
-      },
-      {
-        id: "policeman",
-        label: "Policeman"
-      },
-      {
-        id: "tailjob",
-        label: "Tailjob"
-      },
-      {
-        id: "fox-boy",
-        label: "Fox Boy"
-      },
-      {
-        id: "trampling",
-        label: "Trampling"
-      },
-      {
-        id: "smoking",
-        label: "Smoking"
-      },
-      {
-        id: "old-lady",
-        label: "Old Lady"
-      },
-      {
-        id: "ttm-threesome",
-        label: "TTM Threesome"
-      },
-      {
-        id: "wolf-boy",
-        label: "Wolf Boy"
-      },
-      {
-        id: "clamp",
-        label: "Clamp"
-      },
-      {
-        id: "speculum",
-        label: "Speculum"
-      },
-      {
-        id: "doll-joints",
-        label: "Doll Joints"
-      },
-      {
-        id: "sketch-lines",
-        label: "Sketch Lines"
-      },
-      {
-        id: "cuntboy",
-        label: "Cuntboy"
-      },
-      {
-        id: "mouse-girl",
-        label: "Mouse Girl"
-      },
-      {
-        id: "alien",
-        label: "Alien"
-      },
-      {
-        id: "table-masturbation",
-        label: "Table Masturbation"
-      },
-      {
-        id: "dragon",
-        label: "Dragon"
-      },
-      {
-        id: "anorexic",
-        label: "Anorexic"
-      },
-      {
-        id: "pig-man",
-        label: "Pig Man"
-      },
-      {
-        id: "anal-birth",
-        label: "Anal Birth"
-      }
-    ]
   };
 
   // src/NHentai/main.ts
@@ -5146,7 +3284,6 @@ var source = (() => {
     { id: "popular_month", title: "Popular Monthly", sort: "popular-month" },
     { id: "popular_all", title: "Popular All-Time", sort: "popular" }
   ];
-  var popularTags = tags_default.popularTags;
   var IMAGE_TYPE_MAP = {
     j: "jpg",
     p: "png",
@@ -5161,9 +3298,18 @@ var source = (() => {
       bufferInterval: 1,
       ignoreImages: true
     });
+    popularTagsCache;
+    popularTagsFetch;
     async initialise() {
       this.requestManager.registerInterceptor();
       this.globalRateLimiter.registerInterceptor();
+    }
+    // Static accessor for settings form
+    getPopularTagsForSettings() {
+      if (this.popularTagsCache == null) {
+        this.popularTagsFetch = this.getPopularTags();
+      }
+      return this.popularTagsCache ?? [];
     }
     async getSettingsForm() {
       return new SettingsForm();
@@ -5183,19 +3329,31 @@ var source = (() => {
       ];
     }
     async getDiscoverSectionItems(section, metadata) {
-      const page = metadata?.page ?? 1;
+      const initialPage = metadata?.page ?? 1;
       const sortKey = section.id === "new_uploads" ? "date" : POPULAR_SECTIONS.find((entry) => entry.id === section.id)?.sort ?? "popular";
       const query = this.buildQueryString();
-      const response = await this.fetchSearch(query, page, sortKey);
-      let galleries = response.result ?? [];
-      if (getHideReadSetting()) {
-        galleries = galleries.filter((g) => !isMangaRead(g.id.toString()));
+      const hideRead = getHideReadSetting();
+      const readCache2 = hideRead ? getReadCache() : null;
+      let currentPage = initialPage;
+      let safetyCounter = 0;
+      let response;
+      let items = [];
+      while (safetyCounter < 50) {
+        response = await this.fetchSearch(query, currentPage, sortKey);
+        const galleries = response.result ?? [];
+        const filtered = hideRead && readCache2 ? galleries.filter((g) => !readCache2.has(g.id.toString())) : galleries;
+        items = filtered.map((gallery) => this.mapGalleryToDiscoverItem(gallery));
+        const reachedEnd = currentPage >= response.num_pages;
+        if (items.length > 0 || reachedEnd) {
+          break;
+        }
+        currentPage += 1;
+        safetyCounter += 1;
       }
-      const items = galleries.map((gallery) => this.mapGalleryToDiscoverItem(gallery));
-      const hasNextPage = page < response.num_pages;
+      const hasNextPage = response !== void 0 && currentPage < response.num_pages;
       return {
         items,
-        metadata: hasNextPage ? { page: page + 1 } : void 0
+        metadata: hasNextPage ? { page: currentPage + 1 } : void 0
       };
     }
     async getSearchFilters() {
@@ -5220,6 +3378,7 @@ var source = (() => {
           value: option.label
         }))
       });
+      const popularTags = await this.getPopularTags();
       filters.push({
         id: "tags",
         type: "multiselect",
@@ -5242,7 +3401,7 @@ var source = (() => {
       }));
     }
     async getSearchResults(query, metadata, sortingOption) {
-      const page = metadata?.page ?? 1;
+      let currentPage = metadata?.page ?? 1;
       const trimmedTitle = query.title?.trim() ?? "";
       if (trimmedTitle && /^\d+$/.test(trimmedTitle)) {
         try {
@@ -5286,35 +3445,56 @@ var source = (() => {
         ...this.buildTagTokens(excludedTags, true)
       ];
       const sortOrder = this.resolveSortOrder(query, sortingOption);
-      const searchQuery = this.buildQueryString(
-        trimmedTitle,
-        [...filterTokens, ...tagTokens]
-      );
+      const searchQuery = this.buildQueryString(trimmedTitle, [
+        ...filterTokens,
+        ...tagTokens
+      ]);
+      const hideRead = getHideReadSetting();
+      const readCache2 = hideRead ? getReadCache() : null;
       let response;
-      try {
-        response = await this.fetchSearch(searchQuery, page, sortOrder);
-      } catch (e) {
-        if (e instanceof Error) {
-          console.error("Search fetch aborted or failed:", e.message, e);
-        } else {
-          console.error("Search fetch aborted or failed:", e);
+      let items = [];
+      let safetyCounter = 0;
+      while (safetyCounter < 50) {
+        try {
+          response = await this.fetchSearch(searchQuery, currentPage, sortOrder);
+        } catch (e) {
+          if (e instanceof Error) {
+            console.error("Search fetch aborted or failed:", e.message, e);
+          } else {
+            console.error("Search fetch aborted or failed:", e);
+          }
+          return { items: [], metadata: void 0 };
         }
+        if (!response || !response.result) {
+          console.warn("Search returned null/undefined response");
+          return { items: [], metadata: void 0 };
+        }
+        const galleries = response.result;
+        const filteredForFavorites = favoritesConstraint ? galleries.filter((g) => {
+          if (favoritesConstraint.type === "min") {
+            return g.num_favorites >= favoritesConstraint.value;
+          }
+          return g.num_favorites <= favoritesConstraint.value;
+        }) : galleries;
+        const filteredForRead = hideRead && readCache2 ? filteredForFavorites.filter((g) => !readCache2.has(g.id.toString())) : filteredForFavorites;
+        items = filteredForRead.map(
+          (gallery) => this.mapGalleryToSearchResult(gallery)
+        );
+        const reachedEnd = currentPage >= response.num_pages;
+        const rawResultsEmpty = galleries.length === 0;
+        if (items.length > 0 || reachedEnd || rawResultsEmpty) {
+          break;
+        }
+        currentPage += 1;
+        safetyCounter += 1;
+      }
+      if (!response) {
         return { items: [], metadata: void 0 };
       }
-      const galleries = response?.result ?? [];
-      const filteredGalleries = favoritesConstraint ? galleries.filter((g) => {
-        if (favoritesConstraint.type === "min")
-          return g.num_favorites >= favoritesConstraint.value;
-        return g.num_favorites <= favoritesConstraint.value;
-      }) : galleries;
-      let items = filteredGalleries.map((gallery) => this.mapGalleryToSearchResult(gallery));
-      if (getHideReadSetting()) {
-        items = items.filter((item) => !isMangaRead(item.mangaId));
-      }
-      const hasNextPage = page < response.num_pages;
+      const hasNextPage = currentPage < response.num_pages;
       return {
         items,
-        metadata: hasNextPage ? { page: page + 1 } : void 0
+        metadata: hasNextPage ? { page: currentPage + 1 } : void 0
       };
     }
     async getMangaDetails(mangaId) {
@@ -5390,15 +3570,94 @@ var source = (() => {
       };
       return this.fetchJson(request);
     }
-    async fetchJson(request) {
+    async fetchText(request) {
       const [response, data] = await Application.scheduleRequest(request);
       this.checkCloudflareStatus(response.status);
-      const text = Application.arrayBufferToUTF8String(data);
+      return Application.arrayBufferToUTF8String(data);
+    }
+    async fetchJson(request) {
+      const text = await this.fetchText(request);
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === "object" && "error" in parsed && parsed.error) {
         throw new Error(parsed.error);
       }
       return parsed;
+    }
+    async getPopularTags() {
+      if (this.popularTagsCache) {
+        return this.popularTagsCache;
+      }
+      if (!this.popularTagsFetch) {
+        this.popularTagsFetch = this.fetchPopularTagsFromRemote().then((tags) => {
+          if (tags.length > 0) {
+            this.popularTagsCache = tags;
+          }
+          return tags;
+        }).catch((error) => {
+          console.error("Failed to fetch NHentai popular tags", error);
+          return [];
+        }).finally(() => {
+          this.popularTagsFetch = void 0;
+        });
+      }
+      return this.popularTagsFetch;
+    }
+    async fetchPopularTagsFromRemote() {
+      const url = `${BASE_URL}/tags/popular?page=`;
+      let html;
+      const fetchedTagsAndCount = [];
+      for (let page = 1; page < 5; page++) {
+        try {
+          html = await this.fetchText({
+            url: `${url}${page}`,
+            method: "GET"
+          });
+          fetchedTagsAndCount.push(...this.parsePopularTagsFromHtml(html));
+        } catch (error) {
+          console.error("Unable to load NHentai popular tags", error);
+          return [];
+        }
+      }
+      return fetchedTagsAndCount;
+    }
+    parsePopularTagsFromHtml(html) {
+      const tags = [];
+      const seen = /* @__PURE__ */ new Set();
+      const containerMatch = html.match(
+        /<div[^>]+id="tag-container"[^>]*>([\s\S]*?)<\/div>\s*<section[^>]*class="pagination"/i
+      );
+      const containerHtml = containerMatch ? containerMatch[1] : html;
+      const tagPattern = /<a[^>]+href="\/tag\/([^/"]+)\/"[^>]*>\s*<span[^>]*class="name"[^>]*>([^<]+)<\/span>\s*<span[^>]*class="count"[^>]*>([^<]+)<\/span>/gi;
+      let match;
+      while ((match = tagPattern.exec(containerHtml)) !== null) {
+        const slug = match[1]?.toLowerCase();
+        const rawLabel = match[2]?.trim();
+        const count = match[3]?.trim() ?? "0";
+        if (!slug || !rawLabel || seen.has(slug)) {
+          continue;
+        }
+        const label = this.decodeHtmlEntities(rawLabel) + " - (" + this.decodeHtmlEntities(count) + ")";
+        if (label.length === 0) {
+          continue;
+        }
+        tags.push({ id: slug, label, count });
+        seen.add(slug);
+      }
+      return tags;
+    }
+    decodeHtmlEntities(value) {
+      const named = value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+      const hexReplaced = named.replace(
+        /&#x([0-9a-fA-F]+);/g,
+        (_, hex) => {
+          const codePoint = parseInt(hex, 16);
+          return Number.isNaN(codePoint) ? "" : String.fromCodePoint(codePoint);
+        }
+      );
+      return hexReplaced.replace(/&#(\d+);/g, (_, dec) => {
+        const codePoint = parseInt(dec, 10);
+        return Number.isNaN(codePoint) ? "" : String.fromCodePoint(codePoint);
+      });
     }
     buildQueryString(title, filterTokens = [], options) {
       const tokens = [];
@@ -5599,6 +3858,16 @@ var source = (() => {
           (section) => section.tags.length > 0
         )
       );
+      sections.push({
+        id: "id",
+        title: "ID",
+        tags: [
+          {
+            id: gallery.id.toString(),
+            title: gallery.id.toString()
+          }
+        ]
+      });
       return sections;
     }
     resolveSectionId(tagType) {

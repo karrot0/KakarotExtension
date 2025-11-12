@@ -1,1 +1,1 @@
-{"name":"NHentai","description":"Extension that pulls content from nhentai.net","version":"2.0.0","icon":"icon.png","language":"multi","contentRating":"ADULT","capabilities":[4,64,1,32],"badges":[],"developers":[{"name":"Karrot"}],"id":"NHentai"}
+{"name":"NHentai","description":"Extension that pulls content from nhentai.net","version":"2.1.0","icon":"icon.png","language":"multi","contentRating":"ADULT","capabilities":[4,64,1,32],"badges":[],"developers":[{"name":"Karrot"},{"name":"pisshammy"}],"id":"NHentai"}
