@@ -34,8 +34,6 @@ import {
   getHideReadSetting,
 } from "./settings";
 
-import tagsData from "./tags.json";
-
 const BASE_URL = "https://nhentai.net";
 const API_URL = `${BASE_URL}/api`;
 const THUMB_HOST = "https://i.nhentai.net";
@@ -80,10 +78,7 @@ const POPULAR_SECTIONS = [
   { id: "popular_all", title: "Popular All-Time", sort: "popular" },
 ] as const;
 
-type TagDefinition = { id: string; label: string };
-const popularTags: TagDefinition[] = (
-  tagsData as { popularTags: TagDefinition[] }
-).popularTags;
+type TagDefinition = { id: string; label: string; count: string };
 
 const IMAGE_TYPE_MAP: Record<string, string> = {
   j: "jpg",
@@ -155,10 +150,20 @@ export class NHentaiExtension implements NHentaiImplementation {
     bufferInterval: 1,
     ignoreImages: true,
   });
+  private popularTagsCache?: TagDefinition[];
+  private popularTagsFetch?: Promise<TagDefinition[]>;
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+  }
+
+  // Static accessor for settings form
+  getPopularTagsForSettings(): TagDefinition[] {
+    if (this.popularTagsCache == null) {
+      this.popularTagsFetch = this.getPopularTags();
+    }
+    return this.popularTagsCache ?? [];
   }
 
   async getSettingsForm(): Promise<Form> {
@@ -184,7 +189,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     section: DiscoverSection,
     metadata: PaginationMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
+    const initialPage = metadata?.page ?? 1;
     const sortKey =
       section.id === "new_uploads"
         ? "date"
@@ -192,17 +197,39 @@ export class NHentaiExtension implements NHentaiImplementation {
           "popular");
 
     const query = this.buildQueryString();
-    const response = await this.fetchSearch(query, page, sortKey);
-    let galleries = response.result ?? [];
-    if (getHideReadSetting()) {
-      galleries = galleries.filter((g) => !isMangaRead(g.id.toString()));
+    const hideRead = getHideReadSetting();
+    const readCache = hideRead ? getReadCache() : null;
+
+    let currentPage = initialPage;
+    let safetyCounter = 0;
+    let response: QueryResponse | undefined;
+    let items: DiscoverSectionItem[] = [];
+
+    while (safetyCounter < 50) {
+      response = await this.fetchSearch(query, currentPage, sortKey);
+      const galleries = response.result ?? [];
+      const filtered =
+        hideRead && readCache
+          ? galleries.filter((g) => !readCache.has(g.id.toString()))
+          : galleries;
+
+      items = filtered.map((gallery) => this.mapGalleryToDiscoverItem(gallery));
+
+      const reachedEnd = currentPage >= response.num_pages;
+      if (items.length > 0 || reachedEnd) {
+        break;
+      }
+
+      currentPage += 1;
+      safetyCounter += 1;
     }
-    const items = galleries.map((gallery) => this.mapGalleryToDiscoverItem(gallery));
-    const hasNextPage = page < response.num_pages;
+
+    const hasNextPage =
+      response !== undefined && currentPage < response.num_pages;
 
     return {
       items,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      metadata: hasNextPage ? { page: currentPage + 1 } : undefined,
     };
   }
 
@@ -233,7 +260,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       })),
     });
 
-    // Popular Tags - Include
+    const popularTags = await this.getPopularTags();
     filters.push({
       id: "tags",
       type: "multiselect",
@@ -243,8 +270,8 @@ export class NHentaiExtension implements NHentaiImplementation {
         id: tag.id,
         value: tag.label,
       })),
-        allowExclusion: true,
-        allowEmptySelection: true,
+      allowExclusion: true,
+      allowEmptySelection: true,
         maximum: undefined
     });
 
@@ -263,7 +290,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     metadata: PaginationMetadata | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
-    const page = metadata?.page ?? 1;
+    let currentPage = metadata?.page ?? 1;
     const trimmedTitle = query.title?.trim() ?? "";
 
     if (trimmedTitle && /^\d+$/.test(trimmedTitle)) {
@@ -324,43 +351,74 @@ export class NHentaiExtension implements NHentaiImplementation {
       ...this.buildTagTokens(excludedTags, true),
     ];
     const sortOrder = this.resolveSortOrder(query, sortingOption);
-    const searchQuery = this.buildQueryString(
-      trimmedTitle,
-      [...filterTokens, ...tagTokens]
-    );
+    const searchQuery = this.buildQueryString(trimmedTitle, [
+      ...filterTokens,
+      ...tagTokens,
+    ]);
+    const hideRead = getHideReadSetting();
+    const readCache = hideRead ? getReadCache() : null;
+
     let response: QueryResponse | undefined;
-    try {
-      response = await this.fetchSearch(searchQuery, page, sortOrder);
-    } catch (e) {
-      // Network or interceptor error during fetch; return an empty page instead of propagating to the app
-      if (e instanceof Error) {
-        console.error("Search fetch aborted or failed:", e.message, e);
-      } else {
-        console.error("Search fetch aborted or failed:", e);
+    let items: SearchResultItem[] = [];
+    let safetyCounter = 0;
+
+    while (safetyCounter < 50) {
+      try {
+        response = await this.fetchSearch(searchQuery, currentPage, sortOrder);
+      } catch (e) {
+        // Network or interceptor error during fetch; return an empty page instead of propagating to the app
+        if (e instanceof Error) {
+          console.error("Search fetch aborted or failed:", e.message, e);
+        } else {
+          console.error("Search fetch aborted or failed:", e);
+        }
+        return { items: [], metadata: undefined };
       }
+
+      if (!response || !response.result) {
+        console.warn("Search returned null/undefined response");
+        return { items: [], metadata: undefined };
+      }
+
+      const galleries = response.result;
+
+      const filteredForFavorites = favoritesConstraint
+        ? galleries.filter((g) => {
+            if (favoritesConstraint.type === "min") {
+              return g.num_favorites >= favoritesConstraint.value;
+            }
+            return g.num_favorites <= favoritesConstraint.value;
+          })
+        : galleries;
+
+      const filteredForRead =
+        hideRead && readCache
+          ? filteredForFavorites.filter((g) => !readCache.has(g.id.toString()))
+          : filteredForFavorites;
+
+      items = filteredForRead.map((gallery) =>
+        this.mapGalleryToSearchResult(gallery),
+      );
+
+      const reachedEnd = currentPage >= response.num_pages;
+      const rawResultsEmpty = galleries.length === 0;
+      if (items.length > 0 || reachedEnd || rawResultsEmpty) {
+        break;
+      }
+
+      currentPage += 1;
+      safetyCounter += 1;
+    }
+
+    if (!response) {
       return { items: [], metadata: undefined };
     }
 
-    const galleries = response?.result ?? [];
-
-    // Apply optional client-side favorites filtering if the API doesn't support the specific threshold
-    const filteredGalleries = favoritesConstraint
-      ? galleries.filter((g) => {
-          if (favoritesConstraint.type === "min")
-            return g.num_favorites >= favoritesConstraint.value;
-          return g.num_favorites <= favoritesConstraint.value;
-        })
-      : galleries;
-
-    let items = filteredGalleries.map((gallery) => this.mapGalleryToSearchResult(gallery));
-    if (getHideReadSetting()) {
-      items = items.filter((item) => !isMangaRead(item.mangaId));
-    }
-    const hasNextPage = page < response.num_pages;
+    const hasNextPage = currentPage < response.num_pages;
 
     return {
       items,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      metadata: hasNextPage ? { page: currentPage + 1 } : undefined,
     };
   }
 
@@ -457,10 +515,14 @@ export class NHentaiExtension implements NHentaiImplementation {
     return this.fetchJson<Gallery>(request);
   }
 
-  private async fetchJson<T>(request: Request): Promise<T> {
+  private async fetchText(request: Request): Promise<string> {
     const [response, data] = await Application.scheduleRequest(request);
     this.checkCloudflareStatus(response.status);
-    const text = Application.arrayBufferToUTF8String(data);
+    return Application.arrayBufferToUTF8String(data);
+  }
+
+  private async fetchJson<T>(request: Request): Promise<T> {
+    const text = await this.fetchText(request);
     const parsed = JSON.parse(text) as T & { error?: string };
 
     if (
@@ -473,6 +535,112 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
 
     return parsed;
+  }
+
+  private async getPopularTags(): Promise<TagDefinition[]> {
+    if (this.popularTagsCache) {
+      return this.popularTagsCache;
+    }
+
+    if (!this.popularTagsFetch) {
+      this.popularTagsFetch = this.fetchPopularTagsFromRemote()
+        .then((tags) => {
+          if (tags.length > 0) {
+            this.popularTagsCache = tags;
+          }
+          return tags;
+        })
+        .catch((error) => {
+          console.error("Failed to fetch NHentai popular tags", error);
+          return [];
+        })
+        .finally(() => {
+          this.popularTagsFetch = undefined;
+        });
+    }
+
+    return this.popularTagsFetch;
+  }
+
+  private async fetchPopularTagsFromRemote(): Promise<TagDefinition[]> {
+    const url = `${BASE_URL}/tags/popular?page=`;
+    let html: string;
+    const fetchedTagsAndCount: TagDefinition[] = [];
+    for (let page = 1; page < 5; page++) {
+      try {
+        html = await this.fetchText({
+          url: `${url}${page}`,
+          method: "GET",
+        });
+        fetchedTagsAndCount.push(...this.parsePopularTagsFromHtml(html));
+      } catch (error) {
+        console.error("Unable to load NHentai popular tags", error);
+        return [];
+      }
+    }
+    return fetchedTagsAndCount;
+  }
+
+  private parsePopularTagsFromHtml(html: string): TagDefinition[] {
+    const tags: TagDefinition[] = [];
+    const seen = new Set<string>();
+
+    // Extract the tag-container section
+    const containerMatch = html.match(
+      /<div[^>]+id="tag-container"[^>]*>([\s\S]*?)<\/div>\s*<section[^>]*class="pagination"/i,
+    );
+    const containerHtml = containerMatch ? containerMatch[1] : html;
+
+    // Match tag links: <a href="/tag/slug/" class="tag ..."><span class="name">Label</span><span class="count">200K</span></a>
+    const tagPattern =
+      /<a[^>]+href="\/tag\/([^/"]+)\/"[^>]*>\s*<span[^>]*class="name"[^>]*>([^<]+)<\/span>\s*<span[^>]*class="count"[^>]*>([^<]+)<\/span>/gi;
+
+    let match: RegExpExecArray | null;
+    while ((match = tagPattern.exec(containerHtml)) !== null) {
+      const slug = match[1]?.toLowerCase();
+      const rawLabel = match[2]?.trim();
+      const count = match[3]?.trim() ?? "0";
+      if (!slug || !rawLabel || seen.has(slug)) {
+        continue;
+      }
+
+      const label =
+        this.decodeHtmlEntities(rawLabel) +
+        " - (" +
+        this.decodeHtmlEntities(count) +
+        ")";
+      if (label.length === 0) {
+        continue;
+      }
+
+      tags.push({ id: slug, label, count });
+      seen.add(slug);
+    }
+
+    return tags;
+  }
+
+  private decodeHtmlEntities(value: string): string {
+    const named = value
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ");
+
+    const hexReplaced = named.replace(
+      /&#x([0-9a-fA-F]+);/g,
+      (_, hex: string) => {
+        const codePoint = parseInt(hex, 16);
+        return Number.isNaN(codePoint) ? "" : String.fromCodePoint(codePoint);
+      },
+    );
+
+    return hexReplaced.replace(/&#(\d+);/g, (_, dec: string) => {
+      const codePoint = parseInt(dec, 10);
+      return Number.isNaN(codePoint) ? "" : String.fromCodePoint(codePoint);
+    });
   }
 
   private buildQueryString(
@@ -503,7 +671,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       .filter((segment) => segment.length > 0)
       .join(" ")
       .trim();
-    
+
     return combined.length > 0 ? combined : EMPTY_QUERY;
   }
 
@@ -644,7 +812,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
     const prefix = excluded ? "-" : "";
     const escapeTagValue = (value: string): string =>
-      value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     return tags
       .map((tag) => {
         const tagId = tag.id?.trim();
@@ -721,6 +889,18 @@ export class NHentaiExtension implements NHentaiImplementation {
         (section) => section.tags.length > 0,
       ),
     );
+
+    // Add ID section at the end with the 6-digit gallery ID
+    sections.push({
+      id: "id",
+      title: "ID",
+      tags: [
+        {
+          id: gallery.id.toString(),
+          title: gallery.id.toString(),
+        },
+      ],
+    });
 
     return sections;
   }

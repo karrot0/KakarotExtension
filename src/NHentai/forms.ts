@@ -30,8 +30,8 @@ export class SettingsForm extends Form {
   }
 
   async updateExtraArguments(value: string): Promise<void> {
-    this.extraArguments = value;
-    setExtraArgumentsSetting(value);
+    this.extraArguments = value ?? "";
+    setExtraArgumentsSetting(this.extraArguments);
   }
 
   async updateHideRead(value: string[]): Promise<void> {
@@ -83,7 +83,7 @@ export class SettingsForm extends Form {
           ),
         }),
         InputRow("extraArguments", {
-          title: "Arguments",
+          title: "Additional Arguments (-tag excludes)",
           value: this.extraArguments,
           onValueChange: Application.Selector(
             this as SettingsForm,
