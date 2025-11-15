@@ -507,17 +507,19 @@ export class BatcaveExtension implements BatcaveImplementation {
     const collectedIds = metadata?.collectedIds ?? [];
 
     const request = {
-      url: baseUrl,
+      url: page > 1 ? `${baseUrl}/page/${page}/` : `${baseUrl}/`,
       method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-    $(".sect--latest .latest.grid-item").each((_, element) => {
+    // Use the content container's id so we only target the current list
+    $("#content-load .latest.grid-item").each((_, element) => {
       const unit = $(element);
+      // Target the anchor inside .latest__title to keep inner icons out of the title text
       const title = unit
-        .find(".latest__title")
+        .find(".latest__title a")
         .clone()
         .children()
         .remove()
@@ -528,7 +530,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const image = rawImage.startsWith("/")
         ? `https://batcave.biz${rawImage}`
         : rawImage;
-      const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
+      // Grab the href from the title anchor rather than using closest()
+      const rawMangaId = unit.find(".latest__title a").attr("href");
       const mangaId = rawMangaId
         ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
         .replace(/\.html$/, "") // Remove the ".html" extension
