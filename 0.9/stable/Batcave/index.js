@@ -17315,17 +17315,17 @@ var source = (() => {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
       const request = {
-        url: baseUrl,
+        url: page > 1 ? `${baseUrl}/page/${page}/` : `${baseUrl}/`,
         method: "GET"
       };
       const $2 = await this.fetchCheerio(request);
       const items = [];
-      $2(".sect--latest .latest.grid-item").each((_, element) => {
+      $2("#content-load .latest.grid-item").each((_, element) => {
         const unit = $2(element);
-        const title = unit.find(".latest__title").clone().children().remove().end().text().trim();
+        const title = unit.find(".latest__title a").clone().children().remove().end().text().trim();
         const rawImage = unit.find(".latest__img img").attr("src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
-        const rawMangaId = unit.find(".latest__title").closest("a").attr("href");
+        const rawMangaId = unit.find(".latest__title a").attr("href");
         const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
         const latestChapter = unit.find(".latest__chapter a").text().trim();
         if (title && mangaId && !collectedIds.includes(mangaId)) {
