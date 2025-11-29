@@ -2,6 +2,9 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
+  Cookie,
+  CloudflareBypassRequestProviding,
+  CookieStorageInterceptor,
   CloudflareError,
   ContentRating,
   DiscoverSection,
@@ -32,13 +35,18 @@ type BatcaveImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
+  CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
 export class BatcaveExtension implements BatcaveImplementation {
   requestManager = new CaveInterceptor("main");
+  cookieStorageInterceptor = new CookieStorageInterceptor({
+    storage: "stateManager",
+  });
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
+    this.cookieStorageInterceptor.registerInterceptor();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -718,9 +726,26 @@ export class BatcaveExtension implements BatcaveImplementation {
     return `${baseUrl}/${mangaId}`;
   }
 
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    for (const cookie of cookies) {
+      this.cookieStorageInterceptor.deleteCookie(cookie);
+    }
+  
+    for (const cookie of cookies) {
+      this.cookieStorageInterceptor.setCookie(cookie);
+    }
+  }
+
   checkCloudflareStatus(status: number): void {
     if (status === 503 || status === 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
+      throw new CloudflareError({
+        url: baseUrl,
+        method: "GET",
+        headers: {
+          referer: baseUrl,
+          origin: baseUrl,
+        },
+      } as Request);
     }
   }
 

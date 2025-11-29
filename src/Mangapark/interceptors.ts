@@ -6,6 +6,7 @@ export class Interceptor extends PaperbackInterceptor {
       ...request.headers,
       referer: `https://mangapark.io/`,
       "user-agent": await Application.getDefaultUserAgent(),
+      cookie: "nsfw=2",
     };
     return request;
   }
