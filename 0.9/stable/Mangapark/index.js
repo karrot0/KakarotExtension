@@ -17382,7 +17382,8 @@ var source = (() => {
       request.headers = {
         ...request.headers,
         referer: `https://mangapark.io/`,
-        "user-agent": await Application.getDefaultUserAgent()
+        "user-agent": await Application.getDefaultUserAgent(),
+        cookie: "nsfw=2"
       };
       return request;
     }
