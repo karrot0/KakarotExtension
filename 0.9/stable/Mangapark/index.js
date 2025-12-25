@@ -17379,11 +17379,12 @@ var source = (() => {
   var import_types3 = __toESM(require_lib(), 1);
   var Interceptor = class extends import_types3.PaperbackInterceptor {
     async interceptRequest(request) {
-      const url = new URL(request.url);
+      const match = request.url.match(/^(https?:\/\/[^\/]+)/);
+      const origin = match ? match[1] : "https://mangapark.io";
       request.headers = {
         ...request.headers,
-        referer: `${url.protocol}//${url.host}/`,
-        origin: `${url.protocol}//${url.host}`,
+        referer: `${origin}/`,
+        origin,
         "user-agent": await Application.getDefaultUserAgent(),
         cookie: "nsfw=2"
       };
