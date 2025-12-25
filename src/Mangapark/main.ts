@@ -598,7 +598,7 @@ export class MangaparkExtension implements MangaparkImplementation {
     $('script[type="qwik/json"]').each((_, script) => {
       const scriptContent = $(script).text();
       if (scriptContent) {
-        const urlRegex = /https?:\/\/[^"'()\s]*\.org\/media\/[^\s"'()]+/g;
+        const urlRegex = /https?:\/\/[^"'()\s]+\/media\/[^\s"'()]+/g;
         const matches = scriptContent.match(urlRegex);
         if (matches) {
           pages.push(...matches);

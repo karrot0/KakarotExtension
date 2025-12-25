@@ -3,7 +3,7 @@ import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Mangapark",
   description: "Extension that pulls content from mangapark.net.",
-  version: "1.0.0-alpha.4",
+  version: "1.0.0-alpha.6",
   icon: "icon.png",
   language: "multi",
   contentRating: ContentRating.EVERYONE,
