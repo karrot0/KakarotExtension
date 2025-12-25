@@ -17379,12 +17379,9 @@ var source = (() => {
   var import_types3 = __toESM(require_lib(), 1);
   var Interceptor = class extends import_types3.PaperbackInterceptor {
     async interceptRequest(request) {
-      const match = request.url.match(/^(https?:\/\/[^\/]+)/);
-      const origin = match ? match[1] : "https://mangapark.io";
       request.headers = {
         ...request.headers,
-        referer: `${origin}/`,
-        origin,
+        referer: `https://mangapark.io/`,
         "user-agent": await Application.getDefaultUserAgent(),
         cookie: "nsfw=2"
       };
