@@ -28,6 +28,7 @@ import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
 import { ElftoonInterceptor } from "./interceptors";
 import { ElftoonMetadata } from "./model";
+import { error } from "console";
 
 const baseUrl = "https://elftoon.com/";
 
@@ -446,71 +447,38 @@ export class ElftoonExtension implements ElftoonImplementation {
       method: "GET",
     };
 
-    // console.log(`[Elftoon][chapter] url=${chapterUrl} mangaId=${chapter.sourceManga.mangaId} chapterId=${chapter.chapterId}`);
     const [, htmlData] = await Application.scheduleRequest(request);
     const htmlStr = Application.arrayBufferToUTF8String(htmlData);
     const pages: string[] = [];
 
-    // Search for ts_reader.run in the entire HTML content
-    const readerMatch = htmlStr.match(/ts_reader\.run\((\{.*?\})\);/s);
+    const readerScriptRegex = /ts_reader\.run\((\{[\s\S]*?\})\);<\/script>/;
+    const readerMatch = htmlStr.match(readerScriptRegex);
     if (readerMatch) {
-      // console.log(`[Elftoon][chapter] found ts_reader.run, parsing JSON`);
       try {
-        const readerData: unknown = JSON.parse(readerMatch[1]);
+      const readerData = JSON.parse(readerMatch[1]) as {
+        sources?: Array<{ source?: string; images?: string[] }>;
+      };
 
+      readerData.sources?.forEach(source => {
+        source.images?.forEach(imageUrl => {
         if (
-          typeof readerData === "object" &&
-          readerData !== null &&
-          "sources" in readerData &&
-          Array.isArray(readerData.sources)
+          typeof imageUrl === "string" &&
+          imageUrl.startsWith("http") &&
+          !imageUrl.includes("readerarea.svg")
         ) {
-          for (const source of readerData.sources) {
-            if (
-              typeof source === "object" &&
-              source !== null &&
-              "images" in source
-            ) {
-              const sourceObj = source as Record<string, unknown>;
-              if (Array.isArray(sourceObj.images)) {
-                for (const imageUrl of sourceObj.images) {
-                  if (
-                    typeof imageUrl === "string" &&
-                    imageUrl.startsWith("http") &&
-                    !imageUrl.includes("readerarea.svg")
-                  ) {
-                    pages.push(imageUrl);
-                  }
-                }
-              }
-            }
-          }
+          pages.push(imageUrl);
         }
+        });
+      });
       } catch {
-        // console.log(`[Elftoon][chapter] JSON parse failed, trying regex fallback`);
-        const imageMatches = htmlStr.match(
-          /"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi,
-        );
-        if (imageMatches) {
-          for (const match of imageMatches) {
-            const imageUrl = match.replace(/"/g, "");
-            if (
-              !imageUrl.includes("readerarea.svg") &&
-              !pages.includes(imageUrl)
-            ) {
-              pages.push(imageUrl);
-            }
-          }
-        }
+      throw new Error("Failed to parse chapter image data");
       }
     }
-
-    const uniquePages = [...new Set(pages)];
-    // console.log(`[Elftoon][chapter] extracted ${uniquePages.length} unique pages`);
 
     return {
       id: chapter.chapterId,
       mangaId: chapter.sourceManga.mangaId,
-      pages: uniquePages,
+      pages: [...new Set(pages)],
     };
   }
 
