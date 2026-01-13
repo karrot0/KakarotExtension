@@ -17086,7 +17086,8 @@ var source = (() => {
         const unit = $2(element);
         const infoLink = unit.find(".readed__title a");
         const title = infoLink.text().trim();
-        const rawImage = unit.find("img").attr("data-src") || "";
+        const imgEl = unit.find(".readed__img img");
+        const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
         const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
@@ -17239,7 +17240,7 @@ var source = (() => {
     async getCatalogueSectionItems(section, metadata) {
       const page = metadata?.page ?? 1;
       const collectedIds = metadata?.collectedIds ?? [];
-      const urlBuilder = new URLBuilder(baseUrl).addPath("comix");
+      const urlBuilder = new URLBuilder(baseUrl).addPath("comix/");
       if (page > 1) {
         urlBuilder.addPath("page").addPath(page.toString());
       }
@@ -17253,7 +17254,8 @@ var source = (() => {
         const unit = $2(element);
         const infoLink = unit.find(".readed__title a");
         const title = infoLink.text().trim();
-        const rawImage = unit.find("img").attr("data-src") || "";
+        const imgEl = unit.find(".readed__img img");
+        const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
         const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
@@ -17451,7 +17453,8 @@ var source = (() => {
         const unit = $2(element);
         const infoLink = unit.find(".readed__title a");
         const title = infoLink.text().trim();
-        const rawImage = unit.find("img").attr("data-src") || "";
+        const imgEl = unit.find(".readed__img img");
+        const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
         const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
         const rawMangaId = infoLink.attr("href");
         const mangaId = rawMangaId?.replace(/^https?:\/\/batcave\.biz\//, "").replace(/\.html$/, "").trim();
@@ -17487,8 +17490,10 @@ var source = (() => {
         this.cookieStorageInterceptor.setCookie(cookie);
       }
     }
-    checkCloudflareStatus(status) {
-      if (status === 503 || status === 403) {
+    async fetchCheerio(request) {
+      const [response, data2] = await Application.scheduleRequest(request);
+      const html3 = Application.arrayBufferToUTF8String(data2);
+      if (response.status === 503 || response.status === 403 || html3.includes("/_v") || html3.includes("window.performance") && html3.includes("crypto.subtle")) {
         throw new import_types3.CloudflareError({
           url: baseUrl,
           method: "GET",
@@ -17498,11 +17503,7 @@ var source = (() => {
           }
         });
       }
-    }
-    async fetchCheerio(request) {
-      const [response, data2] = await Application.scheduleRequest(request);
-      this.checkCloudflareStatus(response.status);
-      return load(Application.arrayBufferToUTF8String(data2));
+      return load(html3);
     }
   };
   function createDiscoverSectionItem(options) {
