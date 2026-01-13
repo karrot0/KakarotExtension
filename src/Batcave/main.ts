@@ -163,7 +163,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const unit = $(element);
       const infoLink = unit.find(".readed__title a");
       const title = infoLink.text().trim();
-      const rawImage = unit.find("img").attr("data-src") || "";
+      const imgEl = unit.find(".readed__img img");
+      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
       const image = rawImage.startsWith("/")
         ? `https://batcave.biz${rawImage}`
         : rawImage;
@@ -397,7 +398,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
-    const urlBuilder = new URLBuilder(baseUrl).addPath("comix");
+    const urlBuilder = new URLBuilder(baseUrl).addPath("comix/");
 
     if (page > 1) {
       urlBuilder.addPath("page").addPath(page.toString());
@@ -415,7 +416,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const unit = $(element);
       const infoLink = unit.find(".readed__title a");
       const title = infoLink.text().trim();
-      const rawImage = unit.find("img").attr("data-src") || "";
+      const imgEl = unit.find(".readed__img img");
+      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
       const image = rawImage.startsWith("/")
         ? `https://batcave.biz${rawImage}`
         : rawImage;
@@ -679,7 +681,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const unit = $(element);
       const infoLink = unit.find(".readed__title a");
       const title = infoLink.text().trim();
-      const rawImage = unit.find("img").attr("data-src") || "";
+      const imgEl = unit.find(".readed__img img");
+      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
       const image = rawImage.startsWith("/")
         ? `https://batcave.biz${rawImage}`
         : rawImage;
@@ -736,8 +739,16 @@ export class BatcaveExtension implements BatcaveImplementation {
     }
   }
 
-  checkCloudflareStatus(status: number): void {
-    if (status === 503 || status === 403) {
+  async fetchCheerio(request: Request): Promise<CheerioAPI> {
+    const [response, data] = await Application.scheduleRequest(request);
+    const html = Application.arrayBufferToUTF8String(data);
+    
+    if (
+      response.status === 503 ||
+      response.status === 403 ||
+      html.includes("/_v") ||
+      (html.includes("window.performance") && html.includes("crypto.subtle"))
+    ) {
       throw new CloudflareError({
         url: baseUrl,
         method: "GET",
@@ -747,12 +758,8 @@ export class BatcaveExtension implements BatcaveImplementation {
         },
       } as Request);
     }
-  }
-
-  async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus(response.status);
-    return cheerio.load(Application.arrayBufferToUTF8String(data));
+    
+    return cheerio.load(html);
   }
 }
 
