@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-01-13T14:18:37.029Z",
+  "buildTime": "2026-01-13T14:35:57.408Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.52",
     "types": "1.0.0-alpha.52"
@@ -72,7 +72,7 @@
     {
       "name": "Elftoon",
       "description": "Extension that pulls content from elftoon.com (Cloudflare protected).",
-      "version": "1.0.0-alpha.2",
+      "version": "1.0.0-alpha.3",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",

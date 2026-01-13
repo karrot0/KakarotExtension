@@ -17301,43 +17301,26 @@ var source = (() => {
       const [, htmlData] = await Application.scheduleRequest(request);
       const htmlStr = Application.arrayBufferToUTF8String(htmlData);
       const pages = [];
-      const readerMatch = htmlStr.match(/ts_reader\.run\((\{.*?\})\);/s);
+      const readerScriptRegex = /ts_reader\.run\((\{[\s\S]*?\})\);<\/script>/;
+      const readerMatch = htmlStr.match(readerScriptRegex);
       if (readerMatch) {
         try {
           const readerData = JSON.parse(readerMatch[1]);
-          if (typeof readerData === "object" && readerData !== null && "sources" in readerData && Array.isArray(readerData.sources)) {
-            for (const source of readerData.sources) {
-              if (typeof source === "object" && source !== null && "images" in source) {
-                const sourceObj = source;
-                if (Array.isArray(sourceObj.images)) {
-                  for (const imageUrl of sourceObj.images) {
-                    if (typeof imageUrl === "string" && imageUrl.startsWith("http") && !imageUrl.includes("readerarea.svg")) {
-                      pages.push(imageUrl);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch {
-          const imageMatches = htmlStr.match(
-            /"(https:\/\/[^"]*\/wp-content\/uploads\/[^"]*\.(webp|jpg|jpeg|png))"/gi
-          );
-          if (imageMatches) {
-            for (const match of imageMatches) {
-              const imageUrl = match.replace(/"/g, "");
-              if (!imageUrl.includes("readerarea.svg") && !pages.includes(imageUrl)) {
+          readerData.sources?.forEach((source) => {
+            source.images?.forEach((imageUrl) => {
+              if (typeof imageUrl === "string" && imageUrl.startsWith("http") && !imageUrl.includes("readerarea.svg")) {
                 pages.push(imageUrl);
               }
-            }
-          }
+            });
+          });
+        } catch {
+          throw new Error("Failed to parse chapter image data");
         }
       }
-      const uniquePages = [...new Set(pages)];
       return {
         id: chapter.chapterId,
         mangaId: chapter.sourceManga.mangaId,
-        pages: uniquePages
+        pages: [...new Set(pages)]
       };
     }
     getMangaShareUrl(mangaId) {
