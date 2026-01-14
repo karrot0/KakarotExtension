@@ -1,8 +1,8 @@
 {
-  "buildTime": "2026-01-13T14:35:57.408Z",
+  "buildTime": "2026-01-14T19:58:05.875Z",
   "builtWith": {
-    "toolchain": "1.0.0-alpha.52",
-    "types": "1.0.0-alpha.52"
+    "toolchain": "1.0.0-alpha.57",
+    "types": "1.0.0-alpha.57"
   },
   "repository": {
     "name": "KakarotExtension",
@@ -58,9 +58,9 @@
       ],
       "capabilities": [
         4,
-        16,
         64,
-        1
+        1,
+        16
       ],
       "developers": [
         {
@@ -100,8 +100,7 @@
       "capabilities": [
         4,
         64,
-        1,
-        32
+        1
       ],
       "badges": [],
       "developers": [
@@ -208,7 +207,7 @@
     {
       "name": "Mangapark",
       "description": "Extension that pulls content from mangapark.net.",
-      "version": "1.0.0-alpha.6",
+      "version": "1.0.0-alpha.7",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "SAFE",
