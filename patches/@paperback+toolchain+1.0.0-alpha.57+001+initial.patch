@@ -1,0 +1,32 @@
+diff --git a/node_modules/@paperback/toolchain/lib/commands/bundle.js b/node_modules/@paperback/toolchain/lib/commands/bundle.js
+index afce6a8..565c305 100644
+--- a/node_modules/@paperback/toolchain/lib/commands/bundle.js
++++ b/node_modules/@paperback/toolchain/lib/commands/bundle.js
+@@ -3,6 +3,7 @@ import { Listr, color } from 'listr2';
+ import esbuild from 'esbuild';
+ import fs from 'fs-extra';
+ import path from 'path';
++import { pathToFileURL } from 'url';
+ export default class Bundle extends Command {
+     static description = 'Builds all the sources in the repository and generates a versioning file';
+     static flags = {
+@@ -145,8 +146,8 @@ export async function runTests() {
+         const cliInfo = await import('../../package.json', {
+             with: { type: 'json' },
+         });
+-        const commonsInfo = await import(path.join(basePath, 'node_modules/@paperback/types/package.json'), { with: { type: 'json' } });
+-        const projectInfo = await import(path.join(basePath, 'package.json'), {
++        const commonsInfo = await import(pathToFileURL(path.join(basePath, 'node_modules/@paperback/types/package.json')).href, { with: { type: 'json' } });
++        const projectInfo = await import(pathToFileURL(path.join(basePath, 'package.json')).href, {
+             with: { type: 'json' },
+         });
+         const jsonObject = {
+@@ -168,7 +169,7 @@ export async function runTests() {
+             const directoryContainsExtensionDefinition = fs.existsSync(infoJsonPath);
+             if (!directoryContainsExtensionDefinition)
+                 continue;
+-            const infoModule = await import(`file://${infoJsonPath}`, {
++            const infoModule = await import(pathToFileURL(infoJsonPath).href, {
+                 with: { type: 'json' },
+             });
+             jsonObject.sources.push(infoModule.default);

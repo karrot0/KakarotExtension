@@ -15,10 +15,10 @@ export default {
     { label: "Manhua", textColor: "#FFFFFF", backgroundColor: "#C71585" },
   ],
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS,
-    SourceIntents.MANGA_SEARCH,
-    SourceIntents.MANGA_CHAPTERS,
-    SourceIntents.CLOUDFLARE_BYPASS_REQUIRED,
+    SourceIntents.DISCOVER_SECIONS_PROVIDING,
+    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.CHAPTER_PROVIDING,
+    SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],
   developers: [
     {

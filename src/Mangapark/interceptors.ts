@@ -4,7 +4,7 @@ export class Interceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     request.headers = {
       ...request.headers,
-      referer: `https://mangapark.io/`,
+      referer: `https://mpark.to/`,
       "user-agent": await Application.getDefaultUserAgent(),
       cookie: "nsfw=2",
     };

@@ -38,7 +38,7 @@ import {
 import { Interceptor } from "./interceptors";
 import { metadata, SearchDetails, STATIC_SEARCH_DETAILS } from "./model";
 
-const baseUrl = "https://mangapark.io/";
+const baseUrl = "https://mpark.to/";
 
 type MangaparkImplementation = Extension &
   SearchResultsProviding &
@@ -601,7 +601,10 @@ export class MangaparkExtension implements MangaparkImplementation {
         const urlRegex = /https?:\/\/[^"'()\s]+\/media\/[^\s"'()]+/g;
         const matches = scriptContent.match(urlRegex);
         if (matches) {
-          pages.push(...matches);
+          const newUrls = matches.map((url) =>
+            url.replace(/https?:\/\/[^/]+/, "https://mpark.to"),
+          );
+          pages.push(...newUrls);
         }
       }
     });

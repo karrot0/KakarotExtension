@@ -28,7 +28,6 @@ import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
 import { ElftoonInterceptor } from "./interceptors";
 import { ElftoonMetadata } from "./model";
-import { error } from "console";
 
 const baseUrl = "https://elftoon.com/";
 

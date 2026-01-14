@@ -8,9 +8,9 @@ export default {
   language: "English",
   contentRating: ContentRating.EVERYONE,
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS,
-    SourceIntents.MANGA_SEARCH,
-    SourceIntents.MANGA_CHAPTERS,
+    SourceIntents.DISCOVER_SECIONS_PROVIDING,
+    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.CHAPTER_PROVIDING,
   ],
   badges: [],
   developers: [

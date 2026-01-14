@@ -8,10 +8,10 @@ export default {
   language: "multi",
   contentRating: ContentRating.ADULT,
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS,
-    SourceIntents.MANGA_SEARCH,
-    SourceIntents.MANGA_CHAPTERS,
-    SourceIntents.SETTINGS_UI,
+    SourceIntents.DISCOVER_SECIONS_PROVIDING,
+    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.CHAPTER_PROVIDING,
+    SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
   badges: [],
   developers: [
