@@ -435,7 +435,14 @@ export class MangaballExtension implements MangaballImplementation {
       const response = JSON.parse(jsonStr) as SearchAPIResponse;
       const searchResults: SearchResultItem[] = [];
       for (const raw of response.data ?? []) {
-        const mangaId = raw.url.replace("https://mangaball.net/title-detail/", "").replace(/\/$/, "");
+        let mangaId = raw.url;
+        const idMatch = raw.url.match(/\/title-detail\/([^\/?#]+)/);
+        if (idMatch) {
+            mangaId = idMatch[1];
+        } else {
+             mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
+        }
+
         console.log("Computed mangaId:", mangaId);
         collectedIds.push(mangaId);
 
@@ -483,13 +490,32 @@ export class MangaballExtension implements MangaballImplementation {
           }
         }
 
-          console.log(raw.updated_at)
+
+        // Extract chapter text from last_chapter HTML
+        let latestChapter = "";
+        if (raw.last_chapter) {
+            try {
+                const $lc = cheerio.load(String(raw.last_chapter));
+                latestChapter = $lc("a").first().text().trim();
+                // Fallback: if no anchor found, just take the text
+                if (!latestChapter) {
+                    latestChapter = $lc.root().text().trim();
+                }
+            } catch {
+                 latestChapter = String(raw.last_chapter).replace(/<[^>]*>?/gm, '').trim();
+            }
+        }
+        
+        let subtitle = toRelativeTime(raw.updated_at);
+        if (latestChapter) {
+            subtitle = `${latestChapter} | ${subtitle}`;
+        }
 
           searchResults.push({
             mangaId: mangaId,
             imageUrl: String(raw.cover || raw.background || ""),
             title: String(raw.name || ""),
-            subtitle: toRelativeTime(raw.updated_at),
+            subtitle: subtitle,
             metadata: {
               chapterId: raw.last_chapter || undefined,
               altTitles,
@@ -524,7 +550,7 @@ export class MangaballExtension implements MangaballImplementation {
     const $ = await this.fetchCheerio(request);
 
     // Title
-    const title = $(".comic-title").first().text().trim();
+    const title = $("#comicDetail h6").first().text().trim();
 
     // Alternate names
     const altTitles: string[] = [];

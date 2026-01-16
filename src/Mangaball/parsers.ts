@@ -2,6 +2,12 @@ import { DiscoverSectionItem } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { APIItem } from "./model";
 
+export interface ParseOptions {
+    itemType?: "featuredCarouselItem" | "chapterUpdatesCarouselItem";
+    extractChapterInfo?: boolean;
+    customSubtitleExtractor?: (raw: APIItem) => string;
+}
+
 export function parseApiItemsToDiscoverItems(
   apiItems: APIItem[],
   collectedIds?: string[],
@@ -13,7 +19,21 @@ export function parseApiItemsToDiscoverItems(
 
   for (const raw of apiItems || []) {
     // Extract mangaId using the centralized logic
-    const mangaId = raw.url.replace("https://mangaball.net/title-detail/", "").replace(/\/$/, "");
+    // Robust mangaId extraction handling http/https and trailing slashes
+    let mangaId = raw.url;
+    const idMatch = raw.url.match(/\/title-detail\/([^\/?#]+)/);
+    if (idMatch) {
+            mangaId = idMatch[1];
+    } else {
+             // Fallback for unexpected URL formats
+             mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
+    }
+
+    // Explicit safety check: ensure mangaId is not a URL
+    if (mangaId.includes("/")) {
+       const parts = mangaId.split("/").filter(Boolean);
+       mangaId = parts[parts.length - 1];
+    }
 
     if (!mangaId || seen.has(mangaId)) continue;
     seen.add(mangaId);
