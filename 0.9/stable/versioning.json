@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-01-14T19:58:05.875Z",
+  "buildTime": "2026-01-16T21:35:24.421Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.57",
     "types": "1.0.0-alpha.57"
@@ -137,7 +137,7 @@
     {
       "name": "Mangaball",
       "description": "Extension that pulls content from mangaball.net.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "ADULT",
