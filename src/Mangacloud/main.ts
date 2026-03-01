@@ -142,9 +142,7 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   async getSortingOptions(): Promise<SortingOption[]> {
-    return [{ id: "", value: "", label: "" }].concat(
-      SortOptions.map((s) => ({ id: s.id, value: s.name, label: s.name }))
-    );
+    return SortOptions.map((s) => ({ id: s.id, value: s.name, label: s.name }));
   }
 
   async getSearchResults(
