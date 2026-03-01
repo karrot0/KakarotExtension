@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-03-01T01:06:02.167Z",
+  "buildTime": "2026-03-01T05:21:26.899Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.57",
     "types": "1.0.0-alpha.57"
@@ -226,6 +226,32 @@
         }
       ],
       "id": "NovelFire"
+    },
+    {
+      "name": "Projectsuki",
+      "description": "Extension that pulls content from https://projectsuki.com/",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [
+        {
+          "label": "Aggregator",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Projectsuki"
     },
     {
       "name": "ReadAllComics",
