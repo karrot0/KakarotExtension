@@ -9,14 +9,12 @@ A repository for paperback that includes both manga and comic extensions
 - Hentai2Read
 - MangaBall
 - MangaBuddy
+- MangaCloud
 - NHentai
 - NovelFire
+- ProjectSuki
 - ReadAllComics
 - ReadComicsOnline
-
-## 📋 Upcoming Sources
-
--
 
 ## 🚀 Installation
 
