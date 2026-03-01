@@ -1,0 +1,1 @@
+{"name":"GodaComic","description":"Extension that pulls content from https://manhuascans.org/","version":"1.0.0-alpha.1","icon":"icon.png","language":"en","contentRating":"SAFE","badges":[{"label":"Aggregator","textColor":"#FFFFFF","backgroundColor":"#800080"}],"capabilities":[4,64,1],"developers":[{"name":"Karrot"}],"id":"GodaComic"}
