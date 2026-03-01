@@ -17,6 +17,7 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SortingOption,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -26,7 +27,8 @@ import * as cheerio from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 
 import { MangacloudInterceptor } from "./interceptors";
-import { MangacloudMetadata, MostViewedMangaResponse, ApiResponse, UpdatedMangaResponse, MangaInfo, ChapterInfo } from "./model";
+import { MangacloudMetadata, MostViewedMangaResponse, ApiResponse, UpdatedMangaResponse, MangaInfo, ChapterInfo, BrowseMangaResponse,
+  Types, Statuses, SortOptions, Genres, Themes, Formats } from "./model";
 
 const baseUrl = "https://mangacloud.org/";
 
@@ -79,63 +81,162 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   async getSearchFilters(): Promise<SearchFilter[]> {
-    return [];
+    // build filters based on static lists in model
+    const filters: SearchFilter[] = [];
+
+    // type dropdown
+    filters.push({
+      type: "dropdown",
+      id: "type",
+      title: "Type",
+      options: Types.map((t) => ({ id: t.id, value: t.name })),
+      value: "",
+    });
+
+    // status dropdown
+    filters.push({
+      type: "dropdown",
+      id: "status",
+      title: "Status",
+      options: Statuses.map((s) => ({ id: s.id, value: s.name })),
+      value: "",
+    });
+
+    // genres multiselect
+    filters.push({
+      type: "multiselect",
+      id: "genres",
+      title: "Genre",
+      options: Genres.map((g) => ({ id: g.id, value: g.name })),
+      value: {},
+      allowExclusion: false,
+      allowEmptySelection: true,
+      maximum: undefined,
+    });
+
+    // themes multiselect
+    filters.push({
+      type: "multiselect",
+      id: "themes",
+      title: "Theme",
+      options: Themes.map((t) => ({ id: t.id, value: t.name })),
+      value: {},
+      allowExclusion: false,
+      allowEmptySelection: true,
+      maximum: undefined,
+    });
+
+    // formats multiselect
+    filters.push({
+      type: "multiselect",
+      id: "formats",
+      title: "Format",
+      options: Formats.map((f) => ({ id: f.id, value: f.name })),
+      value: {},
+      allowExclusion: false,
+      allowEmptySelection: true,
+      maximum: undefined,
+    });
+
+    return filters;
+  }
+
+  async getSortingOptions(): Promise<SortingOption[]> {
+    return [{ id: "", value: "", label: "" }].concat(
+      SortOptions.map((s) => ({ id: s.id, value: s.name, label: s.name }))
+    );
   }
 
   async getSearchResults(
     query: SearchQuery,
-    _metadata: MangacloudMetadata | undefined,
+    metadata: MangacloudMetadata | undefined,
+    sortingOption: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    if (!query.title || query.title.trim() === "") {
-      // Show popular section if no query
-      const section = {
-        id: "popular_section",
-        title: "Popular",
-        type: DiscoverSectionType.featured,
-      };
-      const results = await this.getPopularSectionItems(section, undefined);
-      // Only map items with required properties
-      const items = results.items
-        .filter(
-          (item) => "mangaId" in item && "title" in item && "imageUrl" in item,
-        )
-        .map((item) => ({
-          mangaId: (item as any).mangaId,
-          title: (item as any).title,
-          imageUrl: (item as any).imageUrl,
-          subtitle: (item as any).supertitle || (item as any).subtitle,
-          metadata: (item as any).metadata,
-        }));
-      return { items };
+    const page = metadata?.page ?? 1;
+    const body: Record<string, any> = { page };
+
+    if (query.title && query.title.trim() !== "") {
+      body.title = query.title;
     }
-    const searchUrl = `${baseUrl}/ajax/searchLive?inputContent=${encodeURIComponent(query.title)}`;
-    const request = {
-      url: searchUrl,
-      method: "GET",
-    };
-    const [, data] = await Application.scheduleRequest(request);
-    const jsonString = Application.arrayBufferToUTF8String(data);
-    const result = JSON.parse(jsonString) as { html: string };
-    const $ = cheerio.load(result.html);
-    const items: SearchResultItem[] = [];
-    $(".novel-item").each((_, el) => {
-      const novel = $(el);
-      const a = novel.find("a");
-      const url = String(a.attr("href")) || "";
-      const title = String(novel.find(".novel-title").text()).trim();
-      const coverUrl = String(novel.find("img").attr("src")) || "";
-      const mangaId = url.split("/book/")[1] || url;
-      if (title && mangaId) {
-        items.push({
-          mangaId,
-          title,
-          imageUrl: coverUrl,
-          subtitle: undefined,
-          metadata: undefined,
-        });
+
+    if (sortingOption && sortingOption.id && sortingOption.id !== "") {
+      body.sort = sortingOption.id;
+    }
+
+    let includes: string[] = [];
+    let excludes: string[] = [];
+
+    if (query.filters) {
+      for (const filter of query.filters) {
+        switch (filter.id) {
+          case "type":
+          case "status": {
+            const val = filter.value as string;
+            if (val && val !== "" && val !== "Any" && val !== "None") {
+              body[filter.id] = val;
+            }
+            break;
+          }
+          case "genres":
+          case "themes":
+          case "formats": {
+            const raw = filter.value;
+            if (Array.isArray(raw)) {
+              includes.push(...raw);
+            } else if (typeof raw === "object" && raw !== null) {
+              const val = raw as Record<string, "included" | "excluded">;
+              for (const key in val) {
+                if (val[key] === "included") {
+                  includes.push(key);
+                } else if (val[key] === "excluded") {
+                  excludes.push(key);
+                }
+              }
+            } else if (typeof raw === "string" && raw) {
+              includes.push(raw);
+            }
+            break;
+          }
+        }
       }
-    });
-    return { items };
+    }
+
+    if (includes.length > 0) body.includes = includes;
+    if (excludes.length > 0) body.excludes = excludes;
+
+    const apiUrl = `https://api.mangacloud.org/comic/browse`;
+    const request: Request = {
+      url: apiUrl,
+      method: "POST",
+      headers: { "Content-Type": "application/json", accept: "*/*" },
+      body: JSON.stringify(body),
+    };
+
+    const [, data] = await Application.scheduleRequest(request);
+    const jsonStr = Application.arrayBufferToUTF8String(data);
+    const resp = JSON.parse(jsonStr) as ApiResponse<BrowseMangaResponse>;
+    const list = resp.data || [];
+
+    const items: SearchResultItem[] = [];
+    for (const m of list) {
+      const mangaId = m.id;
+      if (!mangaId) continue;
+      items.push({
+        mangaId,
+        title: m.title,
+        imageUrl: m.cover
+          ? `https://pika.mangacloud.org/${mangaId}/${m.cover.id}.${m.cover.f}`
+          : "",
+        subtitle: undefined,
+        metadata: undefined,
+      });
+    }
+
+    const hasNextPage = list.length > 0;
+    return {
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds: metadata?.collectedIds } : undefined,
+    };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
@@ -343,7 +444,7 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/book/${mangaId}`;
+    return `${baseUrl}/comic/${mangaId}`;
   }
 
   checkCloudflareStatus(status: number): void {
