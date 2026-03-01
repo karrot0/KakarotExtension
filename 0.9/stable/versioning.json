@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-03-01T00:03:11.136Z",
+  "buildTime": "2026-03-01T00:08:00.896Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.57",
     "types": "1.0.0-alpha.57"
@@ -156,6 +156,32 @@
         }
       ],
       "id": "Mangabuddy"
+    },
+    {
+      "name": "Mangacloud",
+      "description": "Extension that pulls content from https://mangacloud.org/",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [
+        {
+          "label": "Aggregator",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#800080"
+        }
+      ],
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Mangacloud"
     },
     {
       "name": "NHentai",
