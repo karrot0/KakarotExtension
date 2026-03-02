@@ -1,4 +1,4 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "ReadComicsOnlineRu",
@@ -27,4 +27,4 @@ export default {
       name: "Karrot",
     },
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;

@@ -1,4 +1,4 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "Mangaball",
@@ -18,4 +18,4 @@ export default {
       name: "Karrot",
     }
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;
