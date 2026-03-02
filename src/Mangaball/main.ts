@@ -457,7 +457,7 @@ export class MangaballExtension implements MangaballImplementation {
       const searchResults: SearchResultItem[] = [];
       for (const raw of response.data ?? []) {
         let mangaId = raw.url;
-        const idMatch = raw.url.match(/\/title-detail\/([^\/?#]+)/);
+        const idMatch = raw.url.match(/\/title-detail\/([^/?#]+)/);
         if (idMatch) {
             mangaId = idMatch[1];
         } else {
@@ -713,9 +713,9 @@ export class MangaballExtension implements MangaballImplementation {
       const match = script.match(/const chapterImages\s*=\s*JSON\.parse\(`(.+?)`\)/s);
       if (match) {
         try {
-          const images = JSON.parse(match[1]);
+          const images = JSON.parse(match[1]); // eslint-disable-line
           if (Array.isArray(images)) {
-            pages.push(...images);
+            pages.push(...images); // eslint-disable-line
           }
         } catch {
           // Ignore parse errors
