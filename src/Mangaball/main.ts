@@ -256,6 +256,17 @@ export class MangaballExtension implements MangaballImplementation {
     const filters: SearchFilter[] = [];
     const searchDetails = await this.getSearchDetails();
 
+    filters.push({
+      id: "nsfw",
+      type: "dropdown",
+      options: [
+        { id: "false", value: "No" },
+        { id: "true", value: "Yes" },
+      ],
+      value: "false",
+      title: "Show 18+ Content",
+    });
+
     // Only include filters that are present in STATIC_SEARCH_DETAILS
     // Add a separate multiselect filter for each tag category
     if (searchDetails?.tagCategories?.length) {
@@ -324,12 +335,12 @@ export class MangaballExtension implements MangaballImplementation {
     metadata: metadata | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
-    // Always use metadata.page if present, else 1. But for next page, use response.pagination.current_page + 1
   const page = metadata?.page ?? 1;
     const collectedIds = metadata?.searchCollectedIds ?? [];
     const getFilterValue = (id: string) => query.filters.find((filter) => filter.id == id)?.value;
 
-    // Tags (multiselect with allowExclusion) for each tag category
+    const nsfw = getFilterValue("nsfw") as string | undefined;
+
     const tag_included_ids: string[] = [];
     const tag_excluded_ids: string[] = [];
     if (STATIC_SEARCH_DETAILS.tagCategories) {
@@ -425,6 +436,9 @@ export class MangaballExtension implements MangaballImplementation {
       "X-Requested-With": "XMLHttpRequest",
       "User-Agent": ua,
     };
+    if (nsfw === "true") {
+      headers["x-enable-nsfw"] = "true";
+    }
     if (this.cachedCsrfToken) headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
     if (this.cachedXsrfToken) headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
     if (this.cachedFormToken) headers["x-csrf-token"] = this.cachedFormToken;
