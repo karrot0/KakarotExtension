@@ -363,28 +363,34 @@ export class MangaballExtension implements MangaballImplementation {
     const search_input = query.title?.trim() || "";
 
     // Build form body
+    // always send a full set of filter keys so API defaults match the frontend
     const filters: Record<string, unknown> = {
       sort,
       tag_included_mode: "and",
       tag_excluded_mode: "and",
+      contentRating: contentRating || "any",
+      demographic: demographic || "any",
+      person: person || "any",
+      originalLanguages: "any",
+      publicationYear: publicationYear || "",
+      publicationStatus: publicationStatus || "any",
+      userSettingsEnabled: false,
     };
-    if (tag_included_ids.length > 0) filters["tag_included_ids[]"] = tag_included_ids;
-    if (tag_excluded_ids.length > 0) filters["tag_excluded_ids[]"] = tag_excluded_ids;
-    if (contentRating && contentRating !== "any") filters["contentRating"] = contentRating;
-    if (demographic && demographic !== "any") filters["demographic"] = demographic;
-    if (person && person !== "") filters["person"] = person;
+
+    if (tag_included_ids.length > 0) filters["tag_included_ids"] = tag_included_ids;
+    if (tag_excluded_ids.length > 0) filters["tag_excluded_ids"] = tag_excluded_ids;
+
     if (originalLanguages) {
+      delete filters["originalLanguages"];
       for (const lang of Object.keys(originalLanguages)) {
-        if (!Array.isArray(filters["originalLanguages[]"])) filters["originalLanguages[]"] = [];
-        (filters["originalLanguages[]"] as string[]).push(lang);
+        if (!Array.isArray(filters["originalLanguages"])) filters["originalLanguages"] = [];
+        (filters["originalLanguages"] as string[]).push(lang);
       }
     }
-    if (publicationYear && publicationYear !== "") filters["publicationYear"] = publicationYear;
-    if (publicationStatus && publicationStatus !== "any") filters["publicationStatus"] = publicationStatus;
     if (translatedLanguages) {
       for (const lang of Object.keys(translatedLanguages)) {
-        if (!Array.isArray(filters["translatedLanguage[]"])) filters["translatedLanguage[]"] = [];
-        (filters["translatedLanguage[]"] as string[]).push(lang);
+        if (!Array.isArray(filters["translatedLanguages"])) filters["translatedLanguages"] = [];
+        (filters["translatedLanguages"] as string[]).push(lang);
       }
     }
     filters["page"] = page;
@@ -394,14 +400,15 @@ export class MangaballExtension implements MangaballImplementation {
       `search_input=${encodeURIComponent(search_input)}`,
       ...Object.entries(filters).flatMap(([k, v]) => {
         if (Array.isArray(v)) {
-          return v.map((val) => `${encodeURIComponent("filters[" + k + "]") }=${encodeURIComponent(String(val))}`);
+          return v.map((val) =>
+            `${encodeURIComponent(`filters[${k}][]`)}=${encodeURIComponent(String(val))}`
+          );
         } else {
-          return `${encodeURIComponent("filters[" + k + "]") }=${encodeURIComponent(String(v))}`;
+          return `${encodeURIComponent(`filters[${k}]`)}=${encodeURIComponent(String(v))}`;
         }
       }),
     ].join("&");
 
-    // Prepare headers
     const ua =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
     if (!this.csrfReady) {

@@ -89,6 +89,16 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
       ],
     },
     {
+      id: "origin",
+      label: "Origin",
+      tags: [
+        { id: "68ecab8507ec62d87e62780f", name: "Comic", slug: "comic" },
+        { id: "68ecab1e07ec62d87e627806", name: "Manga", slug: "manga" },
+        { id: "68ecab4807ec62d87e62780b", name: "Manhua", slug: "manhua" },
+        { id: "68ecab3b07ec62d87e627809", name: "Manhwa", slug: "manhwa" },
+      ]
+    },
+    {
       id: "format",
       label: "Format",
       tags: [
