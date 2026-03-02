@@ -1,9 +1,9 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "ReadAllComics",
   description: "Extension that pulls content from https://readallcomics.com",
-  version: "1.0.0-alpha.3",
+  version: "1.0",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -27,4 +27,4 @@ export default {
       name: "Karrot",
     },
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;
