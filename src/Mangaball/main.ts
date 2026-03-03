@@ -3,7 +3,7 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
-  CloudflareError,
+  CloudflareBypassRequestProviding,
   ContentRating,
   Cookie,
   CookieStorageInterceptor,
@@ -12,7 +12,6 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
-  // FeaturedCarouselItem,
   MangaProviding,
   PagedResults,
   Request,
@@ -66,6 +65,7 @@ type MangaballImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
+  CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
 export class MangaballExtension implements MangaballImplementation {
@@ -88,7 +88,10 @@ export class MangaballExtension implements MangaballImplementation {
     this.cookieStorageInterceptor.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
 
-    // One-time CSRF/cookie fetch and cache
+    await this.fetchCsrf(false);
+  }
+
+  async fetchCsrf(throwOnCF: boolean = false): Promise<void> {
     try {
       const ua =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
@@ -101,7 +104,13 @@ export class MangaballExtension implements MangaballImplementation {
           "User-Agent": ua,
         },
       });
-      this.checkCloudflareStatus(homeResp.status);
+      
+      if (throwOnCF || (homeResp.status !== 503 && homeResp.status !== 403)) {
+          await this.checkCloudflareStatus(homeResp.status);
+      } else if (homeResp.status === 503 || homeResp.status === 403) {
+          this.csrfReady = false;
+          return;
+      }
       const homeHtml = Application.arrayBufferToUTF8String(homeData);
       const dom = htmlparser2.parseDocument(homeHtml);
       const $ = cheerio.load(dom);
@@ -141,9 +150,9 @@ export class MangaballExtension implements MangaballImplementation {
       this.cachedFormToken = metaToken || cookieToken || scriptToken || "";
       this.csrfReady = true;
       // console.log("[init] Cached CSRF token:", this.cachedCsrfToken, "XSRF:", this.cachedXsrfToken);
-    } catch (err) {
+    } catch (err: any) {
       this.csrfReady = false;
-      console.error("[init] Failed to fetch CSRF/cookie:", err);
+      console.log("[init] Failed to fetch CSRF/cookie:", err);
     }
   }
 
@@ -193,18 +202,20 @@ export class MangaballExtension implements MangaballImplementation {
     const ua =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
     if (!this.csrfReady) {
-      // console.warn("[searchAPI] CSRF/cookie not ready, attempting to re-initialize...");
-      await this.initialise();
-      if (!this.csrfReady) throw new Error("[searchAPI] CSRF/cookie fetch failed");
+      // console.log("[searchAPI] CSRF/cookie not ready, attempting to re-initialize...");
+      await this.fetchCsrf(true);
+      if (!this.csrfReady) throw new Error("[searchAPI] CSRF/cookie fetch failed, Please try again.");
     }
+    
+    await this.fetchCsrf(true);
+
     const headers: Record<string, string> = {
       Accept: "*/*",
       "Accept-Language": "en-US,en;q=0.9",
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      Origin: baseUrl.replace(/\/$/, ""),
-      Referer: baseUrl,
+      Referer: `https://mangaball.net/search-advanced/`,
       "X-Requested-With": "XMLHttpRequest",
-      "User-Agent": ua,
+      "user-agent": await Application.getDefaultUserAgent() || ua,
     };
   if (this.cachedCsrfToken) { headers["X-CSRF-TOKEN"] = this.cachedCsrfToken; }
   if (this.cachedXsrfToken) { headers["X-XSRF-TOKEN"] = this.cachedXsrfToken; }
@@ -218,10 +229,11 @@ export class MangaballExtension implements MangaballImplementation {
       headers,
     };
     try {
-      const [, data] = await Application.scheduleRequest(request);
+      const [response, data] = await Application.scheduleRequest(request);
+      await this.checkCloudflareStatus(response.status);
       const jsonStr = Application.arrayBufferToUTF8String(data);
-      const response = JSON.parse(jsonStr) as SearchAPIResponse;
-      return response;
+      const responseAPI = JSON.parse(jsonStr) as SearchAPIResponse;
+      return responseAPI;
     } catch (err) {
       console.error(`[searchAPI] Failed for type=${search_type}:`, err);
       throw err;
@@ -420,13 +432,14 @@ export class MangaballExtension implements MangaballImplementation {
       }),
     ].join("&");
 
-    const ua =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+    await this.fetchCsrf(true);
+
     if (!this.csrfReady) {
-      console.warn("[getSearchResults] CSRF/cookie not ready, attempting to re-initialize...");
-      await this.initialise();
-      if (!this.csrfReady) throw new Error("[getSearchResults] CSRF/cookie fetch failed");
+      console.log("[getSearchResults] CSRF/cookie not ready, attempting to re-initialize...");
+      await this.fetchCsrf(true);
+      if (!this.csrfReady) throw new Error("[getSearchResults] CSRF/cookie fetch failed, Please try again.");
     }
+
     const headers: Record<string, string> = {
       Accept: "*/*",
       "Accept-Language": "en-US,en;q=0.9",
@@ -434,7 +447,7 @@ export class MangaballExtension implements MangaballImplementation {
       Origin: baseUrl.replace(/\/$/, ""),
       Referer: baseUrl + "search-advanced",
       "X-Requested-With": "XMLHttpRequest",
-      "User-Agent": ua,
+      "user-agent": await Application.getDefaultUserAgent(),
     };
     if (nsfw === "true") {
       headers["x-enable-nsfw"] = "true";
@@ -442,7 +455,7 @@ export class MangaballExtension implements MangaballImplementation {
     if (this.cachedCsrfToken) headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
     if (this.cachedXsrfToken) headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
     if (this.cachedFormToken) headers["x-csrf-token"] = this.cachedFormToken;
-
+    
     const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("v1").addPath("title").addPath("search-advanced").build();
     const request = {
       url: apiUrl,
@@ -451,7 +464,8 @@ export class MangaballExtension implements MangaballImplementation {
       headers,
     };
     try {
-      const [, data] = await Application.scheduleRequest(request);
+      const [responseApi, data] = await Application.scheduleRequest(request);
+      await this.checkCloudflareStatus(responseApi.status);
       const jsonStr = Application.arrayBufferToUTF8String(data);
       const response = JSON.parse(jsonStr) as SearchAPIResponse;
       const searchResults: SearchResultItem[] = [];
@@ -669,7 +683,8 @@ export class MangaballExtension implements MangaballImplementation {
       body,
     };
 
-    const [, data] = await Application.scheduleRequest(request);
+    const [response, data] = await Application.scheduleRequest(request);
+    await this.checkCloudflareStatus(response.status);
     const json = JSON.parse(Application.arrayBufferToUTF8String(data)) as ChapterApiResponse; // Assume valid response
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
@@ -742,7 +757,6 @@ export class MangaballExtension implements MangaballImplementation {
       itemType: "chapterUpdatesCarouselItem",
       extractChapterInfo: true,
       customSubtitleExtractor: (raw: APIItem) => {
-        // Fallback to updated_at if no chapter subtitle is extracted
         return String(raw.updated_at || "");
       }
     });
@@ -803,15 +817,23 @@ export class MangaballExtension implements MangaballImplementation {
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
   }
 
-  checkCloudflareStatus(status: number): void {
-    if (status == 503 || status == 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    for (const cookie of cookies) {
+      this.cookieStorageInterceptor.setCookie(cookie);
     }
   }
 
+  async checkCloudflareStatus(status: number): Promise<void> {
+    switch (status) {
+      case 503:
+      case 403:
+      case 404:
+        throw new Error("Content not found");
+    }
+  }
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus(response.status);
+    await this.checkCloudflareStatus(response.status);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);

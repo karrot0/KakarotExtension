@@ -1,4 +1,4 @@
-import { Form } from "@paperback/types";
+import { Form, SelectorID } from "@paperback/types";
 
 /**
  * State management utility for form values
