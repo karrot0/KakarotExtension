@@ -156,10 +156,28 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     };
   }
 
+  private async getMangaIdFromChapter(chapterId: string): Promise<string> {
+    const request = {
+      url: `${baseUrl}/${chapterId}`,
+      method: "GET",
+    };
+
+    const $ = await this.fetchCheerio(request);
+
+    const categoryHref = $(".pinbin-category a[href*='/category/']").attr("href") || "";
+    const mangaId = categoryHref.split("/").filter(Boolean).pop();
+
+    if (!mangaId) {
+      throw new Error("Manga ID not found");
+    }
+
+    return mangaId;
+  }
+
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     // Expected mangaId: 6975-invincible-2003
     const request = { url: `${baseUrl}/category/${mangaId}`, method: "GET" };
-
+    
     const $ = await this.fetchCheerio(request);
 
     const title = $("h1").first().text().trim();
@@ -335,22 +353,23 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-    $(".list-story.categories > li").each((_, element) => {
+    for (const element of $(".posts-grid > article.post-item").toArray()) {
       const unit = $(element);
-      const infoLink = unit.find("a.cat-title");
+      const linkEl = unit.find(".post-thumbnail a");
+      const imageEl = unit.find(".post-thumbnail img");
+      const titleEl = unit.find(".post-title a");
+      const dateEl = unit.find(".post-date");
 
-      const title = infoLink.text().trim();
-      const imageEl = unit.find("img.book-cover");
-      const rawImage = imageEl.attr("src") || "";
-      const image = rawImage;
-      const categoryLink = unit.find("a.book-link").attr("href") || "";
+      const title = titleEl.text().trim();
+      const image = imageEl.attr("src") || "";
+      const postUrl = linkEl.attr("href") || "";
+      // ChapterId: extract from URL, e.g. https://readallcomics.com/valiant-beyond-tales-of-the-shadowman-006-ghosts-of-the-bayou-part-3-of-3-2026/ => valiant-beyond-tales-of-the-shadowman-006-ghosts-of-the-bayou-part-3-of-3-2026
+      const chapterId = postUrl.match(/readallcomics\.com\/([^/]+)\/?/);
+      const chapterIdMatch = chapterId ? chapterId[1] : "";
+      const mangaId = await this.getMangaIdFromChapter(chapterIdMatch);
 
-      const mangaIdMatch = categoryLink.match(/category\/([^/]+)\//);
-      const mangaId = mangaIdMatch ? mangaIdMatch[1] : "";
-
-      const dateText = unit.find(".latest-date").text().replace("Updated:", "").trim();
-      const totalIssues = unit.find(".cat-total-issues").text().trim();
-      const fullSubtitle = totalIssues ? `${dateText} | ${totalIssues}` : dateText;
+      const dateText = dateEl.text().trim();
+      const fullSubtitle = dateText;
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -364,7 +383,7 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
           }),
         );
       }
-    });
+    }
 
     $(".pagination .page-numbers").each((_, element) => {
       const pageNumber = $(element).text().trim();
