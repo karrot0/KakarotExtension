@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "ReadComicsOnlineRu",
   description: "Extension that pulls content from readcomicsonline.ru.",
-  version: "1.0.0-alpha.2",
+  version: "1.0.0-alpha.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -17,8 +17,8 @@ export default {
     },
   ],
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS_PROVIDING,
-    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],

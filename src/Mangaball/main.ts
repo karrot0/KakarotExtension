@@ -801,11 +801,14 @@ export class MangaballExtension implements MangaballImplementation {
   }
 
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
-    for (const cookie of cookies) {
+    for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
 
     for (const cookie of cookies) {
+      if (cookie.expires && cookie.expires.getTime() <= Date.now()) {
+        continue;
+      }
       this.cookieStorageInterceptor.setCookie(cookie);
     }
   }

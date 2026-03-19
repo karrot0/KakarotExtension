@@ -28,6 +28,7 @@
     "bundle": "paperback-cli bundle",
     "serve": "paperback-cli serve",
     "logcat": "paperback-cli logcat",
+    "logcat:host": "paperback-cli logcat --host 192.168.1.65",
     "dev": "paperback-cli serve -w -p 3000",
     "test": "tsc --project tsconfig.json --noEmit && npm run lint:check && npm run format:check && npm run bundle",
     "prepare": "husky",

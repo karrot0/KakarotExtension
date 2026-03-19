@@ -94,6 +94,7 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
     metadata: ProjectsukiMetadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
+    const collectedIds = new Set(metadata?.collectedIds ?? []);
 
     const request = {
       url: `${baseUrl}/search?q=${encodeURIComponent(query.title ?? "")}&page=${page}`,
@@ -108,7 +109,8 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
       const href = titleAnchor.attr("href") ?? "";
       const idMatch = href.match(/\/book\/(\d+)/);
       const mangaId = idMatch ? idMatch[1] : undefined;
-      if (!mangaId) return;
+      if (!mangaId || collectedIds.has(mangaId)) return;
+      collectedIds.add(mangaId);
 
       const title = titleAnchor.text().trim();
       let imageUrl = $(el).find(".mr-2 img").first().attr("src") ?? "";
@@ -125,7 +127,22 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
       });
     });
 
-    return { items, metadata: { page: page + 1, collectedIds: metadata?.collectedIds } };
+    const hasNextPage = $("a")
+      .toArray()
+      .some((link) => {
+        const anchor = $(link);
+        const href = anchor.attr("href") ?? "";
+        return (
+          anchor.text().trim().toLowerCase() === "next" &&
+          href.includes("/search") &&
+          href.includes(`page=${page + 1}`)
+        );
+      });
+
+    return {
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds: [...collectedIds] } : undefined,
+    };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {

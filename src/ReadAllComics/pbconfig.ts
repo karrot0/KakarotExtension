@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "ReadAllComics",
   description: "Extension that pulls content from https://readallcomics.com",
-  version: "1.1",
+  version: "1.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
