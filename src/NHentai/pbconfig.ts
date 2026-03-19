@@ -1,4 +1,4 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "NHentai",
@@ -8,8 +8,8 @@ export default {
   language: "multi",
   contentRating: ContentRating.ADULT,
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS_PROVIDING,
-    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.SETTINGS_FORM_PROVIDING,
   ],
@@ -22,4 +22,4 @@ export default {
       name: "pisshammy",
     },
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;

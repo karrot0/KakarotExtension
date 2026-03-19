@@ -11,8 +11,8 @@ export default {
     { label: "Aggregator", textColor: "#FFFFFF", backgroundColor: "#800080" },
   ],
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS_PROVIDING,
-    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
   ],
   developers: [

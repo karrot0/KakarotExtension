@@ -18,10 +18,8 @@ export function parseApiItemsToDiscoverItems(
   const { itemType = "featuredCarouselItem", extractChapterInfo = false, customSubtitleExtractor } = options || {};
 
   for (const raw of apiItems || []) {
-    // Extract mangaId using the centralized logic
-    // Robust mangaId extraction handling http/https and trailing slashes
     let mangaId = raw.url;
-    const idMatch = raw.url.match(/\/title-detail\/([^\/?#]+)/);
+    const idMatch = raw.url.match(/\/title-detail\/([^/?#]+)/);
     if (idMatch) {
             mangaId = idMatch[1];
     } else {

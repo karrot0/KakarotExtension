@@ -1,4 +1,4 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "Hentai2read",
@@ -8,8 +8,8 @@ export default {
   language: "multi",
   contentRating: ContentRating.ADULT,
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS_PROVIDING,
-    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
   ],
   badges: [],
@@ -18,4 +18,4 @@ export default {
       name: "Karrot",
     }
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;

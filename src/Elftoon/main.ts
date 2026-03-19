@@ -48,7 +48,7 @@ export class ElftoonExtension implements ElftoonImplementation {
     bufferInterval: 1,
     ignoreImages: true,
   });
-  // Add a small delay between paginated search requests to avoid CF/rate limits
+
   private readonly searchPageDelayMs = 700; // base delay in ms (converted to seconds for Application.sleep)
 
   async initialise(): Promise<void> {
