@@ -372,6 +372,14 @@ export class ElftoonExtension implements ElftoonImplementation {
       const chapterElement = $(element);
       const chapterLink = chapterElement.find(".eph-num a").first();
       const href = chapterLink.attr("href") || "";
+      const isLockedChapter =
+        href === "#" ||
+        chapterLink.attr("data-bs-target") === "#lockedChapterModal" ||
+        chapterElement.find('[data-bs-target="#lockedChapterModal"]').length > 0;
+
+      if (isLockedChapter || !href) {
+        return;
+      }
 
       const chapterNumText = chapterElement.find(".chapternum").text().trim();
       const chapterTitle = chapterNumText || chapterLink.text().trim();
