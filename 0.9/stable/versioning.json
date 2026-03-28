@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-03-23T22:02:07.012Z",
+  "buildTime": "2026-03-28T17:31:19.988Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.64",
     "types": "1.0.0-alpha.64"
@@ -112,6 +112,28 @@
         }
       ],
       "id": "Hentai2read"
+    },
+    {
+      "name": "LeagueOfComicGeeks",
+      "description": "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": 102,
+      "badges": [
+        {
+          "label": "Western Comics",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#C71585"
+        }
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "LeagueOfComicGeeks"
     },
     {
       "name": "Mangaball",
