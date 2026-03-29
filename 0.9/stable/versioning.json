@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-03-29T03:28:53.268Z",
+  "buildTime": "2026-03-29T04:07:18.471Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.64",
     "types": "1.0.0-alpha.64"
@@ -114,6 +114,28 @@
       "id": "Hentai2read"
     },
     {
+      "name": "Kenmei",
+      "description": "Integrate with Kenmei (kenmei.co) for manga tracking",
+      "version": "1.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": 102,
+      "badges": [
+        {
+          "label": "Tracker",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#5B4CF5"
+        }
+      ],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "Kenmei"
+    },
+    {
       "name": "LeagueOfComicGeeks",
       "description": "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
       "version": "1.0.0-alpha.1",
@@ -122,6 +144,11 @@
       "contentRating": "SAFE",
       "capabilities": 102,
       "badges": [
+        {
+          "label": "Tracker",
+          "textColor": "#FFFFFF",
+          "backgroundColor": "#1E90FF"
+        },
         {
           "label": "Western Comics",
           "textColor": "#FFFFFF",
