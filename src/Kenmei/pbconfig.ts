@@ -1,10 +1,9 @@
 import { ContentRating, type ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "LeagueOfComicGeeks",
-  description:
-    "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
-  version: "1.0.0-alpha.1",
+  name: "Kenmei",
+  description: "Integrate with Kenmei (kenmei.co) for manga tracking",
+  version: "1.1",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -14,16 +13,7 @@ export default {
     SourceIntents.SEARCH_RESULT_PROVIDING |
     SourceIntents.PROGRESS_PROVIDING,
   badges: [
-    {
-      label: "Tracker",
-      textColor: "#FFFFFF",
-      backgroundColor: "#1E90FF",
-    },
-    {
-      label: "Western Comics",
-      textColor: "#FFFFFF",
-      backgroundColor: "#C71585",
-    },
+    { label: "Tracker", textColor: "#FFFFFF", backgroundColor: "#5B4CF5" },
   ],
   developers: [
     {

@@ -1,37 +1,31 @@
-import { BasicRateLimiter, CookieStorageInterceptor, type Extension, type MangaProviding } from "@paperback/types";
-import { DiscoverSectionImplementation } from "./Implementations/DiscoverSection/main";
+import { BasicRateLimiter, type Extension, type MangaProviding } from "@paperback/types";
 import { applyMixins } from "./Implementations/helper";
+import { DiscoverSectionImplementation } from "./Implementations/DiscoverSection/main";
 import { MangaImplementation } from "./Implementations/Manga/main";
 import { MangaProgressImplementation } from "./Implementations/MangaProgress/main";
 import { SearchResultsImplementation } from "./Implementations/SearchResults/main";
 import { SettingsFormImplementation } from "./Implementations/SettingsForm/main";
-import { LOFCGHeaderInterceptor } from "./interceptors";
 
-export interface LeagueOfComicGeeksImplementation
+export interface KenmeiImplementation
   extends SettingsFormImplementation,
     SearchResultsImplementation,
     DiscoverSectionImplementation,
     MangaImplementation,
     MangaProgressImplementation {}
 
-export class LeagueOfComicGeeksExtension implements Omit<Extension, keyof MangaProviding> {
+export class KenmeiExtension implements Omit<Extension, keyof MangaProviding> {
   mainRateLimiter = new BasicRateLimiter("main", {
     numberOfRequests: 10,
     bufferInterval: 1,
     ignoreImages: true,
   });
 
-  headerInterceptor: LOFCGHeaderInterceptor = new LOFCGHeaderInterceptor("locg-headers");
-  cookieStorageInterceptor = new CookieStorageInterceptor({ storage: "stateManager" });
-
   async initialise(): Promise<void> {
     this.mainRateLimiter.registerInterceptor();
-    this.headerInterceptor.registerInterceptor();
-    this.cookieStorageInterceptor.registerInterceptor();
   }
 }
 
-applyMixins(LeagueOfComicGeeksExtension, [
+applyMixins(KenmeiExtension, [
   SettingsFormImplementation,
   SearchResultsImplementation,
   DiscoverSectionImplementation,
@@ -39,4 +33,4 @@ applyMixins(LeagueOfComicGeeksExtension, [
   MangaProgressImplementation,
 ]);
 
-export const LeagueOfComicGeeks = new LeagueOfComicGeeksExtension();
+export const Kenmei = new KenmeiExtension();
