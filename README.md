@@ -14,6 +14,7 @@ A repository for paperback that includes both manga and comic extensions
 - NHentai
 - NovelFire
 - ProjectSuki
+- Rawkuma
 - ReadAllComics
 - ReadComicsOnline
 
