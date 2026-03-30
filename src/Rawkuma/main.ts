@@ -613,7 +613,7 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/category/${mangaId}`;
+    return `${baseUrl}/manga/${mangaId}`;
   }
 
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
