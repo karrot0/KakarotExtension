@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Rawkuma",
   description: "Extension that pulls content from https://rawkuma.net",
-  version: "1.0",
+  version: "1.1",
   icon: "icon.png",
   language: "jp",
   contentRating: ContentRating.EVERYONE,
