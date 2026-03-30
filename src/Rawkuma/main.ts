@@ -295,6 +295,7 @@ export class RawkumaExtension implements RawkumaImplementation {
         contentRating: ContentRating.EVERYONE,
         status: status,
         tagGroups: tags,
+        shareUrl: `${baseUrl}/manga/${mangaId}`,
       },
     };
   }
@@ -610,10 +611,6 @@ export class RawkumaExtension implements RawkumaImplementation {
     return {
       items: items,
     };
-  }
-
-  getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/manga/${mangaId}`;
   }
 
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
