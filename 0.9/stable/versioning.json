@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-03-30T03:32:33.612Z",
+  "buildTime": "2026-03-31T13:53:00.770Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.64",
     "types": "1.0.0-alpha.64"
@@ -186,7 +186,7 @@
     {
       "name": "Mangabuddy",
       "description": "Extension that pulls content from mangabuddy.com.",
-      "version": "1.0.0-alpha.4",
+      "version": "1.0.0-alpha.5",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "MATURE",
@@ -338,7 +338,7 @@
       "contentRating": "SAFE",
       "badges": [
         {
-          "label": "Raw",
+          "label": "Raw Provider",
           "textColor": "#FFFFFF",
           "backgroundColor": "#800080"
         }
