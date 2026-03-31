@@ -1,9 +1,9 @@
-import { ContentRating, SourceInfo, SourceIntents } from "@paperback/types";
+import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "Mangabuddy",
   description: "Extension that pulls content from mangabuddy.com.",
-  version: "1.0.0-alpha.4",
+  version: "1.0.0-alpha.5",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.MATURE,
@@ -15,8 +15,8 @@ export default {
     { label: "Manhua", textColor: "#FFFFFF", backgroundColor: "#C71585" },
   ],
   capabilities: [
-    SourceIntents.DISCOVER_SECIONS_PROVIDING,
-    SourceIntents.SEARCH_RESULTS_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],
@@ -28,4 +28,4 @@ export default {
       name: "Havilah",
     },
   ],
-} satisfies SourceInfo;
+} satisfies ExtensionInfo;

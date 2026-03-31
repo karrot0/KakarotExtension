@@ -8,13 +8,12 @@ export default {
   language: "jp",
   contentRating: ContentRating.EVERYONE,
   badges: [
-    { label: "Raw", textColor: "#FFFFFF", backgroundColor: "#800080" },
+    { label: "Raw Provider", textColor: "#FFFFFF", backgroundColor: "#800080" },
   ],
   capabilities: [
     SourceIntents.DISCOVER_SECTION_PROVIDING,
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
-    // SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],
   developers: [
     {

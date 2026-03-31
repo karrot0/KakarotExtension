@@ -430,10 +430,6 @@ export class MangabuddyExtension implements BuddyImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     // Expected mangaId: my-furry-harem-is-after-me
-    // const request = {
-    //   url: `${baseUrl}/${sourceManga.mangaId}`,
-    //   method: "GET",
-    // };
 
     const request = {
       url: `${baseUrl}/api/manga/${sourceManga.mangaId}/chapters?source=detail`,
@@ -453,9 +449,10 @@ export class MangabuddyExtension implements BuddyImplementation {
       const chapterNumber =
         chapterMatch && !isNaN(Number(chapterMatch[1]))
           ? Number(chapterMatch[1])
-          : 0;
-      
-      const chapterId = chapterMatch ? chapterMatch[1] : "0";
+          : null;
+
+      const parts = chapterUrl.split("/").filter(Boolean);
+      const chapterId = parts.length > 0 ? parts[parts.length - 1] : "0";
       
 
       const chapterTitle = link.find(".chapter-title").text().trim();
@@ -475,11 +472,35 @@ export class MangabuddyExtension implements BuddyImplementation {
       });
     });
 
-    return chapters.sort((a, b) => b.chapNum - a.chapNum);
+    for (let i=0;i<chapters.length;i++){
+      if (chapters[i].chapNum != null) continue;
+      let prevIdx=i-1; while(prevIdx>=0 && chapters[prevIdx].chapNum==null) prevIdx--;
+      const prevNum = prevIdx>=0?chapters[prevIdx].chapNum:null;
+      let nextIdx=i+1; while(nextIdx<chapters.length && chapters[nextIdx].chapNum==null) nextIdx++;
+      const nextNum = nextIdx<chapters.length?chapters[nextIdx].chapNum:null;
+      const runStart=i; let runEnd=i; while(runEnd+1<chapters.length && chapters[runEnd+1].chapNum==null) runEnd++; const runCount = runEnd-runStart+1;
+      if (prevNum!=null && nextNum!=null && prevNum>nextNum){
+        const gap = prevNum - nextNum;
+        const step = Math.max(gap/(runCount+1), 0.001);
+        for (let j=0;j<runCount;j++){
+          const assigned = prevNum - (j+1)*step;
+          chapters[runStart+j].chapNum = Number(assigned.toFixed(2));
+        }
+      } else if (prevNum!=null){
+        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((prevNum - (j+1)*0.001).toFixed(2));
+      } else if (nextNum!=null){
+        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((nextNum + (runCount - j)*0.001).toFixed(2));
+      } else {
+        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((runCount - j).toFixed(2));
+      }
+      i = runEnd;
+    }
+
+    return chapters;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const chapterUrl = `${baseUrl}/${chapter.sourceManga.mangaId}/chapter-${chapter.chapterId}`;
+    const chapterUrl = `${baseUrl}/${chapter.sourceManga.mangaId}/${chapter.chapterId}`;
     console.log(`Parsing chapter ${chapterUrl}`);
 
     try {
