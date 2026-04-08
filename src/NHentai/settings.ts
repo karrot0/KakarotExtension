@@ -625,6 +625,7 @@ export function resetNHentaiSettings(): void {
     DEFAULT_FAVORITES_THRESHOLD ?? null,
     FAVORITES_THRESHOLD_STATE_KEY,
   );
+  Application.setState(null, FAVORITES_THRESHOLD_MAX_STATE_KEY);
   Application.setState(DEFAULT_PAGES_EXPR, PAGES_EXPR_STATE_KEY);
   Application.setState(
     DEFAULT_REMOVE_SEPARATOR_SPACES,
@@ -900,6 +901,22 @@ export function getDaysOldFilterSetting(): DaysOldRange {
     // Reset malformed state to empty filter
     Application.setState({}, DATE_DAYS_STATE_KEY);
     return {};
+  }
+
+  // Migrate from legacy min/max keys if no new format exists
+  const legacyOldest = Application.getState(DATE_MIN_DAYS_STATE_KEY);
+  const legacyNewest = Application.getState(DATE_MAX_DAYS_STATE_KEY);
+  if (typeof legacyOldest === "number" || typeof legacyNewest === "number") {
+    let oldest =
+      typeof legacyOldest === "number" ? legacyOldest : undefined;
+    let newest =
+      typeof legacyNewest === "number" ? legacyNewest : undefined;
+    if (oldest !== undefined && newest !== undefined && oldest > newest) {
+      [oldest, newest] = [newest, oldest];
+    }
+    const migrated = { oldest, newest };
+    Application.setState(migrated, DATE_DAYS_STATE_KEY);
+    return migrated;
   }
 
   return {};
@@ -1485,7 +1502,8 @@ export function ensureInstallDate(): void {
     );
   }
   // Seed totalRead from existing read cache if stat wasn't tracking yet
-  if (getTotalMangaRead() === 0) {
+  // Check for undefined to distinguish from deliberate reset to 0
+  if (Application.getState(STATS_TOTAL_READ_KEY) === undefined) {
     const readHistoryKeys = [
       "nhentai.readHistory",
       "nhentai.viewedHistory",
@@ -1978,13 +1996,14 @@ export function getAveragePageCount(): number {
 
 export function resetAllStatistics(): void {
   Application.setState(undefined, STATS_INSTALL_DATE_KEY);
-  Application.setState(undefined, STATS_DISPLAYED_MANGA_KEY);
-  Application.setState(undefined, STATS_DISPLAYED_DISTINCT_KEY);
+  // Use 0 for numeric counters so ensureInstallDate() doesn't re-seed from legacy caches
+  Application.setState(0, STATS_DISPLAYED_MANGA_KEY);
+  Application.setState(0, STATS_DISPLAYED_DISTINCT_KEY);
   Application.setState(undefined, STATS_DISPLAYED_IDS_KEY);
   Application.setState(undefined, STATS_SESSIONS_KEY);
   Application.setState(undefined, STATS_PAGE_COUNTS_KEY);
   Application.setState(undefined, STATS_TAG_COUNTS_KEY);
-  Application.setState(undefined, STATS_TOTAL_READ_KEY);
+  Application.setState(0, STATS_TOTAL_READ_KEY);
   Application.setState(undefined, STATS_DATA_RECEIVED_KEY);
   Application.setState(undefined, STATS_READ_COUNT_MAP_KEY);
   Application.setState(undefined, STATS_SCREEN_TIME_KEY);
@@ -1992,6 +2011,8 @@ export function resetAllStatistics(): void {
   Application.setState(undefined, SCREEN_TIME_MODE_KEY);
   Application.setState(undefined, TAG_DISPLAY_LIMIT_KEY);
   Application.setState(undefined, REREAD_DISPLAY_LIMIT_KEY);
+  // Also clear the mark-read-on-description counter
+  Application.setState(0, STATS_MARK_READ_ON_DESC_COUNT_KEY);
 }
 
 export interface StatCategory {
@@ -2086,8 +2107,13 @@ export function resetSpecificStats(categoryIds: string[]): void {
 
 export function removeSpecificTags(tagNames: string[]): void {
   const counts = getTagCounts();
-  for (const name of tagNames) {
-    delete counts[name];
+  // Normalize tag names: strip prefixes like "female:", "male:", "tag:" for matching
+  const normalizeTag = (t: string) => t.replace(/^(female|male|tag|artist|character|parody|group|language|category):/, "");
+  const toRemove = new Set(tagNames.map(normalizeTag));
+  for (const key of Object.keys(counts)) {
+    if (toRemove.has(normalizeTag(key))) {
+      delete counts[key];
+    }
   }
   Application.setState(counts, STATS_TAG_COUNTS_KEY);
 }

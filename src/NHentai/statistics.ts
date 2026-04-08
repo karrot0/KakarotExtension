@@ -55,8 +55,15 @@ function formatNumber(n: number): string {
   return n.toString();
 }
 
+/** Parse stored date strings, handling YYYY-MM-DD as local time. */
+function parseStoredDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? parseLocalDateKey(value)
+    : new Date(value);
+}
+
 function formatDate(isoDate: string): string {
-  const d = new Date(isoDate);
+  const d = parseStoredDate(isoDate);
   return formatDateByPattern(d, getDateFormatSetting(), getDateSeparatorSetting());
 }
 
@@ -242,7 +249,7 @@ export class StatisticsForm extends Form {
       ? Math.max(
           1,
           Math.floor(
-            (Date.now() - new Date(effectiveInstallDate).getTime()) /
+            (Date.now() - parseStoredDate(effectiveInstallDate).getTime()) /
               (1000 * 60 * 60 * 24),
           ),
         )
@@ -969,7 +976,7 @@ class ScreenTimeForm extends Form {
     const maxMinutes = Math.max(...nonZeroWeeks.map((w) => safeMinutes(w.minutes)), 1);
     const rows = nonZeroWeeks.map((w, idx) => {
       const mins = safeMinutes(w.minutes);
-      const start = new Date(w.weekStart);
+      const start = parseStoredDate(w.weekStart);
       const label = formatScreenTimeDate(start);
       const pct = Math.round((mins / maxMinutes) * 20);
       const bar = "\u2588".repeat(Math.max(1, pct));

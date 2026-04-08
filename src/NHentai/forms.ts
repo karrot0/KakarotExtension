@@ -127,14 +127,14 @@ function getDisplayOptionLabel(
   const relativeExample = "9d"; // Example: 9 days ago
 
   // Format separators based on removeSpaces setting - trailing pipe only
-  const langEx = removeSpaces ? '("EN |")' : '("EN |")';
-  const pageEx = removeSpaces ? '("67p |")' : '("67p |")';
-  const favEx = removeSpaces ? '("15114 |")' : '("15114 |")';
-  const favAbbrEx = removeSpaces ? '("15.1k |")' : '("15.1k |")';
-  const dateEx = removeSpaces ? `("${dateExample} |")` : `("${dateExample} |")`;
+  const langEx = removeSpaces ? '("EN|")' : '("EN | ")';
+  const pageEx = removeSpaces ? '("67p|")' : '("67p | ")';
+  const favEx = removeSpaces ? '("15114|")' : '("15114 | ")';
+  const favAbbrEx = removeSpaces ? '("15.1k|")' : '("15.1k | ")';
+  const dateEx = removeSpaces ? `("${dateExample}|")` : `("${dateExample} | ")`;
   const relEx = removeSpaces
-    ? `("${relativeExample} |")`
-    : `("${relativeExample} |")`;
+    ? `("${relativeExample}|")`
+    : `("${relativeExample} | ")`;
 
   const labels: Record<DisplayOptionId, string> = {
     hide_read_letter: "Show Read Indicator 'r'",
