@@ -3,7 +3,7 @@ import { ContentRating, type ExtensionInfo, SourceIntents } from "@paperback/typ
 export default {
   name: "Kenmei",
   description: "Integrate with Kenmei (kenmei.co) for manga tracking",
-  version: "1.1",
+  version: "1.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
