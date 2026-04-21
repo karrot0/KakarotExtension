@@ -24,7 +24,6 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
-// import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { ReadAllComicsInterceptor } from "./interceptors";
 import { ReadAllComicsMetadata } from "./model";
@@ -336,7 +335,6 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
     metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const page = metadata?.page ?? 1;
-    let hasNextPage = false;
     const collectedIds = metadata?.collectedIds ?? [];
 
     const urlBuilder = new URLBuilder(baseUrl);
@@ -345,31 +343,23 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
       urlBuilder.addPath("page").addPath(page.toString());
     }
 
-    const request = {
-      url: urlBuilder.build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
+    const $ = await this.fetchCheerio({ url: urlBuilder.build(), method: "GET" });
     const items: DiscoverSectionItem[] = [];
 
-    for (const element of $(".posts-grid > article.post-item").toArray()) {
+    $(".list-story.categories > li").each((_, element) => {
       const unit = $(element);
-      const linkEl = unit.find(".post-thumbnail a");
-      const imageEl = unit.find(".post-thumbnail img");
-      const titleEl = unit.find(".post-title a");
-      const dateEl = unit.find(".post-date");
 
-      const title = titleEl.text().trim();
-      const image = imageEl.attr("src") || "";
-      const postUrl = linkEl.attr("href") || "";
-      // ChapterId: extract from URL, e.g. https://readallcomics.com/valiant-beyond-tales-of-the-shadowman-006-ghosts-of-the-bayou-part-3-of-3-2026/ => valiant-beyond-tales-of-the-shadowman-006-ghosts-of-the-bayou-part-3-of-3-2026
-      const chapterId = postUrl.match(/readallcomics\.com\/([^/]+)\/?/);
-      const chapterIdMatch = chapterId ? chapterId[1] : "";
-      const mangaId = await this.getMangaIdFromChapter(chapterIdMatch);
+      const categoryLink = unit.find("a.book-link").attr("href") ?? "";
+      const mangaIdMatch = categoryLink.match(/category\/([^/]+)\//);
+      const mangaId = mangaIdMatch ? mangaIdMatch[1] : "";
 
-      const dateText = dateEl.text().trim();
-      const fullSubtitle = dateText;
+      const title = unit.find("a.cat-title").text().trim();
+      const imageEl = unit.find("img.book-cover");
+      const image = imageEl.attr("data-src") ?? imageEl.attr("src") ?? "";
+
+      const dateText = unit.find(".latest-date").text().replace("Updated:", "").trim();
+      const totalIssues = unit.find(".cat-total-issues").text().trim();
+      const subtitle = totalIssues ? `${dateText} | ${totalIssues}` : dateText;
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -378,19 +368,19 @@ export class ReadAllComicsExtension implements ReadAllComicsImplementation {
             id: mangaId,
             image: image,
             title: title,
-            subtitle: fullSubtitle,
+            subtitle: subtitle,
             type: "simpleCarouselItem",
           }),
         );
       }
-    }
-
-    $(".pagination .page-numbers").each((_, element) => {
-      const pageNumber = $(element).text().trim();
-      if (pageNumber && !isNaN(Number(pageNumber))) {
-      hasNextPage = Number(pageNumber) > page;
-      }
     });
+
+    const hasNextPage = $(".pagination .page-numbers")
+      .toArray()
+      .some((el) => {
+        const n = Number($(el).text().trim());
+        return !isNaN(n) && n > page;
+      });
 
     return {
       items: items,
