@@ -307,8 +307,7 @@ export class SettingsForm extends Form {
     return `API Rate Limit: 45 requests/minute (limited by Display Options)\n\nYou have enabled: ${optionsList}\n\nDisable ${enabledOptions.length === 1 ? "this option" : "these options"} in Display Options to increase rate limit to 60/minute for faster loading.`;
   }
 
-<<<<<<< Updated upstream
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     // Build display options with dynamic date examples
     const displayOptionValues = [
       "hide_read_letter",
@@ -354,9 +353,6 @@ export class SettingsForm extends Form {
           ? "EN|67p"
           : "EN | 67p";
 
-=======
-  override getSections() {
->>>>>>> Stashed changes
     return [
       // Main settings section - NHentai Settings header + Language + Manga Filters nav
       Section("nhentaiMain", [
@@ -558,7 +554,7 @@ class MangaFiltersForm extends Form {
   private hideReadInRelated = getHideReadInRelatedSetting();
   private markReadOnView = getMarkReadOnViewSetting();
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     const markReadOnViewEnabled = this.hideRead && !this.incognito;
 
     return [
@@ -1012,7 +1008,7 @@ class DiscoverOrderForm extends Form {
     this.reloadForm();
   }
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     const sectionMap = new Map<string, DiscoverSectionDef>(
       ALL_DISCOVER_SECTIONS.map((s) => [s.id, s]),
     );
