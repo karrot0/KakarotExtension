@@ -28,35 +28,33 @@
     "bundle": "paperback-cli bundle",
     "serve": "paperback-cli serve",
     "logcat": "paperback-cli logcat",
-    "logcat:host": "paperback-cli logcat --host 192.168.1.65",
     "dev": "paperback-cli serve -w -p 3000",
     "test": "tsc --project tsconfig.json --noEmit && npm run lint:check && npm run format:check && npm run bundle",
     "prepare": "husky",
     "postinstall": "patch-package"
   },
   "devDependencies": {
-    "@eslint/js": "^9.25.0",
-    "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
-    "@paperback/toolchain": "^1.0.0-alpha.64",
-    "@paperback/types": "^1.0.0-alpha.64",
+    "@eslint/js": "^10.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@paperback/toolchain": "^1.0.0-alpha.68",
+    "@paperback/types": "^1.0.0-alpha.68",
     "@types/eslint": "^9.6.1",
-    "@types/jsdom": "^27.0.0",
+    "@types/jsdom": "^28.0.1",
     "cheerio": "^1.2.0",
-    "eslint": "^9.25.0",
+    "eslint": "^10.2.1",
     "fastest-levenshtein": "^1.0.16",
     "husky": "^9.1.7",
     "moment": "^2.30.1",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
-    "prettier": "^3.5.3",
+    "prettier": "^3.8.3",
     "stemmer": "^2.0.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.30.1"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.0"
   },
   "dependencies": {
-    "@types/node": "^22.13.0",
-    "cheerio": "^1.2.0",
-    "jsdom": "^26.0.0",
+    "@types/node": "^25.6.0",
+    "jsdom": "^29.0.2",
     "require-from-string": "^2.0.2"
   }
 }

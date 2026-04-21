@@ -1,6 +1,5 @@
 import {
   Form,
-  FormSectionElement,
   LabelRow,
   NavigationRow,
   Section,
@@ -21,7 +20,11 @@ export function getWhitelistGenres(): string[] {
 }
 
 export function getGenres(): { id: string; label: string }[] {
-  return STATIC_SEARCH_DETAILS.genres;
+  return (
+    STATIC_SEARCH_DETAILS.tagCategories
+      .find((c) => c.id === "genre")
+      ?.tags.map((t) => ({ id: t.id, label: t.name })) ?? []
+  );
 }
 
 export function setGenres(genres: { id: string; label: string }[]): void {
@@ -79,7 +82,7 @@ export function setEnableChapterFiltering(value: boolean): void {
 
 // Main Settings Form
 export class SettingsForm extends Form {
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     return [
       Section("mainSettings", [
         LabelRow("settingsLabel", {
@@ -190,7 +193,7 @@ export class ContentSettingsForm extends Form {
     setWhitelistDemographics(value);
   }
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     return [
       Section("contentSettings", [
         LabelRow("contentSettingsLabel", {

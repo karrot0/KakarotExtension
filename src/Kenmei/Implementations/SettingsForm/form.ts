@@ -1,7 +1,6 @@
 import {
   ButtonRow,
   Form,
-  type FormSectionElement,
   InputRow,
   LabelRow,
   NavigationRow,
@@ -31,7 +30,7 @@ export class LoginForm extends Form {
     this.resetFields();
   }
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     return [
       Section(
         {
@@ -107,7 +106,7 @@ export class SettingsForm extends Form {
     }
   }
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     const sess = getSession();
     if (!sess) {
       this.profile = null;
@@ -116,7 +115,7 @@ export class SettingsForm extends Form {
     return this.authenticatedView(sess.username);
   }
 
-  unauthenticatedView(): FormSectionElement[] {
+  unauthenticatedView() {
     return [
       Section({ id: "login-section" }, [
         NavigationRow("login", {
@@ -127,8 +126,8 @@ export class SettingsForm extends Form {
     ];
   }
 
-  authenticatedView(username: string): FormSectionElement[] {
-    const sections: FormSectionElement[] = [
+  authenticatedView(username: string) {
+    const sections = [
       Section({ id: "profile-section", header: "Profile" }, [
         LabelRow("username", {
           title: "Logged in as",

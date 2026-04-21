@@ -1,7 +1,6 @@
 import {
   ButtonRow,
   Form,
-  FormSectionElement,
   InputRow,
   LabelRow,
   NavigationRow,
@@ -308,6 +307,7 @@ export class SettingsForm extends Form {
     return `API Rate Limit: 45 requests/minute (limited by Display Options)\n\nYou have enabled: ${optionsList}\n\nDisable ${enabledOptions.length === 1 ? "this option" : "these options"} in Display Options to increase rate limit to 60/minute for faster loading.`;
   }
 
+<<<<<<< Updated upstream
   override getSections(): FormSectionElement[] {
     // Build display options with dynamic date examples
     const displayOptionValues = [
@@ -354,6 +354,9 @@ export class SettingsForm extends Form {
           ? "EN|67p"
           : "EN | 67p";
 
+=======
+  override getSections() {
+>>>>>>> Stashed changes
     return [
       // Main settings section - NHentai Settings header + Language + Manga Filters nav
       Section("nhentaiMain", [

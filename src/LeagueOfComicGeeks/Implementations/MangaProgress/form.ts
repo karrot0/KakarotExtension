@@ -1,7 +1,6 @@
 import {
   ButtonRow,
   Form,
-  type FormSectionElement,
   LabelRow,
   Section,
   SelectRow,
@@ -35,7 +34,7 @@ export class MangaProgressForm extends Form {
     await this.saveChanges();
   }
 
-  override getSections(): FormSectionElement[] {
+  override getSections() {
     if (this.loading) {
       return [
         Section("loading", [
