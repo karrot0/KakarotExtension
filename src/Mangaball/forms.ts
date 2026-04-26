@@ -71,11 +71,6 @@ export function setWhitelistDemographics(demographics: string[]): void {
   Application.setState(demographics, "whitelistDemographics");
 }
 
-// Chapter Filtering Setting
-export function getEnableChapterFiltering(): boolean {
-  return (Application.getState("enableChapterFiltering") as boolean | undefined) ?? false;
-}
-
 export function setEnableChapterFiltering(value: boolean): void {
   Application.setState(value, "enableChapterFiltering");
 }
@@ -101,10 +96,6 @@ export class SettingsForm extends Form {
 
 // Content Settings Form
 export class ContentSettingsForm extends Form {
-  private chapterFilteringState: {
-    value: boolean;
-    updateValue: (newValue: string[]) => Promise<void>;
-  };
   private blacklistGenresState: {
     value: string[];
     updateValue: (newValue: string[]) => Promise<void>;
@@ -124,15 +115,7 @@ export class ContentSettingsForm extends Form {
 
   constructor() {
     super();
-    const filteringEnabled = getEnableChapterFiltering();
-    this.chapterFilteringState = {
-      value: filteringEnabled,
-      updateValue: async (newValue: string[]) => {
-        const enabled = (newValue?.[0] ?? "off") === "on";
-        this.chapterFilteringState.value = enabled;
-        setEnableChapterFiltering(enabled);
-      },
-    };
+
     const blacklistGenres = getBlacklistGenres();
     this.blacklistGenresState = {
       value: blacklistGenres,
@@ -169,7 +152,6 @@ export class ContentSettingsForm extends Form {
 
   async updateChapterFiltering(value: string[]): Promise<void> {
     const enabled = (value?.[0] ?? "off") === "on";
-    this.chapterFilteringState.value = enabled;
     setEnableChapterFiltering(enabled);
   }
 
@@ -199,23 +181,6 @@ export class ContentSettingsForm extends Form {
         LabelRow("contentSettingsLabel", {
           title: "Content Settings",
           subtitle: "Configure your reading experience",
-        }),
-        SelectRow("enableChapterFiltering", {
-          title: "Enable Chapter Filtering",
-          subtitle: this.chapterFilteringState.value
-            ? "On: Show one version per chapter with prioritization"
-            : "Off: Show all versions",
-          value: [this.chapterFilteringState.value ? "on" : "off"],
-          options: [
-            { id: "on", title: "On" },
-            { id: "off", title: "Off" },
-          ],
-          minItemCount: 1,
-          maxItemCount: 1,
-          onValueChange: Application.Selector(
-            this as ContentSettingsForm,
-            "updateChapterFiltering",
-          ),
         }),
         SelectRow("whitelistGenres", {
           title: "Whitelist Genres",

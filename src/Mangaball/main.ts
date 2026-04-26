@@ -452,7 +452,6 @@ export class MangaballExtension implements MangaballImplementation {
         console.log("Computed mangaId:", mangaId);
         collectedIds.push(mangaId);
 
-        // Parse alternateName (HTML badges)
         let altTitles: string[] = [];
         if (raw.alternateName) {
           try {
@@ -461,11 +460,9 @@ export class MangaballExtension implements MangaballImplementation {
               .map((_, el) => $alt(el).text().trim())
               .get();
           } catch {
-            // Ignore alternate name parsing errors
           }
         }
 
-        // Parse tags (HTML badges)
         let tagNames: string[] = [];
         if (raw.tags) {
           try {
@@ -474,11 +471,9 @@ export class MangaballExtension implements MangaballImplementation {
               .map((_, el) => $tags(el).text().trim())
               .get();
           } catch {
-            // Ignore tag parsing errors
           }
         }
 
-        // Parse authors (HTML badges)
         let authorNames: string[] = [];
         if (raw.authors) {
           try {
@@ -487,11 +482,9 @@ export class MangaballExtension implements MangaballImplementation {
               .map((_, el) => $auth(el).text().trim())
               .get();
           } catch {
-            // Ignore author parsing errors
           }
         }
 
-        // Parse status (HTML badge)
         let statusText = "";
         if (raw.status) {
           try {
@@ -502,13 +495,11 @@ export class MangaballExtension implements MangaballImplementation {
           }
         }
 
-        // Extract chapter text from last_chapter HTML
         let latestChapter = "";
         if (raw.last_chapter) {
           try {
             const $lc = cheerio.load(String(raw.last_chapter));
             latestChapter = $lc("a").first().text().trim();
-            // Fallback: if no anchor found, just take the text
             if (!latestChapter) {
               latestChapter = $lc.root().text().trim();
             }
@@ -822,17 +813,14 @@ function toRelativeTime(dateText: string): string {
   const now = Date.now();
   let date: Date | undefined;
 
-  // Try parsing as timestamp (seconds or ms)
   const trimmed = dateText.trim();
   if (/^\d{10,13}$/.test(trimmed)) {
-    // If 13 digits, treat as ms; if 10 digits, treat as seconds
     if (trimmed.length === 13) {
       date = new Date(Number(trimmed));
     } else if (trimmed.length === 10) {
       date = new Date(Number(trimmed) * 1000);
     }
   } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
-    // Handle "YYYY-MM-DD HH:mm:ss"
     const m = dateText.trim().match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
     if (m) {
       date = new Date(
@@ -849,7 +837,6 @@ function toRelativeTime(dateText: string): string {
   }
 
   if (!date || isNaN(date.getTime())) {
-    // Fallback: return as-is
     return trimmed;
   }
 
