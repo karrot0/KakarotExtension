@@ -1,6 +1,6 @@
 import { PaperbackInterceptor, Request, Response, CloudflareError } from "@paperback/types";
 
-export class Interceptor extends PaperbackInterceptor {
+export class MainInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     const enableNsfw = request.headers?.["x-enable-nsfw"] === "true";
     if (enableNsfw) {

@@ -1,11 +1,11 @@
 import { DiscoverSectionItem } from "@paperback/types";
 import * as cheerio from "cheerio";
-import { APIItem } from "./model";
+import { APIItem } from "./models";
 
 export interface ParseOptions {
-    itemType?: "featuredCarouselItem" | "chapterUpdatesCarouselItem";
-    extractChapterInfo?: boolean;
-    customSubtitleExtractor?: (raw: APIItem) => string;
+  itemType?: "featuredCarouselItem" | "chapterUpdatesCarouselItem";
+  extractChapterInfo?: boolean;
+  customSubtitleExtractor?: (raw: APIItem) => string;
 }
 
 export function parseApiItemsToDiscoverItems(
@@ -15,22 +15,24 @@ export function parseApiItemsToDiscoverItems(
 ): { items: DiscoverSectionItem[]; collectedIds: string[] } {
   const items: DiscoverSectionItem[] = [];
   const seen = new Set<string>(collectedIds || []);
-  const { itemType = "featuredCarouselItem", extractChapterInfo = false, customSubtitleExtractor } = options || {};
+  const {
+    itemType = "featuredCarouselItem",
+    extractChapterInfo = false,
+    customSubtitleExtractor,
+  } = options || {};
 
   for (const raw of apiItems || []) {
     let mangaId = raw.url;
     const idMatch = raw.url.match(/\/title-detail\/([^/?#]+)/);
     if (idMatch) {
-            mangaId = idMatch[1];
+      mangaId = idMatch[1];
     } else {
-             // Fallback for unexpected URL formats
-             mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
+      mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
     }
 
-    // Explicit safety check: ensure mangaId is not a URL
     if (mangaId.includes("/")) {
-       const parts = mangaId.split("/").filter(Boolean);
-       mangaId = parts[parts.length - 1];
+      const parts = mangaId.split("/").filter(Boolean);
+      mangaId = parts[parts.length - 1];
     }
 
     if (!mangaId || seen.has(mangaId)) continue;
@@ -51,9 +53,10 @@ export function parseApiItemsToDiscoverItems(
     let description = "";
     if (raw.description) {
       const $desc = cheerio.load(String(raw.description) || "");
-      description = (
-        $desc("p").first().text().trim() || $desc.root().text().trim()
-      ).replace(/\s+/g, " ");
+      description = ($desc("p").first().text().trim() || $desc.root().text().trim()).replace(
+        /\s+/g,
+        " ",
+      );
     }
 
     const tagIds: string[] = [];
@@ -83,20 +86,20 @@ export function parseApiItemsToDiscoverItems(
     let status = "";
     if (raw.status) {
       const $stat = cheerio.load(String(raw.status) || "");
-      status = (
-        $stat(".badge").first().text().trim() || $stat.root().text().trim()
-      ).replace(/\s+/g, " ");
+      status = ($stat(".badge").first().text().trim() || $stat.root().text().trim()).replace(
+        /\s+/g,
+        " ",
+      );
     }
 
-    // Extract chapter info if needed
     let chapterId = "";
     let subtitle: string | undefined = undefined;
-    
+
     if (extractChapterInfo && raw.last_chapter) {
       try {
         const $lc = cheerio.load(String(raw.last_chapter));
-        const anchor = $lc('a').first();
-        const href = anchor.attr('href') || anchor.attr('data-href') || "";
+        const anchor = $lc("a").first();
+        const href = anchor.attr("href") || anchor.attr("data-href") || "";
         chapterId = deriveIdFromUrl(href || "") || "";
         const txt = anchor.text().trim();
         if (txt) subtitle = txt;
@@ -105,14 +108,12 @@ export function parseApiItemsToDiscoverItems(
         subtitle = undefined;
       }
     }
-    
-    // Use custom subtitle extractor if provided (overrides chapter subtitle)
+
     if (customSubtitleExtractor) {
       const customSubtitle = customSubtitleExtractor(raw);
       if (customSubtitle !== undefined) subtitle = customSubtitle;
     }
-    
-    // If no subtitle and not extracting chapter info, use updated_at
+
     if (!subtitle && !extractChapterInfo) {
       subtitle = String(raw.updated_at || "");
     }
@@ -135,7 +136,6 @@ export function parseApiItemsToDiscoverItems(
       },
     };
 
-    // Create the appropriate item type
     if (itemType === "chapterUpdatesCarouselItem") {
       items.push({
         type: "chapterUpdatesCarouselItem",
@@ -153,10 +153,8 @@ export function parseApiItemsToDiscoverItems(
   return { items, collectedIds: Array.from(seen) };
 }
 
-// Helper function to extract ID from URL (needed for chapter extraction)
 function deriveIdFromUrl(url: string): string {
   if (!url) return "";
-  // Extract the last segment and remove trailing slash
   const segments = url.split("/").filter(Boolean);
   return segments.pop()?.split(/[?#]/)[0] || "";
 }

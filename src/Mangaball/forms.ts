@@ -5,7 +5,7 @@ import {
   Section,
   SelectRow,
 } from "@paperback/types";
-import { STATIC_SEARCH_DETAILS } from "./model";
+import { STATIC_SEARCH_DETAILS } from "./models";
 
 export function getBlacklistGenres(): string[] {
   return (

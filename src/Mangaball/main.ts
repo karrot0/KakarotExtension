@@ -4,7 +4,6 @@ import {
   ChapterDetails,
   ChapterProviding,
   CloudflareBypassRequestProviding,
-  CloudflareError,
   ContentRating,
   Cookie,
   CookieStorageInterceptor,
@@ -28,37 +27,16 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
-import { Interceptor } from "./interceptors";
+import { MainInterceptor } from "./network";
 import {
   metadata,
   SearchAPIResponse,
   SearchDetails,
   STATIC_SEARCH_DETAILS,
   APIItem,
-} from "./model";
+  ChapterApiResponse,
+} from "./models";
 import { parseApiItemsToDiscoverItems } from "./parsers";
-
-
-interface ChapterTranslation {
-  id: string;
-  name: string;
-  language: string;
-  languageName: string;
-  group?: { name?: string };
-  date?: string;
-  volume?: number;
-}
-interface ChapterApiChapter {
-  number: string;
-  number_float: number;
-  title: string;
-  translations: ChapterTranslation[];
-}
-interface ChapterApiResponse {
-  code: number;
-  TOTAL_CHAPTERS: number;
-  ALL_CHAPTERS: ChapterApiChapter[];
-}
 
 const baseUrl = "https://mangaball.net/";
 
@@ -70,7 +48,7 @@ type MangaballImplementation = Extension &
   DiscoverSectionProviding;
 
 export class MangaballExtension implements MangaballImplementation {
-  requestManager = new Interceptor("main");
+  requestManager = new MainInterceptor("main");
   cookieStorageInterceptor = new CookieStorageInterceptor({ storage: "stateManager" });
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
     numberOfRequests: 10,
@@ -78,7 +56,6 @@ export class MangaballExtension implements MangaballImplementation {
     ignoreImages: true,
   });
 
-  // Cached CSRF/cookie state
   private cachedCsrfToken: string | undefined;
   private cachedXsrfToken: string | undefined;
   private cachedFormToken: string | undefined;
@@ -103,17 +80,16 @@ export class MangaballExtension implements MangaballImplementation {
           "user-agent": await Application.getDefaultUserAgent(),
         },
       });
-      
+
       if (throwOnCF || (homeResp.status !== 503 && homeResp.status !== 403)) {
-          await this.checkCloudflareStatus(homeResp.status);
       } else if (homeResp.status === 503 || homeResp.status === 403) {
-          this.csrfReady = false;
-          return;
+        this.csrfReady = false;
+        return;
       }
       const homeHtml = Application.arrayBufferToUTF8String(homeData);
       const dom = htmlparser2.parseDocument(homeHtml);
       const $ = cheerio.load(dom);
-      const metaToken = ($("meta[name=\"csrf-token\"]").attr("content") || "").trim();
+      const metaToken = ($('meta[name="csrf-token"]').attr("content") || "").trim();
       let cookieToken: string | undefined;
       try {
         const cookies: readonly Cookie[] = this.cookieStorageInterceptor?.cookies ?? [];
@@ -129,7 +105,7 @@ export class MangaballExtension implements MangaballImplementation {
           }
         }
       } catch {
-        // Ignore cookie parsing errors
+        throw new Error("Failed to access cookies for CSRF token extraction");
       }
       let scriptToken: string | undefined;
       if (!metaToken) {
@@ -140,7 +116,9 @@ export class MangaballExtension implements MangaballImplementation {
         const m1 = scriptsCombined.match(/csrfToken\s*[:=]\s*["']([^"']+)["']/i);
         if (m1) scriptToken = m1[1];
         else {
-          const m2 = scriptsCombined.match(/window\.Laravel\s*=\s*\{[\s\S]*?csrfToken\s*:\s*["']([^"']+)["']/i);
+          const m2 = scriptsCombined.match(
+            /window\.Laravel\s*=\s*\{[\s\S]*?csrfToken\s*:\s*["']([^"']+)["']/i,
+          );
           if (m2) scriptToken = m2[1];
         }
       }
@@ -148,7 +126,6 @@ export class MangaballExtension implements MangaballImplementation {
       this.cachedXsrfToken = cookieToken || metaToken || scriptToken || "";
       this.cachedFormToken = metaToken || cookieToken || scriptToken || "";
       this.csrfReady = true;
-      // console.log("[init] Cached CSRF token:", this.cachedCsrfToken, "XSRF:", this.cachedXsrfToken);
     } catch (err: any) {
       this.csrfReady = false;
       console.log("[init] Failed to fetch CSRF/cookie:", err);
@@ -192,10 +169,7 @@ export class MangaballExtension implements MangaballImplementation {
       .join("&");
   }
 
-  private async searchAPI(
-    search_type: string,
-    search_limit?: number,
-  ) {
+  private async searchAPI(search_type: string, search_limit?: number) {
     const bodyParams: Record<string, string | number | undefined> = { search_type };
     if (search_limit !== undefined) bodyParams.search_limit = search_limit;
 
@@ -209,10 +183,21 @@ export class MangaballExtension implements MangaballImplementation {
       "X-Requested-With": "XMLHttpRequest",
       "user-agent": await Application.getDefaultUserAgent(),
     };
-  if (this.cachedCsrfToken) { headers["X-CSRF-TOKEN"] = this.cachedCsrfToken; }
-  if (this.cachedXsrfToken) { headers["X-XSRF-TOKEN"] = this.cachedXsrfToken; }
-  if (this.cachedFormToken) { bodyParams._token = this.cachedFormToken; }
-    const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("v1").addPath("title").addPath("search").build();
+    if (this.cachedCsrfToken) {
+      headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
+    }
+    if (this.cachedXsrfToken) {
+      headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
+    }
+    if (this.cachedFormToken) {
+      bodyParams._token = this.cachedFormToken;
+    }
+    const apiUrl = new URLBuilder(baseUrl)
+      .addPath("api")
+      .addPath("v1")
+      .addPath("title")
+      .addPath("search")
+      .build();
     const formBody = this.formEncode(bodyParams);
     const request = {
       url: apiUrl,
@@ -221,8 +206,7 @@ export class MangaballExtension implements MangaballImplementation {
       headers,
     };
     try {
-      const [response, data] = await Application.scheduleRequest(request);
-      await this.checkCloudflareStatus(response.status);
+      const [_, data] = await Application.scheduleRequest(request);
       const jsonStr = Application.arrayBufferToUTF8String(data);
       const responseAPI = JSON.parse(jsonStr) as SearchAPIResponse;
       return responseAPI;
@@ -271,8 +255,6 @@ export class MangaballExtension implements MangaballImplementation {
       title: "Show 18+ Content",
     });
 
-    // Only include filters that are present in STATIC_SEARCH_DETAILS
-    // Add a separate multiselect filter for each tag category
     if (searchDetails?.tagCategories?.length) {
       for (const cat of searchDetails.tagCategories) {
         filters.push({
@@ -339,7 +321,7 @@ export class MangaballExtension implements MangaballImplementation {
     metadata: metadata | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
-  const page = metadata?.page ?? 1;
+    const page = metadata?.page ?? 1;
     const collectedIds = metadata?.searchCollectedIds ?? [];
     const getFilterValue = (id: string) => query.filters.find((filter) => filter.id == id)?.value;
 
@@ -349,11 +331,13 @@ export class MangaballExtension implements MangaballImplementation {
     const tag_excluded_ids: string[] = [];
     if (STATIC_SEARCH_DETAILS.tagCategories) {
       for (const cat of STATIC_SEARCH_DETAILS.tagCategories) {
-        const tags = getFilterValue(`tags_${cat.id}`) as Record<string, "included" | "excluded"> | undefined;
+        const tags = getFilterValue(`tags_${cat.id}`) as
+          | Record<string, "included" | "excluded">
+          | undefined;
         if (tags) {
           for (const [slugOrId, v] of Object.entries(tags)) {
             let tagId = slugOrId;
-            const found = cat.tags.find(t => t.id === slugOrId || t.slug === slugOrId);
+            const found = cat.tags.find((t) => t.id === slugOrId || t.slug === slugOrId);
             if (found) tagId = found.id;
             if (v === "included") tag_included_ids.push(tagId);
             else if (v === "excluded") tag_excluded_ids.push(tagId);
@@ -362,19 +346,19 @@ export class MangaballExtension implements MangaballImplementation {
       }
     }
 
-    // Other filters
     const contentRating = getFilterValue("contentRating") as string | undefined;
     const demographic = getFilterValue("demographics") as string | undefined;
     const person = getFilterValue("person") as string | undefined;
-    const originalLanguages = getFilterValue("originalLanguages") as Record<string, true> | undefined;
+    const originalLanguages = getFilterValue("originalLanguages") as
+      | Record<string, true>
+      | undefined;
     const publicationYear = getFilterValue("publicationYear") as string | undefined;
     const publicationStatus = getFilterValue("publicationStatus") as string | undefined;
-    const translatedLanguages = getFilterValue("translatedLanguages") as Record<string, true> | undefined;
+    const translatedLanguages = getFilterValue("translatedLanguages") as
+      | Record<string, true>
+      | undefined;
 
-    // Sorting
     const sort = sortingOption?.id || "none";
-
-    // Search input
     const search_input = query.title?.trim() || "";
 
     const filters: Record<string, unknown> = {
@@ -412,8 +396,8 @@ export class MangaballExtension implements MangaballImplementation {
       `search_input=${encodeURIComponent(search_input)}`,
       ...Object.entries(filters).flatMap(([k, v]) => {
         if (Array.isArray(v)) {
-          return v.map((val) =>
-            `${encodeURIComponent(`filters[${k}][]`)}=${encodeURIComponent(String(val))}`
+          return v.map(
+            (val) => `${encodeURIComponent(`filters[${k}][]`)}=${encodeURIComponent(String(val))}`,
           );
         } else {
           return `${encodeURIComponent(`filters[${k}]`)}=${encodeURIComponent(String(v))}`;
@@ -438,8 +422,13 @@ export class MangaballExtension implements MangaballImplementation {
     if (this.cachedCsrfToken) headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
     if (this.cachedXsrfToken) headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
     if (this.cachedFormToken) headers["x-csrf-token"] = this.cachedFormToken;
-    
-    const apiUrl = new URLBuilder(baseUrl).addPath("api").addPath("v1").addPath("title").addPath("search-advanced").build();
+
+    const apiUrl = new URLBuilder(baseUrl)
+      .addPath("api")
+      .addPath("v1")
+      .addPath("title")
+      .addPath("search-advanced")
+      .build();
     const request = {
       url: apiUrl,
       method: "POST",
@@ -447,8 +436,7 @@ export class MangaballExtension implements MangaballImplementation {
       headers,
     };
     try {
-      const [responseApi, data] = await Application.scheduleRequest(request);
-      await this.checkCloudflareStatus(responseApi.status);
+      const [_, data] = await Application.scheduleRequest(request);
       const jsonStr = Application.arrayBufferToUTF8String(data);
       const response = JSON.parse(jsonStr) as SearchAPIResponse;
       const searchResults: SearchResultItem[] = [];
@@ -456,9 +444,9 @@ export class MangaballExtension implements MangaballImplementation {
         let mangaId = raw.url;
         const idMatch = raw.url.match(/\/title-detail\/([^/?#]+)/);
         if (idMatch) {
-            mangaId = idMatch[1];
+          mangaId = idMatch[1];
         } else {
-             mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
+          mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
         }
 
         console.log("Computed mangaId:", mangaId);
@@ -469,7 +457,9 @@ export class MangaballExtension implements MangaballImplementation {
         if (raw.alternateName) {
           try {
             const $alt = cheerio.load(String(raw.alternateName));
-            altTitles = $alt("span").map((_, el) => $alt(el).text().trim()).get();
+            altTitles = $alt("span")
+              .map((_, el) => $alt(el).text().trim())
+              .get();
           } catch {
             // Ignore alternate name parsing errors
           }
@@ -480,7 +470,9 @@ export class MangaballExtension implements MangaballImplementation {
         if (raw.tags) {
           try {
             const $tags = cheerio.load(String(raw.tags));
-            tagNames = $tags("span").map((_, el) => $tags(el).text().trim()).get();
+            tagNames = $tags("span")
+              .map((_, el) => $tags(el).text().trim())
+              .get();
           } catch {
             // Ignore tag parsing errors
           }
@@ -491,7 +483,9 @@ export class MangaballExtension implements MangaballImplementation {
         if (raw.authors) {
           try {
             const $auth = cheerio.load(String(raw.authors));
-            authorNames = $auth("span").map((_, el) => $auth(el).text().trim()).get();
+            authorNames = $auth("span")
+              .map((_, el) => $auth(el).text().trim())
+              .get();
           } catch {
             // Ignore author parsing errors
           }
@@ -508,42 +502,43 @@ export class MangaballExtension implements MangaballImplementation {
           }
         }
 
-
         // Extract chapter text from last_chapter HTML
         let latestChapter = "";
         if (raw.last_chapter) {
-            try {
-                const $lc = cheerio.load(String(raw.last_chapter));
-                latestChapter = $lc("a").first().text().trim();
-                // Fallback: if no anchor found, just take the text
-                if (!latestChapter) {
-                    latestChapter = $lc.root().text().trim();
-                }
-            } catch {
-                 latestChapter = String(raw.last_chapter).replace(/<[^>]*>?/gm, '').trim();
+          try {
+            const $lc = cheerio.load(String(raw.last_chapter));
+            latestChapter = $lc("a").first().text().trim();
+            // Fallback: if no anchor found, just take the text
+            if (!latestChapter) {
+              latestChapter = $lc.root().text().trim();
             }
-        }
-        
-        let subtitle = toRelativeTime(raw.updated_at);
-        if (latestChapter) {
-            subtitle = `${latestChapter} | ${subtitle}`;
+          } catch {
+            latestChapter = String(raw.last_chapter)
+              .replace(/<[^>]*>?/gm, "")
+              .trim();
+          }
         }
 
-          searchResults.push({
-            mangaId: mangaId,
-            imageUrl: String(raw.cover || raw.background || ""),
-            title: String(raw.name || ""),
-            subtitle: subtitle,
-            metadata: {
-              chapterId: raw.last_chapter || undefined,
-              altTitles,
-              tagNames,
-              authorNames,
-              statusText,
-              originalId: raw._id,
-              originalUrl: raw.url,
-            },
-          });
+        let subtitle = toRelativeTime(raw.updated_at);
+        if (latestChapter) {
+          subtitle = `${latestChapter} | ${subtitle}`;
+        }
+
+        searchResults.push({
+          mangaId: mangaId,
+          imageUrl: String(raw.cover || raw.background || ""),
+          title: String(raw.name || ""),
+          subtitle: subtitle,
+          metadata: {
+            chapterId: raw.last_chapter || undefined,
+            altTitles,
+            tagNames,
+            authorNames,
+            statusText,
+            originalId: raw._id,
+            originalUrl: raw.url,
+          },
+        });
       }
       let nextPage: number | undefined = undefined;
       if (response.pagination && response.pagination.current_page < response.pagination.last_page) {
@@ -560,60 +555,57 @@ export class MangaballExtension implements MangaballImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    // console.log(`[getMangaDetails] Fetching details for mangaId: ${mangaId}`);
     const request = {
       url: new URLBuilder(baseUrl).addPath("title-detail").addPath(mangaId).build(),
       method: "GET",
     };
     const $ = await this.fetchCheerio(request);
 
-    // Title
     const title = $("#comicDetail h6").first().text().trim();
-
-    // Alternate names
     const altTitles: string[] = [];
     $(".alternate-name-container span").each((_, el) => {
       const t = $(el).text().trim();
       if (t) altTitles.push(t);
     });
 
-    // Cover image
     let image = $(".featured-cover").attr("src") || $(".featured-cover").attr("data-src") || "";
     if (image && !image.startsWith("http")) {
       image = image.startsWith("/") ? `${baseUrl}${image.slice(1)}` : `${baseUrl}${image}`;
     }
 
-
     const description = $(".description-text p").html() || "";
 
-    // Authors (not always present, fallback to empty)
     const authors: string[] = [];
-    $(".badge.bg-secondary.bg-opacity-75 i.fa-user-edit").parent().nextAll("span").each((_, el) => {
-      const t = $(el).text().trim();
-      if (t) authors.push(t);
-    });
+    $(".badge.bg-secondary.bg-opacity-75 i.fa-user-edit")
+      .parent()
+      .nextAll("span")
+      .each((_, el) => {
+        const t = $(el).text().trim();
+        if (t) authors.push(t);
+      });
 
-    // Status (e.g. Ongoing, Completed)
     let status = $(".badge.bg-success.me-3").first().text().trim();
     if (!status) status = $(".badge.bg-danger.me-3").first().text().trim();
 
-    // Tags/Genres
     const tagGroups: TagSection[] = [];
-    const tagBadges = $(".badge.bg-success,.badge.bg-info,.badge.bg-warning,.badge.bg-danger").filter(function() {
+    const tagBadges = $(
+      ".badge.bg-success,.badge.bg-info,.badge.bg-warning,.badge.bg-danger",
+    ).filter(function () {
       return !!$(this).attr("data-tag-id");
     });
     if (tagBadges.length > 0) {
       tagGroups.push({
         id: "tags",
         title: "Tags",
-        tags: tagBadges.map((_, el) => ({
-          id: $(el).attr("data-tag-id") || "",
-          title: $(el).text().trim(),
-        })).get(),
+        tags: tagBadges
+          .map((_, el) => ({
+            id: $(el).attr("data-tag-id") || "",
+            title: $(el).text().trim(),
+          }))
+          .get(),
       });
     }
 
-    // Rating (star count)
     let rating = 0;
     const ratingText = $(".fa-star.text-warning").parent().find("span").text().trim();
     if (ratingText) {
@@ -643,17 +635,17 @@ export class MangaballExtension implements MangaballImplementation {
     const match = mangaId.match(/([a-f0-9]{24})$/);
     const titleId = match ? match[1] : mangaId;
 
-    // Get CSRF token (use cachedFormToken or fallback to cachedCsrfToken)
     const csrfToken = this.cachedFormToken || this.cachedCsrfToken || "";
 
     const apiUrl = `${baseUrl}api/v1/chapter/chapter-listing-by-title-id/`;
     const headers: Record<string, string> = {
-      "accept": "*/*",
+      accept: "*/*",
       "accept-language": "en-US,en;q=0.9",
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "origin": baseUrl.replace(/\/$/, ""),
-      "referer": `${baseUrl}title-detail/${mangaId}/`,
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      origin: baseUrl.replace(/\/$/, ""),
+      referer: `${baseUrl}title-detail/${mangaId}/`,
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
       "x-csrf-token": csrfToken,
       "x-requested-with": "XMLHttpRequest",
     };
@@ -666,8 +658,7 @@ export class MangaballExtension implements MangaballImplementation {
       body,
     };
 
-    const [response, data] = await Application.scheduleRequest(request);
-    await this.checkCloudflareStatus(response.status);
+    const [_, data] = await Application.scheduleRequest(request);
     const json = JSON.parse(Application.arrayBufferToUTF8String(data)) as ChapterApiResponse; // Assume valid response
     const chapters: Chapter[] = [];
     const seen = new Set<string>();
@@ -695,28 +686,30 @@ export class MangaballExtension implements MangaballImplementation {
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const request: Request = {
       url: `${baseUrl}chapter-detail/${chapter.chapterId}`,
-      method: 'GET',
+      method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const pages: string[] = [];
-    
-    // Find script containing chapterImages
-    const script = $('script').filter((_, el) => {
-      const html = $(el).html() || "";
-      return html.includes('const chapterImages = JSON.parse(');
-    }).first().html();
+
+    const script = $("script")
+      .filter((_, el) => {
+        const html = $(el).html() || "";
+        return html.includes("const chapterImages = JSON.parse(");
+      })
+      .first()
+      .html();
 
     if (script) {
       const match = script.match(/const chapterImages\s*=\s*JSON\.parse\(`(.+?)`\)/s);
       if (match) {
         try {
-          const images = JSON.parse(match[1]); // eslint-disable-line
+          const images = JSON.parse(match[1]);
           if (Array.isArray(images)) {
-            pages.push(...images); // eslint-disable-line
+            pages.push(...images);
           }
         } catch {
-          // Ignore parse errors
+          throw new Error("Failed to parse chapter images");
         }
       }
     }
@@ -741,7 +734,7 @@ export class MangaballExtension implements MangaballImplementation {
       extractChapterInfo: true,
       customSubtitleExtractor: (raw: APIItem) => {
         return String(raw.updated_at || "");
-      }
+      },
     });
 
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
@@ -768,7 +761,7 @@ export class MangaballExtension implements MangaballImplementation {
 
     const recent = await this.searchAPI("getRecentRead");
     const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
-      customSubtitleExtractor: (raw: APIItem) => String(raw.updated_at || "")
+      customSubtitleExtractor: (raw: APIItem) => String(raw.updated_at || ""),
     });
 
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
@@ -791,10 +784,10 @@ export class MangaballExtension implements MangaballImplementation {
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
-    
+
     const recent = await this.searchAPI("getRecentChapterRead");
     const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
-      customSubtitleExtractor: (raw: APIItem) => String(raw.updated_at || "")
+      customSubtitleExtractor: (raw: APIItem) => String(raw.updated_at || ""),
     });
 
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
@@ -813,30 +806,8 @@ export class MangaballExtension implements MangaballImplementation {
     }
   }
 
-  async checkCloudflareStatus(status: number): Promise<void> {
-    switch (status) {
-      case 503:
-      case 403:
-        throw new CloudflareError(
-          {
-            url: baseUrl,
-            method: "GET",
-            headers: {
-              referer: baseUrl,
-              origin: baseUrl,
-              'user-agent': await Application.getDefaultUserAgent(),
-            },
-          },
-          "Cloudflare bypass required, please complete the challenge."
-        );
-      case 404:
-        throw new Error("Content not found");
-    }
-  }
-
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
-    await this.checkCloudflareStatus(response.status);
+    const [_, data] = await Application.scheduleRequest(request);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
@@ -870,7 +841,7 @@ function toRelativeTime(dateText: string): string {
         Number(m[3]), // day
         Number(m[4]), // hour
         Number(m[5]), // minute
-        Number(m[6])  // second
+        Number(m[6]), // second
       );
     }
   } else if (!isNaN(Date.parse(trimmed))) {
@@ -884,10 +855,14 @@ function toRelativeTime(dateText: string): string {
 
   const diff = Math.floor((now - date.getTime()) / 1000);
   if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} minute${Math.floor(diff / 60) === 1 ? "" : "s"} ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) === 1 ? "" : "s"} ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) === 1 ? "" : "s"} ago`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)} month${Math.floor(diff / 2592000) === 1 ? "" : "s"} ago`;
+  if (diff < 3600)
+    return `${Math.floor(diff / 60)} minute${Math.floor(diff / 60) === 1 ? "" : "s"} ago`;
+  if (diff < 86400)
+    return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) === 1 ? "" : "s"} ago`;
+  if (diff < 2592000)
+    return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) === 1 ? "" : "s"} ago`;
+  if (diff < 31536000)
+    return `${Math.floor(diff / 2592000)} month${Math.floor(diff / 2592000) === 1 ? "" : "s"} ago`;
   return `${Math.floor(diff / 31536000)} year${Math.floor(diff / 31536000) === 1 ? "" : "s"} ago`;
 }
 

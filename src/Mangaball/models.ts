@@ -63,6 +63,29 @@ export interface SearchDetails {
   originalLanguages: { id: string; label: string }[];
 }
 
+export interface ChapterTranslation {
+  id: string;
+  name: string;
+  language: string;
+  languageName: string;
+  group?: { name?: string };
+  date?: string;
+  volume?: number;
+}
+
+export interface ChapterApiChapter {
+  number: string;
+  number_float: number;
+  title: string;
+  translations: ChapterTranslation[];
+}
+
+export interface ChapterApiResponse {
+  code: number;
+  TOTAL_CHAPTERS: number;
+  ALL_CHAPTERS: ChapterApiChapter[];
+}
+
 export const STATIC_SEARCH_DETAILS: SearchDetails = {
   sortBy: [
     { id: "none", label: "None" },
