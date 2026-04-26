@@ -9,9 +9,11 @@ import {
   ToggleRow,
 } from "@paperback/types";
 import {
+  bulkDestroyEntries,
   createEntryV2,
-  deleteEntryV2,
   getEntryBySeriesId,
+  getMangaSourceChapters,
+  getMangaSources,
   getSeriesDetail,
   updateEntryV2,
 } from "../../Services/Requests";
@@ -21,8 +23,10 @@ import {
   KENMEI_STATUS_CODES,
   KENMEI_STATUS_TO_CODE,
   type KenmeiEntryV2,
+  type KenmeiMangaSourceEntry,
   type KenmeiReadStatus,
   type KenmeiReadStatusCode,
+  type KenmeiSourceChapter,
 } from "../Shared/types";
 
 export class MangaProgressForm extends Form {
@@ -32,8 +36,14 @@ export class MangaProgressForm extends Form {
   seriesId: number | null = null;
   mangaSourceId: number | null = null;
 
+  // Available sources and their chapters
+  sources: KenmeiMangaSourceEntry[] = [];
+  sourceChapters: KenmeiSourceChapter[] = [];
+  loadingChapters = false;
+
   // Pending edits (all null = unchanged)
   selectedStatus: KenmeiReadStatus | null = null;
+  selectedSourceId: number | null = null;
   selectedChapterId: number | null = null;
   selectedScore: number | null = null;
   selectedNotes: string | null = null;
@@ -93,12 +103,20 @@ export class MangaProgressForm extends Form {
     const currentLabel =
       currentStatus != null ? KENMEI_READ_STATUS_LABELS[currentStatus] : "Not tracked";
 
-    // Chapter selector — build options from the entry's available chapters
-    const chapterOptions =
-      this.entry?.chapters.chapters.map((c) => ({
-        id: String(c.id),
-        title: c.title ? `Ch. ${c.chapter} – ${c.title}` : `Ch. ${c.chapter}`,
-      })) ?? [];
+    // Source picker
+    const activeSourceId =
+      this.selectedSourceId ?? this.entry?.manga_source_id ?? this.sources[0]?.id ?? null;
+    const sourceOptions = this.sources.map((s) => ({
+      id: String(s.id),
+      title: `${s.name} (${s.chaptersCount} ch.)`,
+    }));
+    const sourceValue = activeSourceId != null ? [String(activeSourceId)] : [];
+
+    // Chapter selector — built from fetched source chapters
+    const chapterOptions = this.sourceChapters.map((c) => ({
+      id: String(c.id),
+      title: c.title ? `Ch. ${c.chapter} – ${c.title}` : `Ch. ${c.chapter}`,
+    }));
 
     const currentChapterId =
       this.entry?.mangaSourceChapter?.id != null
@@ -143,28 +161,58 @@ export class MangaProgressForm extends Form {
         ],
       ),
 
-      // ── Last read chapter ────────────────────────────────────────────────────
-      ...(chapterOptions.length > 0
+      // ── Source + Chapter ─────────────────────────────────────────────────────
+      ...(sourceOptions.length > 0
         ? [
+            Section(
+              {
+                id: "source-section",
+                header: "Source",
+                footer: "Choose which source to track chapters from.",
+              },
+              [
+                SelectRow("source-select", {
+                  title: "Source",
+                  options: sourceOptions,
+                  value: sourceValue,
+                  minItemCount: 1,
+                  maxItemCount: 1,
+                  onValueChange: Application.Selector(
+                    this as MangaProgressForm,
+                    "onSourceChange",
+                  ),
+                }),
+              ],
+            ),
             Section(
               {
                 id: "chapter-section",
                 header: "Last Read Chapter",
-                footer: "Select the last chapter you read.",
+                footer: this.loadingChapters
+                  ? "Loading chapters…"
+                  : chapterOptions.length > 0
+                    ? "Select the last chapter you read."
+                    : "No chapters available for this source.",
               },
-              [
-                SelectRow("chapter-select", {
-                  title: "Chapter",
-                  options: chapterOptions,
-                  value: chapterValue,
-                  minItemCount: 0,
-                  maxItemCount: 1,
-                  onValueChange: Application.Selector(
-                    this as MangaProgressForm,
-                    "onChapterChange",
-                  ),
-                }),
-              ],
+              chapterOptions.length > 0
+                ? [
+                    SelectRow("chapter-select", {
+                      title: "Chapter",
+                      options: chapterOptions,
+                      value: chapterValue,
+                      minItemCount: 0,
+                      maxItemCount: 1,
+                      onValueChange: Application.Selector(
+                        this as MangaProgressForm,
+                        "onChapterChange",
+                      ),
+                    }),
+                  ]
+                : [
+                    LabelRow("no-chapters", {
+                      title: this.loadingChapters ? "Loading…" : "No chapters",
+                    }),
+                  ],
             ),
           ]
         : []),
@@ -232,6 +280,25 @@ export class MangaProgressForm extends Form {
     ];
   }
 
+  async onSourceChange(ids: string[]): Promise<void> {
+    const id = ids[0] != null ? parseInt(ids[0], 10) : null;
+    if (id == null || id === (this.selectedSourceId ?? this.entry?.manga_source_id)) return;
+    this.selectedSourceId = id;
+    this.selectedChapterId = null;
+    this.sourceChapters = [];
+    this.loadingChapters = true;
+    this.reloadForm();
+    try {
+      const result = await getMangaSourceChapters(id);
+      this.sourceChapters = result.data;
+    } catch (e) {
+      console.log(`[MangaProgressForm:onSourceChange] error loading chapters: ${String(e)}`);
+    } finally {
+      this.loadingChapters = false;
+      this.reloadForm();
+    }
+  }
+
   async onStatusChange(statuses: string[]): Promise<void> {
     this.selectedStatus = (statuses[0] as KenmeiReadStatus) ?? null;
     this.reloadForm();
@@ -269,7 +336,7 @@ export class MangaProgressForm extends Form {
     try {
       this.loading = true;
       this.reloadForm();
-      await deleteEntryV2(this.entry.id);
+      await bulkDestroyEntries([this.entry.id]);
       this.entry = null;
       this.selectedStatus = null;
       console.log(`${logPrefix} complete`);
@@ -291,6 +358,17 @@ export class MangaProgressForm extends Form {
       this.mangaSourceId = seriesDetail.data.mangaSources[0]?.id ?? null;
 
       this.entry = await getEntryBySeriesId(this.seriesId);
+
+      // Load all sources for this series
+      const sourcesResult = await getMangaSources(this.seriesId);
+      this.sources = sourcesResult.data;
+
+      // Load chapters for the currently tracked source (or the first available)
+      const initialSourceId = this.entry?.manga_source_id ?? this.sources[0]?.id;
+      if (initialSourceId != null) {
+        const chaptersResult = await getMangaSourceChapters(initialSourceId);
+        this.sourceChapters = chaptersResult.data;
+      }
       console.log(`${logPrefix} entry=${this.entry?.id ?? "none"}`);
     } catch (e) {
       this.error = e as Error;
@@ -314,6 +392,9 @@ export class MangaProgressForm extends Form {
 
     const payload: Parameters<typeof updateEntryV2>[1] = { status: statusCode };
 
+    if (this.selectedSourceId != null) {
+      payload.manga_source_id = this.selectedSourceId;
+    }
     if (this.selectedChapterId != null) {
       payload.manga_source_chapter_id = this.selectedChapterId;
     }
@@ -347,6 +428,7 @@ export class MangaProgressForm extends Form {
       }
       // Reset all pending edits
       this.selectedStatus = null;
+      this.selectedSourceId = null;
       this.selectedChapterId = null;
       this.selectedScore = null;
       this.selectedNotes = null;

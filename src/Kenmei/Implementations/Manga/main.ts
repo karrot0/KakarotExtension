@@ -53,7 +53,7 @@ export class MangaImplementation implements MangaProviding {
         secondaryTitles: data.alternativeTitles,
         thumbnailUrl,
         synopsis: data.description,
-        rating: data.score ? parseFloat(data.score) : 0,
+        rating: (() => { const n = parseFloat(data.score); return isFinite(n) ? n : 0; })(),
         contentRating,
         status: data.publicationStatus,
         tagGroups,

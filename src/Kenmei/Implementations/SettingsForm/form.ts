@@ -7,7 +7,7 @@ import {
   Section,
 } from "@paperback/types";
 import { getUserProfile, login } from "../../Services/Requests";
-import { clearSession, getSession, setSession } from "../Shared/session";
+import { clearSession, getSession, setCredentials, setSession } from "../Shared/session";
 import type { KenmeiUserProfile } from "../Shared/types";
 
 interface LoginInput {
@@ -37,7 +37,7 @@ export class LoginForm extends Form {
           id: "login-section",
           header: "Log in to Kenmei",
           footer:
-            "Enter your Kenmei email and password. Your password is only used during login and is never stored.",
+            "Enter your Kenmei email and password. Your credentials are stored securely so your session can be renewed automatically.",
         },
         [
           InputRow("email-input", {
@@ -72,6 +72,7 @@ export class LoginForm extends Form {
     try {
       const sessionData = await login(this.loginInput.email, this.loginInput.password);
       setSession(sessionData);
+      setCredentials(this.loginInput.email, this.loginInput.password);
       console.log(`${logPrefix} login successful - user: ${sessionData.username}`);
     } catch (e) {
       console.log(`${logPrefix} login failed: ${String(e)}`);

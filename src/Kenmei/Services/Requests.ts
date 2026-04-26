@@ -12,7 +12,7 @@ import type {
   KenmeiSourceChaptersResponse,
   KenmeiUserProfile,
 } from "../Implementations/Shared/types";
-import { assertMustBeAuthenticated, getSession } from "../Implementations/Shared/session";
+import { assertMustBeAuthenticated, clearSession, decodeJwtExpiry, getCredentials, getSession, setSession } from "../Implementations/Shared/session";
 
 const BASE_URL = "https://api.kenmei.co";
 
@@ -31,6 +31,26 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * Attempts to restore a valid session by re-logging in with the stored
+ * credentials. Kenmei does not expose a token-refresh endpoint, so when the
+ * session expires we simply perform a fresh login.
+ * Returns `true` if a new session was obtained, `false` otherwise.
+ */
+async function tryRefreshSession(): Promise<boolean> {
+  const credentials = getCredentials();
+  if (!credentials) return false;
+
+  try {
+    const sessionData = await login(credentials.email, credentials.password);
+    setSession(sessionData);
+    return true;
+  } catch {
+    clearSession();
+    return false;
+  }
+}
+
 async function scheduleJson<T>(request: {
   url: string;
   method: string;
@@ -43,6 +63,27 @@ async function scheduleJson<T>(request: {
     headers: request.headers ?? authHeaders(),
     body: request.body,
   });
+
+  // On 401, attempt a transparent token refresh then retry once.
+  if (response.status === 401) {
+    const refreshed = await tryRefreshSession();
+    if (!refreshed) {
+      throw new Error("Your Kenmei session has expired. Please log in again through the Kenmei settings.");
+    }
+    // Retry with fresh token (re-build headers to pick up new access token).
+    const [retryResponse, retryData] = await Application.scheduleRequest({
+      url: request.url,
+      method: request.method,
+      // Always rebuild auth headers so the fresh token is used on retry.
+      headers: authHeaders(),
+      body: request.body,
+    });
+    if (retryResponse.status < 200 || retryResponse.status >= 300) {
+      throw new Error(`Kenmei API error (${retryResponse.status}) for ${request.url}`);
+    }
+    const retryText = Application.arrayBufferToUTF8String(retryData);
+    return JSON.parse(retryText) as T;
+  }
 
   if (response.status < 200 || response.status >= 300) {
     throw new Error(`Kenmei API error (${response.status}) for ${request.url}`);
@@ -74,6 +115,8 @@ export async function login(email: string, password: string): Promise<KenmeiSess
 
   return {
     accessToken: result.access,
+    refreshToken: result.refresh,
+    expiresAt: decodeJwtExpiry(result.access),
     userId: result.user_id,
     username: result.username,
   };
@@ -86,8 +129,46 @@ export async function logout(): Promise<void> {
 
 // ── Search ───────────────────────────────────────────────────────────────────
 
-export async function searchSeries(searchTerm: string, page = 1): Promise<KenmeiSearchResponse> {
-  const url = `${BASE_URL}/api/v2/series_search?search_term=${encodeURIComponent(searchTerm)}&page=${page}`;
+export interface KenmeiSearchOptions {
+  /** `filters[content_type][]` — e.g. "manga", "manhwa" */
+  contentTypes?: string[];
+  /** `filters[publication_status][]` — e.g. "releasing", "completed" */
+  publicationStatuses?: string[];
+  /** `filters[classifications.name][]` — e.g. "Action", "Romance" */
+  tags?: string[];
+  /** `released_on` — "this_month" | "last_month" | "this_year" */
+  releasedOn?: string;
+  /** Key for `sort[key]=desc` — e.g. "newest", "score", "popularity", "chapters released" */
+  sort?: string;
+}
+
+export async function searchSeries(
+  searchTerm: string,
+  page = 1,
+  options: KenmeiSearchOptions = {},
+): Promise<KenmeiSearchResponse> {
+  const params: string[] = [
+    `search_term=${encodeURIComponent(searchTerm)}`,
+    `page=${page}`,
+  ];
+
+  for (const ct of options.contentTypes ?? []) {
+    params.push(`filters%5Bcontent_type%5D%5B%5D=${encodeURIComponent(ct)}`);
+  }
+  for (const ps of options.publicationStatuses ?? []) {
+    params.push(`filters%5Bpublication_status%5D%5B%5D=${encodeURIComponent(ps)}`);
+  }
+  for (const tag of options.tags ?? []) {
+    params.push(`filters%5Bclassifications.name%5D%5B%5D=${encodeURIComponent(tag)}`);
+  }
+  if (options.releasedOn) {
+    params.push(`released_on=${encodeURIComponent(options.releasedOn)}`);
+  }
+  if (options.sort) {
+    params.push(`sort%5B${encodeURIComponent(options.sort)}%5D=desc`);
+  }
+
+  const url = `${BASE_URL}/api/v2/series_search?${params.join("&")}`;
   return scheduleJson<KenmeiSearchResponse>({ url, method: "GET" });
 }
 
@@ -194,10 +275,12 @@ export async function updateEntryV2(
   entryId: number,
   payload: {
     status?: number;
-    score?: number;
-    notes?: string;
     hidden?: boolean;
     favourite?: boolean;
+    score?: number;
+    notes?: string;
+    manga_source_id?: number;
+    user_tag_ids?: number[];
     manga_source_chapter_id?: number;
   },
 ): Promise<KenmeiEntryV2> {
@@ -273,4 +356,23 @@ export async function getMangaSourceChapters(
   assertMustBeAuthenticated();
   const url = `${BASE_URL}/api/v1/manga_source_chapters?manga_source_ids%5B%5D=${mangaSourceId}&query=${encodeURIComponent(query)}`;
   return scheduleJson<KenmeiSourceChaptersResponse>({ url, method: "GET" });
+}
+
+// ── Bulk operations ───────────────────────────────────────────────────────────
+
+/**
+ * DELETE /api/v1/manga_entries/bulk_destroy
+ * Removes one or more entries by their entry IDs.
+ */
+export async function bulkDestroyEntries(ids: number[]): Promise<void> {
+  assertMustBeAuthenticated();
+  const [response] = await Application.scheduleRequest({
+    url: `${BASE_URL}/api/v1/manga_entries/bulk_destroy`,
+    method: "DELETE",
+    headers: authHeaders(),
+    body: JSON.stringify({ ids }),
+  });
+  if (response.status !== 200 && response.status !== 204) {
+    throw new Error(`Failed to bulk delete entries: status ${response.status}`);
+  }
 }

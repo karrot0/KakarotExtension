@@ -5,6 +5,7 @@
 // Auth
 export interface KenmeiLoginResponse {
   access: string;
+  refresh?: string;
   user_id: number;
   username: string;
   avatar: KenmeiImageVariants;
@@ -177,6 +178,9 @@ export const KENMEI_READ_STATUS_LABELS: Record<KenmeiReadStatus, string> = {
 // Session stored in secure state
 export interface KenmeiSession {
   accessToken: string;
+  refreshToken?: string;
+  /** Unix epoch seconds — when the access token expires (decoded from JWT). */
+  expiresAt?: number;
   userId: number;
   username: string;
 }
