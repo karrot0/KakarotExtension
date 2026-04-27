@@ -56,9 +56,6 @@ export interface SearchDetails {
   sortBy: { id: string; label: string }[];
   tagCategories: TagCategory[];
   demographics: { id: string; label: string }[];
-  person: { id: string; label: string }[];
-  artists: { id: string; label: string }[];
-  publicationYear: { id: string; label: string }[];
   translatedLanguages: { id: string; label: string }[];
   originalLanguages: { id: string; label: string }[];
 }
@@ -88,19 +85,14 @@ export interface ChapterApiResponse {
 
 export const STATIC_SEARCH_DETAILS: SearchDetails = {
   sortBy: [
-    { id: "none", label: "None" },
-    { id: "created_at_desc", label: "Latest Created" },
+    { id: "updated_chapters_desc", label: "Lastest Updated Chapters" },
+    { id: "updated_chapters_asc", label: "Oldest Updated Chapters" },
+    { id: "created_at_desc", label: "Lastest Created" },
     { id: "created_at_asc", label: "Oldest Created" },
-    { id: "updated_at_desc", label: "Latest Updated" },
-    { id: "updated_at_asc", label: "Oldest Updated" },
     { id: "name_asc", label: "Title A-Z" },
     { id: "name_desc", label: "Title Z-A" },
     { id: "views_desc", label: "Views High to Low" },
     { id: "views_asc", label: "Views Low to High" },
-    { id: "rating_desc", label: "Rating High to Low" },
-    { id: "rating_asc", label: "Rating Low to High" },
-    { id: "updated_chapters_desc", label: "Latest Updated Chapters" },
-    { id: "updated_chapters_asc", label: "Oldest Updated Chapters" },
   ],
   tagCategories: [
     {
@@ -176,6 +168,9 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
         { id: "6851490715e8b86aae68e5c3", name: "Wuxia", slug: "wuxia" },
         { id: "68932f68a943baf927094eaa", name: "Yaoi", slug: "yaoi" },
         { id: "6896a885a943baf927094f66", name: "Yuri", slug: "yuri" },
+        { id: "694cc2d9f8014f5e0a63ac73", name: "Josei(W)", slug: "josei-w" },
+        { id: "694cc2d9f8014f5e0a63ac75", name: "Revenge", slug: "revenge" },
+        { id: "694cc2d9f8014f5e0a63ac74", name: "Shoujo(G)", slug: "shoujo-g" },
       ],
     },
     {
@@ -183,6 +178,7 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
       label: "Theme",
       tags: [
         { id: "6851490d15e8b86aae68e5d5", name: "Aliens", slug: "aliens" },
+        { id: "68f5f5ce5f29d3c1863dec3a", name: "Manhwa 18+", slug: "manhwa-18-plus" },
         { id: "685148e715e8b86aae68e54b", name: "Animals", slug: "animals" },
         { id: "68bf09ff8fdeab0b6a9bc2b7", name: "Comics", slug: "comics" },
         { id: "685148d215e8b86aae68e4f8", name: "Cooking", slug: "cooking" },
@@ -233,9 +229,6 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
     { id: "yuri", label: "Yuri" },
     { id: "yaoi", label: "Yaoi" },
   ],
-  person: [], // Populated dynamically
-  artists: [], // Populated dynamically
-  publicationYear: [], // Populated dynamically or via input
   translatedLanguages: [
     { id: "ar", label: "Arabic" },
     { id: "bg", label: "Bulgarian" },
