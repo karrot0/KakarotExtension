@@ -15,7 +15,6 @@ import {
   MangaProviding,
   PagedResults,
   Request,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
@@ -24,10 +23,9 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
-// import { postToDiscordWebhook } from "../utils/discord_debugging";
 import { URLBuilder } from "../utils/url-builder/base";
 import { CaveInterceptor } from "./interceptors";
-import { CaveMetadata } from "./model";
+import { Metadata } from "./model";
 
 const baseUrl = "https://batcave.biz";
 
@@ -72,43 +70,30 @@ export class BatcaveExtension implements BatcaveImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: CaveMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "catalogue_section":
-        return this.getCatalogueSectionItems(section, metadata);
+        return this.getCatalogueSectionItems(section);
       case "new_comic_section":
-        return this.getNewComicsSectionItems(section, metadata);
+        return this.getNewComicsSectionItems(section);
       case "genres":
-        return this.getGenreSectionItems(section, metadata);
+        return this.getGenreSectionItems(section);
       default:
         return { items: [] };
     }
   }
 
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    const filters: SearchFilter[] = [];
-
-    return filters;
-  }
-
   async getSearchResults(
-    query: SearchQuery,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
 
     // Example URL: https://batcave.biz/search/invincible
     // With PAGE: https://batcave.biz/search/invincible/page/2/
     // DOES NOT WORK WITH NO TITLE: https://batcave.biz/search/
-
-    const genreFilter = query.filters.find((filter) => filter.id === "genres");
-    if (genreFilter && Object.keys(genreFilter.value).length > 0) {
-      const genreId = Object.keys(genreFilter.value)[0];
-      return this.getGenreSearchQuery(genreId, metadata);
-    }
 
     if (!query.title) {
       const catalogueResults = await this.getCatalogueSectionItems(
@@ -117,7 +102,6 @@ export class BatcaveExtension implements BatcaveImplementation {
           title: "",
           type: DiscoverSectionType.simpleCarousel,
         },
-        metadata,
       );
       return {
         items: catalogueResults.items
@@ -148,11 +132,6 @@ export class BatcaveExtension implements BatcaveImplementation {
     }
 
     const searchUrl = urlBuilder;
-
-    // Get filter values
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const getFilterValue = (id: string) =>
-      query.filters.find((filter) => filter.id == id)?.value;
 
     const request = { url: searchUrl.build(), method: "GET" };
 
@@ -392,9 +371,9 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getCatalogueSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
@@ -459,9 +438,9 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
@@ -510,9 +489,9 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getNewComicsSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
@@ -571,9 +550,9 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getGenreSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const metadata = { page: 1, collectedIds: [] };
     const items = [
       { id: "https://batcave.biz/genres/Action", value: "Action" },
       { id: "https://batcave.biz/genres/Adventure", value: "Adventure" },
