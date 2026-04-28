@@ -1,5 +1,7 @@
 import {
+  AdvancedSearchForm,
   BasicRateLimiter,
+  type JSONValue,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -13,14 +15,13 @@ import {
   MangaProviding,
   PagedResults,
   Request,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
   SourceManga,
   TagSection,
-  // TagSearchFilter,
 } from "@paperback/types";
+import { Hentai2readSearchForm, type Hentai2readSearchMetadata } from "./forms/SearchForm";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
@@ -148,44 +149,21 @@ export class Hentai2readExtension implements Hentai2readImplementation {
     }
   }
 
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    const filters: SearchFilter[] = [];
-
-    const searchDetails = this.searchDetails;
-
-    if (!searchDetails) {
-      console.warn("Search details not initialized. Returning empty filters.");
-      return [];
-    }
-
-    filters.push({
-      id: "tags",
-      type: "multiselect",
-      options:
-      searchDetails?.tags?.map((t) => ({ id: t.id, value: t.label })) || [],
-      value: {},
-      allowExclusion: true,
-      title: "Tags Filter",
-      allowEmptySelection: false,
-      maximum: undefined,
-    });
-
-    return filters;
+  async getAdvancedSearchForm(query: SearchQuery<JSONValue>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: Hentai2readSearchMetadata } | undefined)?.searchMeta;
+    const tags = (this.searchDetails?.tags ?? []).map((t) => ({ id: t.id, name: t.label }));
+    return new Hentai2readSearchForm(tags, meta);
   }
 
   async getSearchResults(
-    query: SearchQuery,
-    metadata: { page?: number; nextPageUrl?: string } | undefined,
+    query: SearchQuery<Metadata>,
+        metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
 
-    const getFilterValue = (id: string) =>
-      query.filters?.find((filter) => filter.id == id)?.value as
-        | Record<string, "included" | "excluded">
-        | undefined;
-
-    // const categoryFilter = getFilterValue("category");
-    const tagsFilter = getFilterValue("tags");
+    const searchMeta = (query.metadata as { searchMeta?: Hentai2readSearchMetadata } | undefined)?.searchMeta;
+    const tagIncluded = searchMeta?.tagIncluded ?? [];
+    const tagExcluded = searchMeta?.tagExcluded ?? [];
     
     let request: Request;
     
@@ -239,20 +217,11 @@ export class Hentai2readExtension implements Hentai2readImplementation {
       }
       
       // Process tag filters
-      if (tagsFilter) {
-        // Add included tags
-        Object.entries(tagsFilter)
-        .filter(([, status]) => status === "included")
-        .forEach(([tagId]) => {
-          formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
-        });
-        
-        // Add excluded tags
-        Object.entries(tagsFilter)
-        .filter(([, status]) => status === "excluded")
-        .forEach(([tagId]) => {
-          formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
-        });
+      for (const tagId of tagIncluded) {
+        formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
+      }
+      for (const tagId of tagExcluded) {
+        formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
       }
       
       request = {
