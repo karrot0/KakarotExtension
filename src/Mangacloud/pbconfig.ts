@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Mangacloud",
   description: "Extension that pulls content from https://mangacloud.org/",
-  version: "1.0.0-alpha.1",
+  version: "1.0.0-alpha.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
