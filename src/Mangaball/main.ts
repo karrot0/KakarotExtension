@@ -1,44 +1,49 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+
 import {
+  type AdvancedSearchForm,
   BasicRateLimiter,
-  Chapter,
-  ChapterDetails,
-  ChapterProviding,
-  CloudflareBypassRequestProviding,
+  type Chapter,
+  type ChapterDetails,
+  type ChapterProviding,
+  type CloudflareBypassRequestProviding,
   ContentRating,
-  Cookie,
+  type Cookie,
   CookieStorageInterceptor,
-  DiscoverSection,
-  DiscoverSectionItem,
-  DiscoverSectionProviding,
+  type DiscoverSection,
+  type DiscoverSectionItem,
+  type DiscoverSectionProviding,
   DiscoverSectionType,
-  Extension,
-  MangaProviding,
-  PagedResults,
-  Request,
-  SearchFilter,
-  SearchQuery,
-  SearchResultItem,
-  SearchResultsProviding,
-  SortingOption,
-  SourceManga,
-  TagSection,
+  type Extension,
+  type Metadata,
+  type MangaProviding,
+  type PagedResults,
+  type Request,
+  type SearchQuery,
+  type SearchResultItem,
+  type SearchResultsProviding,
+  type SortingOption,
+  type SourceManga,
+  type TagSection,
+  URL,
 } from "@paperback/types";
 import * as cheerio from "cheerio";
-import { CheerioAPI } from "cheerio";
+import { type CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import { URLBuilder } from "../utils/url-builder/base";
-import { MainInterceptor } from "./network";
+
 import {
-  metadata,
-  SearchAPIResponse,
-  SearchDetails,
+  type SearchAPIResponse,
   STATIC_SEARCH_DETAILS,
-  APIItem,
-  ChapterApiResponse,
+  type APIItem,
+  type ChapterApiResponse,
+  type Metadata as MangaballMetadata,
 } from "./models";
+import { MangaballSearchForm } from "./forms/SearchForm";
+import { MainInterceptor } from "./network";
 import { parseApiItemsToDiscoverItems } from "./parsers";
 
-const baseUrl = "https://mangaball.net/";
+const baseUrl = "https://mangaball.net";
 
 type MangaballImplementation = Extension &
   SearchResultsProviding &
@@ -192,12 +197,12 @@ export class MangaballExtension implements MangaballImplementation {
     if (this.cachedFormToken) {
       bodyParams._token = this.cachedFormToken;
     }
-    const apiUrl = new URLBuilder(baseUrl)
-      .addPath("api")
-      .addPath("v1")
-      .addPath("title")
-      .addPath("search")
-      .build();
+    const apiUrl = new URL(baseUrl)
+      .addPathComponent("api")
+      .addPathComponent("v1")
+      .addPathComponent("title")
+      .addPathComponent("search")
+      .toString();
     const formBody = this.formEncode(bodyParams);
     const request = {
       url: apiUrl,
@@ -218,145 +223,50 @@ export class MangaballExtension implements MangaballImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_updates_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "latest_releases_section":
-        return this.getUpdatedSectionItems(section, metadata);
+        return this.getUpdatedSectionItems(section);
       case "manga_of_day_section":
-        return this.getMangaOfDaySectionItems(section, metadata);
+        return this.getMangaOfDaySectionItems(section);
       case "manga_recommend_section":
-        return this.getMangaRecommendSectionItems(section, metadata);
+        return this.getMangaRecommendSectionItems(section);
       case "chapter_of_day_section":
-        return this.getChapterOfDaySectionItems(section, metadata);
+        return this.getChapterOfDaySectionItems(section);
       default:
         return { items: [] };
     }
   }
 
-  private async getSearchDetails(): Promise<SearchDetails | undefined> {
-    return STATIC_SEARCH_DETAILS;
-  }
-
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    const filters: SearchFilter[] = [];
-    const searchDetails = await this.getSearchDetails();
-
-    filters.push({
-      id: "nsfw",
-      type: "dropdown",
-      options: [
-        { id: "false", value: "No" },
-        { id: "true", value: "Yes" },
-      ],
-      value: "false",
-      title: "Show 18+ Content",
-    });
-
-    if (searchDetails?.tagCategories?.length) {
-      for (const cat of searchDetails.tagCategories) {
-        filters.push({
-          id: `tags_${cat.id}`,
-          type: "multiselect",
-          options: cat.tags.map((t) => ({ id: t.id, value: t.name })),
-          allowExclusion: true,
-          value: {},
-          allowEmptySelection: true,
-          title: cat.label,
-          maximum: undefined,
-        });
-      }
-    }
-    if (searchDetails?.demographics?.length) {
-      filters.push({
-        id: "demographics",
-        type: "dropdown",
-        options: searchDetails.demographics.map((d) => ({ id: d.id, value: d.label })),
-        value: "any",
-        title: "Demographic",
-      });
-    }
-    if (searchDetails?.translatedLanguages?.length) {
-      filters.push({
-        id: "translatedLanguages",
-        type: "multiselect",
-        options: searchDetails.translatedLanguages.map((l) => ({ id: l.id, value: l.label })),
-        allowExclusion: false,
-        value: {},
-        allowEmptySelection: true,
-        title: "Translated Languages",
-        maximum: undefined,
-      });
-    }
-    if (searchDetails?.originalLanguages?.length) {
-      filters.push({
-        id: "originalLanguages",
-        type: "multiselect",
-        options: searchDetails.originalLanguages.map((l) => ({ id: l.id, value: l.label })),
-        allowExclusion: false,
-        value: {},
-        allowEmptySelection: true,
-        title: "Original Languages",
-        maximum: undefined,
-      });
-    }
-    return filters;
-  }
-
-  async getSortingOptions(): Promise<SortingOption[]> {
-    const searchDetails = await this.getSearchDetails();
-    if (!searchDetails || !searchDetails.sortBy) {
-      return [];
-    }
-    return searchDetails.sortBy.map((sort) => ({
+  async getSortingOptions(_query: SearchQuery<Metadata>): Promise<SortingOption[]> {
+    return STATIC_SEARCH_DETAILS.sortBy.map((sort) => ({
       id: sort.id,
       label: sort.label,
     }));
   }
 
+  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: MangaballMetadata } | undefined)?.searchMeta;
+    return new MangaballSearchForm(meta);
+  }
+
   async getSearchResults(
-    query: SearchQuery,
-    metadata: metadata | undefined,
-    sortingOption?: SortingOption,
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
+    sortingOption: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.searchCollectedIds ?? [];
-    const getFilterValue = (id: string) => query.filters.find((filter) => filter.id == id)?.value;
+    const paginationMeta = metadata as { page?: number; searchCollectedIds?: string[] } | undefined;
+    const page = paginationMeta?.page ?? 1;
+    const collectedIds = paginationMeta?.searchCollectedIds ?? [];
 
-    const nsfw = getFilterValue("nsfw") as string | undefined;
-
-    const tag_included_ids: string[] = [];
-    const tag_excluded_ids: string[] = [];
-    if (STATIC_SEARCH_DETAILS.tagCategories) {
-      for (const cat of STATIC_SEARCH_DETAILS.tagCategories) {
-        const tags = getFilterValue(`tags_${cat.id}`) as
-          | Record<string, "included" | "excluded">
-          | undefined;
-        if (tags) {
-          for (const [slugOrId, v] of Object.entries(tags)) {
-            let tagId = slugOrId;
-            const found = cat.tags.find((t) => t.id === slugOrId || t.slug === slugOrId);
-            if (found) tagId = found.id;
-            if (v === "included") tag_included_ids.push(tagId);
-            else if (v === "excluded") tag_excluded_ids.push(tagId);
-          }
-        }
-      }
-    }
-
-    const contentRating = getFilterValue("contentRating") as string | undefined;
-    const demographic = getFilterValue("demographics") as string | undefined;
-    const person = getFilterValue("person") as string | undefined;
-    const originalLanguages = getFilterValue("originalLanguages") as
-      | Record<string, true>
-      | undefined;
-    const publicationYear = getFilterValue("publicationYear") as string | undefined;
-    const publicationStatus = getFilterValue("publicationStatus") as string | undefined;
-    const translatedLanguages = getFilterValue("translatedLanguages") as
-      | Record<string, true>
-      | undefined;
+    const searchMeta = (query.metadata as { searchMeta?: MangaballMetadata } | undefined)?.searchMeta;
+    const nsfw = searchMeta?.nsfw ?? false;
+    const tag_included_ids = searchMeta?.tagIncluded ?? [];
+    const tag_excluded_ids = searchMeta?.tagExcluded ?? [];
+    const demographic = searchMeta?.demographic ?? "any";
+    const originalLanguages = searchMeta?.originalLanguages ?? [];
 
     const sort = sortingOption?.id || "none";
     const search_input = query.title?.trim() || "";
@@ -365,31 +275,15 @@ export class MangaballExtension implements MangaballImplementation {
       sort,
       tag_included_mode: "and",
       tag_excluded_mode: "and",
-      contentRating: contentRating || "any",
-      demographic: demographic || "any",
-      person: person || "any",
-      originalLanguages: "any",
-      publicationYear: publicationYear || "",
-      publicationStatus: publicationStatus || "any",
+      contentRating: "any",
+      demographic,
+      publicationStatus: "any",
       userSettingsEnabled: false,
     };
 
     if (tag_included_ids.length > 0) filters["tag_included_ids"] = tag_included_ids;
     if (tag_excluded_ids.length > 0) filters["tag_excluded_ids"] = tag_excluded_ids;
-
-    if (originalLanguages) {
-      delete filters["originalLanguages"];
-      for (const lang of Object.keys(originalLanguages)) {
-        if (!Array.isArray(filters["originalLanguages"])) filters["originalLanguages"] = [];
-        (filters["originalLanguages"] as string[]).push(lang);
-      }
-    }
-    if (translatedLanguages) {
-      for (const lang of Object.keys(translatedLanguages)) {
-        if (!Array.isArray(filters["translatedLanguages"])) filters["translatedLanguages"] = [];
-        (filters["translatedLanguages"] as string[]).push(lang);
-      }
-    }
+    if (originalLanguages.length > 0) filters["originalLanguages"] = originalLanguages.join(",");
     filters["page"] = page;
 
     const formBody = [
@@ -416,19 +310,19 @@ export class MangaballExtension implements MangaballImplementation {
       "X-Requested-With": "XMLHttpRequest",
       "user-agent": await Application.getDefaultUserAgent(),
     };
-    if (nsfw === "true") {
+    if (nsfw) {
       headers["x-enable-nsfw"] = "true";
     }
     if (this.cachedCsrfToken) headers["X-CSRF-TOKEN"] = this.cachedCsrfToken;
     if (this.cachedXsrfToken) headers["X-XSRF-TOKEN"] = this.cachedXsrfToken;
     if (this.cachedFormToken) headers["x-csrf-token"] = this.cachedFormToken;
 
-    const apiUrl = new URLBuilder(baseUrl)
-      .addPath("api")
-      .addPath("v1")
-      .addPath("title")
-      .addPath("search-advanced")
-      .build();
+    const apiUrl = new URL(baseUrl)
+      .addPathComponent("api")
+      .addPathComponent("v1")
+      .addPathComponent("title")
+      .addPathComponent("search-advanced")
+      .toString();
     const request = {
       url: apiUrl,
       method: "POST",
@@ -449,7 +343,6 @@ export class MangaballExtension implements MangaballImplementation {
           mangaId = raw.url.split("/").filter(Boolean).pop() || raw.url;
         }
 
-        console.log("Computed mangaId:", mangaId);
         collectedIds.push(mangaId);
 
         let altTitles: string[] = [];
@@ -459,8 +352,7 @@ export class MangaballExtension implements MangaballImplementation {
             altTitles = $alt("span")
               .map((_, el) => $alt(el).text().trim())
               .get();
-          } catch {
-          }
+          } catch {}
         }
 
         let tagNames: string[] = [];
@@ -470,8 +362,7 @@ export class MangaballExtension implements MangaballImplementation {
             tagNames = $tags("span")
               .map((_, el) => $tags(el).text().trim())
               .get();
-          } catch {
-          }
+          } catch {}
         }
 
         let authorNames: string[] = [];
@@ -481,8 +372,7 @@ export class MangaballExtension implements MangaballImplementation {
             authorNames = $auth("span")
               .map((_, el) => $auth(el).text().trim())
               .get();
-          } catch {
-          }
+          } catch {}
         }
 
         let statusText = "";
@@ -547,7 +437,7 @@ export class MangaballExtension implements MangaballImplementation {
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     const request = {
-      url: new URLBuilder(baseUrl).addPath("title-detail").addPath(mangaId).build(),
+      url: new URL(baseUrl).addPathComponent("title-detail").addPathComponent(mangaId).toString(),
       method: "GET",
     };
     const $ = await this.fetchCheerio(request);
@@ -628,15 +518,19 @@ export class MangaballExtension implements MangaballImplementation {
 
     const csrfToken = this.cachedFormToken || this.cachedCsrfToken || "";
 
-    const apiUrl = `${baseUrl}api/v1/chapter/chapter-listing-by-title-id/`;
+    const apiUrl = new URL(baseUrl)
+      .addPathComponent("api")
+      .addPathComponent("v1")
+      .addPathComponent("chapter")
+      .addPathComponent("chapter-listing-by-title-id")
+      .toString();
     const headers: Record<string, string> = {
       accept: "*/*",
       "accept-language": "en-US,en;q=0.9",
       "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
       origin: baseUrl.replace(/\/$/, ""),
       referer: `${baseUrl}title-detail/${mangaId}/`,
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      "user-agent": await Application.getDefaultUserAgent(),
       "x-csrf-token": csrfToken,
       "x-requested-with": "XMLHttpRequest",
     };
@@ -676,7 +570,10 @@ export class MangaballExtension implements MangaballImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const request: Request = {
-      url: `${baseUrl}chapter-detail/${chapter.chapterId}`,
+      url: new URL(baseUrl)
+        .addPathComponent("chapter-detail")
+        .addPathComponent(chapter.chapterId)
+        .toString(),
       method: "GET",
     };
 
@@ -713,11 +610,10 @@ export class MangaballExtension implements MangaballImplementation {
   }
 
   async getUpdatedSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const latest = await this.searchAPI("getLatestTable");
     const parsed = parseApiItemsToDiscoverItems(latest?.data ?? [], collectedIds, {
@@ -732,23 +628,21 @@ export class MangaballExtension implements MangaballImplementation {
   }
 
   async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const Popular = await this.searchAPI("getFeatured");
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const parsed = parseApiItemsToDiscoverItems(Popular.data, collectedIds);
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
   }
 
   async getMangaOfDaySectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const recent = await this.searchAPI("getRecentRead");
     const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
@@ -759,22 +653,20 @@ export class MangaballExtension implements MangaballImplementation {
   }
 
   async getMangaRecommendSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
     const recommend = await this.searchAPI("getRecommend");
     const parsed = parseApiItemsToDiscoverItems(recommend?.data ?? [], collectedIds);
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
   }
 
   async getChapterOfDaySectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const recent = await this.searchAPI("getRecentChapterRead");
     const parsed = parseApiItemsToDiscoverItems(recent?.data ?? [], collectedIds, {
