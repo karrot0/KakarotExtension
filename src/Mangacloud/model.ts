@@ -173,8 +173,8 @@ export const Statuses = [
 ];
 
 export const SortOptions = [
-  { id: "updated_date-DESC", name: "Latest Upload" },
-  { id: "updated_date-ASC", name: "Oldest Upload" },
+  { id: "chapter_date-DESC", name: "Latest Chapter" },
+  { id: "chapter_date-ASC", name: "Oldest Chapter" },
   { id: "title-ASC", name: "Title Ascending" },
   { id: "title-DESC", name: "Title Descending" },
   { id: "created_date-DESC", name: "Recently Added" },
