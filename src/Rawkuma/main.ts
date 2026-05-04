@@ -2,7 +2,6 @@ import {
   Chapter,
   ChapterDetails,
   ChapterProviding,
-  //   CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
   Cookie,
@@ -15,7 +14,7 @@ import {
   MangaProviding,
   PagedResults,
   Request,
-  SearchFilter,
+  Metadata,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
@@ -26,7 +25,6 @@ import {
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import { Interceptor } from "./interceptors";
-import { Metadata } from "./model";
 
 const baseUrl = "https://rawkuma.net";
 
@@ -34,7 +32,6 @@ type RawkumaImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
-  //   CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
 export class RawkumaExtension implements RawkumaImplementation {
@@ -75,24 +72,19 @@ export class RawkumaExtension implements RawkumaImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "popular_today_section":
-        return this.getPopularTodayItems(section, metadata);
+        return this.getPopularTodayItems(section);
       case "latest_updates_section":
-        return this.getLatestUpdates(section, metadata);
+        return this.getLatestUpdates(section);
       case "top_series_section":
-        return this.getTopSeriesItems(section, metadata);
+        return this.getTopSeriesItems(section);
       default:
         return { items: [] };
     }
-  }
-
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    return [];
   }
 
   async getSortingOptions(): Promise<SortingOption[]> {
@@ -106,15 +98,14 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getSearchResults(
-    query: SearchQuery,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
-    const collectedIds: string[] = metadata?.collectedIds ?? [];
-    const page: number = metadata?.page ?? 1;
+    const collectedIds: string[] = [];
+    const page: number = 1;
     const searchTerm = query.title ?? "";
 
-    // Fetch the library page to extract the WordPress nonce required by the AJAX endpoint
     const $lib = await this.fetchCheerio({
       url: `${baseUrl}/library/`,
       method: "GET",
@@ -125,7 +116,7 @@ export class RawkumaExtension implements RawkumaImplementation {
       const match = text.match(/"nonce"\s*:\s*"([^"]+)"/);
       if (match) {
         nonce = match[1];
-        return false; // break
+        return false;
       }
     });
 
@@ -163,7 +154,6 @@ export class RawkumaExtension implements RawkumaImplementation {
     const results: SearchResultItem[] = [];
     const seenIds = new Set<string>();
 
-    // Each result item contains a title anchor with class text-base
     $("a[href*='/manga/']").each((_, element) => {
       const anchor = $(element);
       if (!anchor.hasClass("text-base")) return;
@@ -175,7 +165,6 @@ export class RawkumaExtension implements RawkumaImplementation {
       seenIds.add(mangaId);
 
       const title = anchor.text().trim();
-      // Image is the wp-post-image in the closest ancestor that has one
       const container = anchor.closest("div");
       const image =
         container.find("img.wp-post-image").first().attr("src") ||
@@ -198,7 +187,6 @@ export class RawkumaExtension implements RawkumaImplementation {
       });
     });
 
-    // Detect next page: pagination renders a chevron "next" button pointing to page+1
     const hasNextPage =
       $(`button[onclick*="'page', '${page + 1}'"]`).length > 0;
 
@@ -301,7 +289,6 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    // Fetch the manga page to find the WordPress internal manga_id from the hx-get attribute
     const mangaRequest = {
       url: `${baseUrl}/manga/${sourceManga.mangaId}`,
       method: "GET",
@@ -386,10 +373,9 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const collectedIds = metadata?.collectedIds ?? [];
+    const collectedIds: string[] = [];
 
     const request = {
       url: `${baseUrl}`,
@@ -449,10 +435,9 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getPopularTodayItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const collectedIds = metadata?.collectedIds ?? [];
+    const collectedIds: string[] = [];
 
     const request = {
       url: `${baseUrl}`,
@@ -466,23 +451,18 @@ export class RawkumaExtension implements RawkumaImplementation {
     if (slides.length > 0) {
       for (const element of slides) {
         const slide = $(element);
-        // The anchor contains the manga link and title
         const titleAnchor = slide.find("a").first();
         const mangaUrl = titleAnchor.attr("href") || "";
         let mangaId = "";
         const mangaIdMatch = mangaUrl.match(/\/manga\/([^/]+)\/?/);
         if (mangaIdMatch) mangaId = mangaIdMatch[1];
-        // Title is in the h4 inside .title
         const title = slide.find(".title h4").first().text().trim();
-        // Image is in the img.cover-image
         const image = slide.find("img.cover-image").attr("src") || "";
-        // Rating is in .details p.inline-block
         const rating = slide
           .find(".details p.inline-block")
           .first()
           .text()
           .trim();
-        // Compose subtitle as rating if available
         const subtitle = rating ? `Rating: ${rating}` : "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
@@ -504,10 +484,9 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getLatestUpdates(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const collectedIds = metadata?.collectedIds ?? [];
+    const collectedIds: string[] = [];
 
     const request = {
       url: `${baseUrl}`,
@@ -521,23 +500,18 @@ export class RawkumaExtension implements RawkumaImplementation {
     if (slides.length > 0) {
       for (const element of slides) {
         const slide = $(element);
-        // The anchor contains the manga link and title
         const titleAnchor = slide.find("a").first();
         const mangaUrl = titleAnchor.attr("href") || "";
         let mangaId = "";
         const mangaIdMatch = mangaUrl.match(/\/manga\/([^/]+)\/?/);
         if (mangaIdMatch) mangaId = mangaIdMatch[1];
-        // Title is in the h4 inside .title
         const title = slide.find(".title h4").first().text().trim();
-        // Image is in the img.cover-image
         const image = slide.find("img.cover-image").attr("src") || "";
-        // Rating is in .details p.inline-block
         const rating = slide
           .find(".details p.inline-block")
           .first()
           .text()
           .trim();
-        // Compose subtitle as rating if available
         const subtitle = rating ? `Rating: ${rating}` : "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
@@ -559,10 +533,9 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getTopSeriesItems(
-    section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const collectedIds = metadata?.collectedIds ?? [];
+    const collectedIds: string[] = [];
 
     const request = {
       url: `${baseUrl}`,
@@ -576,23 +549,18 @@ export class RawkumaExtension implements RawkumaImplementation {
     if (slides.length > 0) {
       for (const element of slides) {
         const slide = $(element);
-        // The anchor contains the manga link and title
         const titleAnchor = slide.find("a").first();
         const mangaUrl = titleAnchor.attr("href") || "";
         let mangaId = "";
         const mangaIdMatch = mangaUrl.match(/\/manga\/([^/]+)\/?/);
         if (mangaIdMatch) mangaId = mangaIdMatch[1];
-        // Title is in the h4 inside .title
         const title = slide.find(".title h4").first().text().trim();
-        // Image is in the img.cover-image
         const image = slide.find("img.cover-image").attr("src") || "";
-        // Rating is in .details p.inline-block
         const rating = slide
           .find(".details p.inline-block")
           .first()
           .text()
           .trim();
-        // Compose subtitle as rating if available
         const subtitle = rating ? `Rating: ${rating}` : "";
         if (title && mangaId && !collectedIds.includes(mangaId)) {
           collectedIds.push(mangaId);
