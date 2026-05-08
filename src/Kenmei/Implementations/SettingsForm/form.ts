@@ -18,9 +18,7 @@ interface LoginInput {
 export class LoginForm extends Form {
   loginInput: LoginInput = { email: "", password: "" };
 
-  override get requiresExplicitSubmission(): boolean {
-    return true;
-  }
+  override requiresExplicitSubmission = true;
 
   override formWillAppear(): void {
     this.resetFields();

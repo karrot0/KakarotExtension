@@ -1,6 +1,10 @@
-import { DiscoverSectionItem } from "@paperback/types";
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+
+import { type DiscoverSectionItem } from "@paperback/types";
 import * as cheerio from "cheerio";
-import { APIItem } from "./models";
+
+import { type APIItem } from "./models";
 
 export interface ParseOptions {
   itemType?: "featuredCarouselItem" | "chapterUpdatesCarouselItem";

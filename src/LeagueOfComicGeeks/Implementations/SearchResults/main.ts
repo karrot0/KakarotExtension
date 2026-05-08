@@ -1,6 +1,7 @@
 import {
+  type AdvancedSearchForm,
+  Metadata,
   type PagedResults,
-  type SearchFilter,
   type SearchQuery,
   type SearchResultItem,
   type SearchResultsProviding,
@@ -10,21 +11,12 @@ import { getComics, searchAjax } from "../../Services/Requests";
 import { LIST_IDS } from "../Shared/models/main";
 import { MangaImplementation } from "../Manga/main";
 import { comic } from "../Shared/parser/main";
+import { LOCGSearchForm, type LOCGSearchMetadata } from "./forms/SearchForm";
 
 export class SearchResultsImplementation extends MangaImplementation implements SearchResultsProviding {
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    return [
-      {
-        type: "dropdown",
-        id: "format",
-        title: "Format",
-        options: [
-          { id: "series", value: "Series" },
-          { id: "issue", value: "Issues" },
-        ],
-        value: "series",
-      },
-    ];
+  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: LOCGSearchMetadata } | undefined)?.searchMeta;
+    return new LOCGSearchForm(meta);
   }
 
   async getSortingOptions(query: SearchQuery): Promise<SortingOption[]> {
@@ -47,8 +39,8 @@ export class SearchResultsImplementation extends MangaImplementation implements 
 
     const page = metadata ?? 1;
 
-    const formatFilter = query.filters.find((f) => f.id === "format");
-    const listOption = formatFilter?.value === "issue" ? "issue" : "series";
+    const searchMeta = (query.metadata as { searchMeta?: LOCGSearchMetadata } | undefined)?.searchMeta;
+    const listOption = searchMeta?.format === "issue" ? "issue" : "series";
     const order = sortingOption?.id ?? "alpha-asc";
 
     const PAGE_SIZE = 25;

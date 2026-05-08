@@ -1,5 +1,7 @@
 import {
+  AdvancedSearchForm,
   BasicRateLimiter,
+  Metadata,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -16,13 +18,13 @@ import {
   MangaProviding,
   PagedResults,
   Request,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
   SourceManga,
   TagSection,
 } from "@paperback/types";
+import { MangabuddySearchForm, type BuddySearchMetadata } from "./forms/SearchForm";
 import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
@@ -76,232 +78,54 @@ export class MangabuddyExtension implements BuddyImplementation {
     ];
   }
 
-  private async getGenresList(): Promise<{ id: string; value: string }[]> {
-    try {
-      const request = {
-        url: `${baseUrl}/home`,
-        method: "GET",
-      };
-
-      const $ = await this.fetchCheerio(request);
-      const genres: { id: string; value: string }[] = [];
-
-      $(".genres__wrapper li a").each((_, element) => {
-        const genre = $(element).text().trim();
-        const href = $(element).attr("href") || "";
-        const slug = href.split("/genres/").pop() || "";
-
-        if (
-          genre &&
-          slug &&
-          !slug.includes("/status/") &&
-          !slug.includes("/top/") &&
-          !genre.match(/^(DAY|MONTH|Completed|Ongoing)$/) &&
-          !slug.includes("/special/")
-        ) {
-          genres.push({
-            id: slug,
-            value: genre,
-          });
-        }
-      });
-
-      if (genres.length === 0) {
-        const staticGenres = [
-          "Action",
-          "Adaptation",
-          "Adult",
-          "Adventure",
-          "Animal",
-          "Anthology",
-          "Cartoon",
-          "Comedy",
-          "Comic",
-          "Cooking",
-          "Demons",
-          "Doujinshi",
-          "Drama",
-          "Ecchi",
-          "Fantasy",
-          "Full Color",
-          "Game",
-          "Gender bender",
-          "Ghosts",
-          "Harem",
-          "Historical",
-          "Horror",
-          "Isekai",
-          "Josei",
-          "Long strip",
-          "Mafia",
-          "Magic",
-          "Manga",
-          "Manhua",
-          "Manhwa",
-          "Martial arts",
-          "Mature",
-          "Mecha",
-          "Medical",
-          "Military",
-          "Monster",
-          "Monster girls",
-          "Monsters",
-          "Music",
-          "Mystery",
-          "Office",
-          "Office workers",
-          "One shot",
-          "Police",
-          "Psychological",
-          "Reincarnation",
-          "Romance",
-          "School life",
-          "Sci fi",
-          "Science fiction",
-          "Seinen",
-          "Shoujo",
-          "Shoujo ai",
-          "Shounen",
-          "Shounen ai",
-          "Slice of life",
-          "Smut",
-          "Soft Yaoi",
-          "Sports",
-          "Super Power",
-          "Superhero",
-          "Supernatural",
-          "Thriller",
-          "Time travel",
-          "Tragedy",
-          "Vampire",
-          "Vampires",
-          "Video games",
-          "Villainess",
-          "Web comic",
-          "Webtoons",
-          "Yaoi",
-          "Yuri",
-          "Zombies",
-        ];
-
-        staticGenres.forEach((genre) => {
-          const slug = genre.toLowerCase().replace(/\s+/g, "-");
-          genres.push({
-            id: slug,
-            value: genre,
-          });
-        });
-      }
-
-      // Sort genres alphabetically by value (genre name)
-      return genres.sort((a, b) => a.value.localeCompare(b.value));
-    } catch (error) {
-      console.error("Failed to get genre list:", error);
-      return [];
-    }
-  }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: BuddyMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "updated_section":
-        return this.getUpdatedSectionItems(section, metadata);
+        return this.getUpdatedSectionItems(section);
       case "new_manga_section":
-        return this.getNewMangaSectionItems(section, metadata);
+        return this.getNewMangaSectionItems(section);
       default:
         return { items: [] };
     }
   }
 
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    const filters: SearchFilter[] = [];
-
-    const genresList = await this.getGenresList();
-
-    filters.push({
-      id: "genres",
-      type: "multiselect",
-      options: genresList,
-      allowExclusion: true,
-      value: {},
-      title: "Genre Filter",
-      allowEmptySelection: false,
-      maximum: undefined,
-    });
-
-    filters.push({
-      id: "status",
-      type: "dropdown",
-      options: [
-        { id: "all", value: "All" },
-        { id: "ongoing", value: "Ongoing" },
-        { id: "completed", value: "Completed" },
-      ],
-      value: "all",
-      title: "Status Filter",
-    });
-
-    filters.push({
-      id: "orderby",
-      type: "dropdown",
-      options: [
-        { id: "views", value: "Views" },
-        { id: "updated", value: "Updated" },
-        { id: "created", value: "Created" },
-        { id: "name", value: "Name A-Z" },
-        { id: "rating", value: "Rating" },
-      ],
-      value: "views",
-      title: "Sort By",
-    });
-
-    return filters;
+  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: BuddySearchMetadata } | undefined)?.searchMeta;
+    return new MangabuddySearchForm(meta);
   }
 
   async getSearchResults(
-    query: SearchQuery,
+    query: SearchQuery<Metadata>,
     metadata: { page?: number } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
 
-    // Search = https://mangabuddy.com/search?q=amari
-    // Filter = https://mangabuddy.com/search?genre%5B%5D=action&genre%5B%5D=adaptation&status=all&sort=views&q=amari
+    const searchMeta = (query.metadata as { searchMeta?: BuddySearchMetadata } | undefined)?.searchMeta;
+
     const searchUrl = new URLBuilder(baseUrl)
       .addPath("search")
       .addQuery("q", query.title)
       .addQuery("page", page.toString());
 
-    const getFilterValue = (id: string) =>
-      query.filters.find((filter) => filter.id == id)?.value;
+    const genreIncluded = searchMeta?.genreIncluded ?? [];
+    const genreExcluded = new Set(searchMeta?.genreExcluded ?? []);
+    const status = searchMeta?.status ?? "all";
+    const orderby = searchMeta?.orderby ?? "views";
 
-    const genres = getFilterValue("genres") as
-      | Record<string, "included" | "excluded">
-      | undefined;
-    const status = getFilterValue("status");
-    const orderby = (getFilterValue("orderby") as string) || "views";
-
-    if (genres && typeof genres === "object") {
-      Object.keys(genres)
-        .sort()
-        .forEach((id) => {
-          const value = genres[id];
-          if (value === "included") {
-            searchUrl.addQuery("genre[]", id);
-          }
-        });
+    for (const id of genreIncluded) {
+      searchUrl.addQuery("genre[]", id);
     }
 
-    if (status && status != "all") {
+    if (status && status !== "all") {
       searchUrl.addQuery("status", status);
     }
 
-    if (orderby) {
-      searchUrl.addQuery("sort", orderby);
-    }
+    searchUrl.addQuery("sort", orderby);
 
     const request = { url: searchUrl.build(), method: "GET" };
 
@@ -320,19 +144,14 @@ export class MangabuddyExtension implements BuddyImplementation {
       const latestChapter = item.find(".thumb .latest-chapter").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
       const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
-      const genres: string[] = [];
-      item.find(".meta .genres span").each((_, el) => {
-        const genre = $(el).text().trim();
-        if (genre) genres.push(genre.toLowerCase().replace(/\s+/g, "-"));
-      });
 
-      // exclude mangas with genre that are excluded
-      if (genres.length > 0 && typeof query.filters.find((filter) => filter.id == "genres")?.value === "object") {
-        const filterGenres = query.filters.find((filter) => filter.id == "genres")?.value as Record<string, "included" | "excluded">;
-        const hasExcluded = genres.some((genre) => filterGenres[genre] === "excluded");
-        if (hasExcluded) {
-          return;
-        }
+      if (genreExcluded.size > 0) {
+        const itemGenres: string[] = [];
+        item.find(".meta .genres span").each((_, el) => {
+          const genre = $(el).text().trim();
+          if (genre) itemGenres.push(genre.toLowerCase().replace(/\s+/g, "-"));
+        });
+        if (itemGenres.some((g) => genreExcluded.has(g))) return;
       }
 
       if (title && mangaId) {
@@ -534,7 +353,7 @@ export class MangabuddyExtension implements BuddyImplementation {
   }
 
   async getUpdatedSectionItems(
-    section: DiscoverSection,
+    _section: DiscoverSection,
     metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     const page = metadata?.page ?? 1;

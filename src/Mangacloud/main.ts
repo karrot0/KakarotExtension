@@ -1,5 +1,7 @@
 import {
+  AdvancedSearchForm,
   BasicRateLimiter,
+  Metadata,
   Chapter,
   ChapterDetails,
   ChapterProviding,
@@ -13,7 +15,6 @@ import {
   MangaProviding,
   PagedResults,
   Request,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
@@ -21,14 +22,14 @@ import {
   SourceManga,
   TagSection,
 } from "@paperback/types";
+import { MangacloudSearchForm, type MangacloudSearchMetadata } from "./forms/SearchForm";
 
 import { CheerioAPI } from "cheerio";
 import * as cheerio from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 
 import { MangacloudInterceptor } from "./interceptors";
-import { MangacloudMetadata, MostViewedMangaResponse, ApiResponse, UpdatedMangaResponse, MangaInfo, ChapterInfo, BrowseMangaResponse,
-  Types, Statuses, SortOptions, Genres, Themes, Formats } from "./model";
+import { MostViewedMangaResponse, ApiResponse, UpdatedMangaResponse, MangaInfo, ChapterInfo, BrowseMangaResponse, SortOptions } from "./model";
 
 const baseUrl = "https://mangacloud.org/";
 
@@ -68,77 +69,20 @@ export class MangacloudExtension implements MangacloudImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: MangacloudMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "updated_section":
-        return this.getUpdatedSectionItems(section, metadata);
+        return this.getUpdatedSectionItems(section);
       default:
         return { items: [] };
     }
   }
 
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    // build filters based on static lists in model
-    const filters: SearchFilter[] = [];
-
-    // type dropdown
-    filters.push({
-      type: "dropdown",
-      id: "type",
-      title: "Type",
-      options: Types.map((t) => ({ id: t.id, value: t.name })),
-      value: "",
-    });
-
-    // status dropdown
-    filters.push({
-      type: "dropdown",
-      id: "status",
-      title: "Status",
-      options: Statuses.map((s) => ({ id: s.id, value: s.name })),
-      value: "",
-    });
-
-    // genres multiselect
-    filters.push({
-      type: "multiselect",
-      id: "genres",
-      title: "Genre",
-      options: Genres.map((g) => ({ id: g.id, value: g.name })),
-      value: {},
-      allowExclusion: false,
-      allowEmptySelection: true,
-      maximum: undefined,
-    });
-
-    // themes multiselect
-    filters.push({
-      type: "multiselect",
-      id: "themes",
-      title: "Theme",
-      options: Themes.map((t) => ({ id: t.id, value: t.name })),
-      value: {},
-      allowExclusion: false,
-      allowEmptySelection: true,
-      maximum: undefined,
-    });
-
-    // formats multiselect
-    filters.push({
-      type: "multiselect",
-      id: "formats",
-      title: "Format",
-      options: Formats.map((f) => ({ id: f.id, value: f.name })),
-      value: {},
-      allowExclusion: false,
-      allowEmptySelection: true,
-      maximum: undefined,
-    });
-
-    return filters;
+  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: MangacloudSearchMetadata } | undefined)?.searchMeta;
+    return new MangacloudSearchForm(meta);
   }
 
   async getSortingOptions(): Promise<SortingOption[]> {
@@ -146,12 +90,12 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   async getSearchResults(
-    query: SearchQuery,
-    metadata: MangacloudMetadata | undefined,
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
     sortingOption: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    const page = metadata?.page ?? 1;
-    const body: Record<string, any> = { page };
+    const page = 1;
+    const body: Record<string, unknown> = { page };
 
     if (query.title && query.title.trim() !== "") {
       body.title = query.title;
@@ -161,44 +105,21 @@ export class MangacloudExtension implements MangacloudImplementation {
       body.sort = sortingOption.id;
     }
 
-    let includes: string[] = [];
-    let excludes: string[] = [];
+    const searchMeta = (query.metadata as { searchMeta?: MangacloudSearchMetadata } | undefined)?.searchMeta;
 
-    if (query.filters) {
-      for (const filter of query.filters) {
-        switch (filter.id) {
-          case "type":
-          case "status": {
-            const val = filter.value as string;
-            if (val && val !== "" && val !== "Any" && val !== "None") {
-              body[filter.id] = val;
-            }
-            break;
-          }
-          case "genres":
-          case "themes":
-          case "formats": {
-            const raw = filter.value;
-            if (Array.isArray(raw)) {
-              includes.push(...raw);
-            } else if (typeof raw === "object" && raw !== null) {
-              const val = raw as Record<string, "included" | "excluded">;
-              for (const key in val) {
-                if (val[key] === "included") {
-                  includes.push(key);
-                } else if (val[key] === "excluded") {
-                  excludes.push(key);
-                }
-              }
-            } else if (typeof raw === "string" && raw) {
-              includes.push(raw);
-            }
-            break;
-          }
-        }
-      }
-    }
+    const includes: string[] = [
+      ...(searchMeta?.genreIncluded ?? []),
+      ...(searchMeta?.themeIncluded ?? []),
+      ...(searchMeta?.formatIncluded ?? []),
+    ];
+    const excludes: string[] = [
+      ...(searchMeta?.genreExcluded ?? []),
+      ...(searchMeta?.themeExcluded ?? []),
+      ...(searchMeta?.formatExcluded ?? []),
+    ];
 
+    if (searchMeta?.type) body.type = searchMeta.type;
+    if (searchMeta?.status) body.status = searchMeta.status;
     if (includes.length > 0) body.includes = includes;
     if (excludes.length > 0) body.excludes = excludes;
 
@@ -233,7 +154,7 @@ export class MangacloudExtension implements MangacloudImplementation {
     const hasNextPage = list.length > 0;
     return {
       items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds: metadata?.collectedIds } : undefined,
+      metadata: hasNextPage ? { page: page + 1 } : undefined,
     };
   }
 
@@ -339,11 +260,10 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   private async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: MangacloudMetadata | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     let apiUrl = `https://api.mangacloud.org/comic-popular-view/today`;
     if (page > 1) {
@@ -391,11 +311,10 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   private async getUpdatedSectionItems(
-    section: DiscoverSection,
-    metadata: MangacloudMetadata | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const apiUrl = `https://api.mangacloud.org/comic-updates`;
     const request: Request = {
@@ -453,7 +372,6 @@ export class MangacloudExtension implements MangacloudImplementation {
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [, data] = await Application.scheduleRequest(request);
-    // this.checkCloudflareStatus((data as any)?.status ?? 200);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);

@@ -1,4 +1,12 @@
-import { PaperbackInterceptor, Request, Response, CloudflareError } from "@paperback/types";
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+
+import {
+  PaperbackInterceptor,
+  type Request,
+  type Response,
+  CloudflareError,
+} from "@paperback/types";
 
 export class MainInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {

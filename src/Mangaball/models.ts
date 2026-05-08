@@ -1,7 +1,14 @@
-export interface metadata {
-  page?: number;
-  collectedIds?: string[];
-  searchCollectedIds?: string[];
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+
+import type { JSONObject } from "@paperback/types";
+
+export interface Metadata extends JSONObject {
+  nsfw?: boolean;
+  demographic?: string;
+  tagIncluded: string[];
+  tagExcluded: string[];
+  originalLanguages: string[];
 }
 
 export interface filterOption {
@@ -56,7 +63,6 @@ export interface SearchDetails {
   sortBy: { id: string; label: string }[];
   tagCategories: TagCategory[];
   demographics: { id: string; label: string }[];
-  translatedLanguages: { id: string; label: string }[];
   originalLanguages: { id: string; label: string }[];
 }
 
@@ -65,7 +71,7 @@ export interface ChapterTranslation {
   name: string;
   language: string;
   languageName: string;
-  group?: { name?: string };
+  group?: { _id?: string; name?: string };
   date?: string;
   volume?: number;
 }
@@ -102,16 +108,6 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
         { id: "685148d115e8b86aae68e4f3", name: "Gore", slug: "gore" },
         { id: "685146c5f3ed681c80f257e7", name: "Sexual Violence", slug: "sexual-violence" },
       ],
-    },
-    {
-      id: "origin",
-      label: "Origin",
-      tags: [
-        { id: "68ecab8507ec62d87e62780f", name: "Comic", slug: "comic" },
-        { id: "68ecab1e07ec62d87e627806", name: "Manga", slug: "manga" },
-        { id: "68ecab4807ec62d87e62780b", name: "Manhua", slug: "manhua" },
-        { id: "68ecab3b07ec62d87e627809", name: "Manhwa", slug: "manhwa" },
-      ]
     },
     {
       id: "format",
@@ -229,160 +225,10 @@ export const STATIC_SEARCH_DETAILS: SearchDetails = {
     { id: "yuri", label: "Yuri" },
     { id: "yaoi", label: "Yaoi" },
   ],
-  translatedLanguages: [
-    { id: "ar", label: "Arabic" },
-    { id: "bg", label: "Bulgarian" },
-    { id: "bn", label: "Bengali" },
-    { id: "ca", label: "Catalan" },
-    { id: "ca-ad", label: "Catalan (Andorra)" },
-    { id: "ca-es", label: "Catalan (Spain)" },
-    { id: "ca-fr", label: "Catalan (France)" },
-    { id: "ca-it", label: "Catalan (Italy)" },
-    { id: "ca-pt", label: "Catalan (Portugal)" },
-    { id: "cn", label: "Chinese" },
-    { id: "cs", label: "Czech" },
-    { id: "da", label: "Danish" },
-    { id: "de", label: "German" },
-    { id: "el", label: "Greek" },
-    { id: "en", label: "English" },
-    { id: "es", label: "Spanish" },
-    { id: "es-ar", label: "Spanish (Argentina)" },
-    { id: "es-mx", label: "Spanish (Mexico)" },
-    { id: "es-es", label: "Spanish (Spain)" },
-    { id: "es-la", label: "Spanish (Latin America)" },
-    { id: "es-419", label: "Spanish (Latin America)" },
-    { id: "fa", label: "Persian" },
-    { id: "fi", label: "Finnish" },
-    { id: "fr", label: "French" },
-    { id: "he", label: "Hebrew" },
-    { id: "hi", label: "Hindi" },
-    { id: "hu", label: "Hungarian" },
-    { id: "id", label: "Indonesian" },
-    { id: "it", label: "Italian" },
-    { id: "it-it", label: "Italian (Italy)" },
-    { id: "ja", label: "Japanese" },
-    { id: "jp", label: "Japanese (Japan)" },
-    { id: "ko", label: "Korean" },
-    { id: "kr", label: "Korean" },
-    { id: "kn", label: "Kannada" },
-    { id: "kn-in", label: "Kannada (India)" },
-    { id: "kn-my", label: "Kannada (Malaysia)" },
-    { id: "kn-sg", label: "Kannada (Singapore)" },
-    { id: "kn-tw", label: "Kannada (Taiwan)" },
-    { id: "ml", label: "Malayalam" },
-    { id: "ml-in", label: "Malayalam (India)" },
-    { id: "ml-my", label: "Malayalam (Malaysia)" },
-    { id: "ml-sg", label: "Malayalam (Singapore)" },
-    { id: "ml-tw", label: "Malayalam (Taiwan)" },
-    { id: "ms", label: "Malay" },
-    { id: "ne", label: "Nepali" },
-    { id: "nl", label: "Dutch" },
-    { id: "nl-be", label: "Dutch (Belgium)" },
-    { id: "no", label: "Norwegian" },
-    { id: "pl", label: "Polish" },
-    { id: "pt-br", label: "Portuguese (Brazil)" },
-    { id: "pt-pt", label: "Portuguese (Portugal)" },
-    { id: "ro", label: "Romanian" },
-    { id: "ru", label: "Russian" },
-    { id: "sk", label: "Slovak" },
-    { id: "sl", label: "Slovenian" },
-    { id: "sq", label: "Albanian" },
-    { id: "sr", label: "Serbian" },
-    { id: "sr-cyrl", label: "Serbian (Cyrillic)" },
-    { id: "sv", label: "Swedish" },
-    { id: "ta", label: "Tamil" },
-    { id: "th", label: "Thai" },
-    { id: "th-hk", label: "Thai (Hong Kong)" },
-    { id: "th-kh", label: "Thai (Cambodia)" },
-    { id: "th-la", label: "Thai (Laos)" },
-    { id: "th-my", label: "Thai (Malaysia)" },
-    { id: "th-sg", label: "Thai (Singapore)" },
-    { id: "tr", label: "Turkish" },
-    { id: "uk", label: "Ukrainian" },
-    { id: "vi", label: "Vietnamese" },
-    { id: "zh", label: "Chinese" },
-    { id: "zh-cn", label: "Chinese (Simplified)" },
-    { id: "zh-hk", label: "Chinese (Hong Kong)" },
-    { id: "zh-mo", label: "Chinese (Macau)" },
-    { id: "zh-sg", label: "Chinese (Singapore)" },
-    { id: "zh-tw", label: "Chinese (Taiwan)" },
-  ],
   originalLanguages: [
-    { id: "ar", label: "Arabic" },
-    { id: "bg", label: "Bulgarian" },
-    { id: "bn", label: "Bengali" },
-    { id: "ca", label: "Catalan" },
-    { id: "ca-ad", label: "Catalan (Andorra)" },
-    { id: "ca-es", label: "Catalan (Spain)" },
-    { id: "ca-fr", label: "Catalan (France)" },
-    { id: "ca-it", label: "Catalan (Italy)" },
-    { id: "ca-pt", label: "Catalan (Portugal)" },
-    { id: "cn", label: "Chinese" },
-    { id: "cs", label: "Czech" },
-    { id: "da", label: "Danish" },
-    { id: "de", label: "German" },
-    { id: "el", label: "Greek" },
-    { id: "en", label: "English" },
-    { id: "es", label: "Spanish" },
-    { id: "es-ar", label: "Spanish (Argentina)" },
-    { id: "es-mx", label: "Spanish (Mexico)" },
-    { id: "es-es", label: "Spanish (Spain)" },
-    { id: "es-la", label: "Spanish (Latin America)" },
-    { id: "es-419", label: "Spanish (Latin America)" },
-    { id: "fa", label: "Persian" },
-    { id: "fi", label: "Finnish" },
-    { id: "fr", label: "French" },
-    { id: "he", label: "Hebrew" },
-    { id: "hi", label: "Hindi" },
-    { id: "hu", label: "Hungarian" },
-    { id: "id", label: "Indonesian" },
-    { id: "it", label: "Italian" },
-    { id: "it-it", label: "Italian (Italy)" },
-    { id: "ja", label: "Japanese" },
-    { id: "jp", label: "Japanese (Japan)" },
-    { id: "ko", label: "Korean" },
-    { id: "kr", label: "Korean" },
-    { id: "kn", label: "Kannada" },
-    { id: "kn-in", label: "Kannada (India)" },
-    { id: "kn-my", label: "Kannada (Malaysia)" },
-    { id: "kn-sg", label: "Kannada (Singapore)" },
-    { id: "kn-tw", label: "Kannada (Taiwan)" },
-    { id: "ml", label: "Malayalam" },
-    { id: "ml-in", label: "Malayalam (India)" },
-    { id: "ml-my", label: "Malayalam (Malaysia)" },
-    { id: "ml-sg", label: "Malayalam (Singapore)" },
-    { id: "ml-tw", label: "Malayalam (Taiwan)" },
-    { id: "ms", label: "Malay" },
-    { id: "ne", label: "Nepali" },
-    { id: "nl", label: "Dutch" },
-    { id: "nl-be", label: "Dutch (Belgium)" },
-    { id: "no", label: "Norwegian" },
-    { id: "pl", label: "Polish" },
-    { id: "pt-br", label: "Portuguese (Brazil)" },
-    { id: "pt-pt", label: "Portuguese (Portugal)" },
-    { id: "ro", label: "Romanian" },
-    { id: "ru", label: "Russian" },
-    { id: "sk", label: "Slovak" },
-    { id: "sl", label: "Slovenian" },
-    { id: "sq", label: "Albanian" },
-    { id: "sr", label: "Serbian" },
-    { id: "sr-cyrl", label: "Serbian (Cyrillic)" },
-    { id: "sv", label: "Swedish" },
-    { id: "ta", label: "Tamil" },
-    { id: "th", label: "Thai" },
-    { id: "th-hk", label: "Thai (Hong Kong)" },
-    { id: "th-kh", label: "Thai (Cambodia)" },
-    { id: "th-la", label: "Thai (Laos)" },
-    { id: "th-my", label: "Thai (Malaysia)" },
-    { id: "th-sg", label: "Thai (Singapore)" },
-    { id: "tr", label: "Turkish" },
-    { id: "uk", label: "Ukrainian" },
-    { id: "vi", label: "Vietnamese" },
-    { id: "zh", label: "Chinese" },
-    { id: "zh-cn", label: "Chinese (Simplified)" },
-    { id: "zh-hk", label: "Chinese (Hong Kong)" },
-    { id: "zh-mo", label: "Chinese (Macau)" },
-    { id: "zh-sg", label: "Chinese (Singapore)" },
-    { id: "zh-tw", label: "Chinese (Taiwan)" },
+    { id: "en", label: "Comics" },
+    { id: "jp", label: "Manga" },
+    { id: "kr", label: "Manhwa" },
+    { id: "zh", label: "Manhua" },
   ],
 };
