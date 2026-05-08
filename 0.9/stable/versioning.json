@@ -1,8 +1,8 @@
 {
-  "buildTime": "2026-04-27T00:50:33.153Z",
+  "buildTime": "2026-05-08T19:37:00.376Z",
   "builtWith": {
-    "toolchain": "1.0.0-alpha.64",
-    "types": "1.0.0-alpha.64"
+    "toolchain": "1.0.0-alpha.78",
+    "types": "1.0.0-alpha.78"
   },
   "repository": {
     "name": "kakarotextension",
@@ -12,27 +12,11 @@
     {
       "name": "Batcave",
       "description": "Extension that pulls content from batcave.biz.",
-      "version": "1.3",
+      "version": "1.4",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
-      "badges": [
-        {
-          "label": "Aggregator",
-          "textColor": "#FFFFFF",
-          "backgroundColor": "#800080"
-        },
-        {
-          "label": "Mature",
-          "textColor": "#FFFFFF",
-          "backgroundColor": "#800080"
-        },
-        {
-          "label": "Western Comics",
-          "textColor": "#FFFFFF",
-          "backgroundColor": "#C71585"
-        }
-      ],
+      "badges": [],
       "capabilities": [
         4,
         64,
@@ -96,7 +80,7 @@
     {
       "name": "Hentai2read",
       "description": "Extension that pulls content from hentai2read.com.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "ADULT",
@@ -165,14 +149,14 @@
     {
       "name": "Mangaball",
       "description": "Extension that pulls content from mangaball.net.",
-      "version": "1.0.0-alpha.7",
+      "version": "1.0.0-alpha.6",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "ADULT",
       "capabilities": [
+        1,
         4,
         64,
-        1,
         16
       ],
       "badges": [],
@@ -236,7 +220,7 @@
     {
       "name": "Mangacloud",
       "description": "Extension that pulls content from https://mangacloud.org/",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
