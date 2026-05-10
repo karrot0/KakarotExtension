@@ -7,6 +7,8 @@ import {
   ChapterProviding,
   CloudflareError,
   ContentRating,
+  CookieStorageInterceptor,
+  Cookie,
   DiscoverSection,
   DiscoverSectionItem,
   DiscoverSectionProviding,
@@ -21,6 +23,7 @@ import {
   SortingOption,
   SourceManga,
   TagSection,
+  CloudflareBypassRequestProviding,
 } from "@paperback/types";
 import { MangacloudSearchForm, type MangacloudSearchMetadata } from "./forms/SearchForm";
 
@@ -37,10 +40,12 @@ type MangacloudImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
+  CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
 export class MangacloudExtension implements MangacloudImplementation {
   requestManager = new MangacloudInterceptor("main");
+  cookieStorageInterceptor = new CookieStorageInterceptor({ storage: "stateManager" });
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
     numberOfRequests: 10,
     bufferInterval: 1,
@@ -50,6 +55,7 @@ export class MangacloudExtension implements MangacloudImplementation {
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+    this.cookieStorageInterceptor.registerInterceptor();
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -358,6 +364,19 @@ export class MangacloudExtension implements MangacloudImplementation {
       items,
       metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
+  }
+
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    for (const cookie of this.cookieStorageInterceptor.cookies) {
+      this.cookieStorageInterceptor.deleteCookie(cookie);
+    }
+  
+    for (const cookie of cookies) {
+      if (cookie.expires && cookie.expires.getTime() <= Date.now()) {
+        continue;
+      }
+      this.cookieStorageInterceptor.setCookie(cookie);
+    }
   }
 
   getMangaShareUrl(mangaId: string): string {
