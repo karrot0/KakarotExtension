@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-05-08T19:41:26.398Z",
+  "buildTime": "2026-05-10T19:51:53.048Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.78",
     "types": "1.0.0-alpha.78"
@@ -220,7 +220,7 @@
     {
       "name": "Mangacloud",
       "description": "Extension that pulls content from https://mangacloud.org/",
-      "version": "1.0.0-alpha.2",
+      "version": "1.0.0-alpha.3",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -234,7 +234,8 @@
       "capabilities": [
         4,
         64,
-        1
+        1,
+        16
       ],
       "developers": [
         {
