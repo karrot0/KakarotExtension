@@ -140,7 +140,7 @@ export class MangabuddyExtension implements BuddyImplementation {
         item.find(".thumb img").attr("data-src") ||
         item.find(".thumb img").attr("src") ||
         "";
-      const mangaId = link.attr("href")?.substring(1) || "";
+      const mangaId = normalizeMangaId(link.attr("href"));
       const latestChapter = item.find(".thumb .latest-chapter").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
       const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
@@ -175,31 +175,48 @@ export class MangabuddyExtension implements BuddyImplementation {
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     // Expected mangaId: jun-and-wang-xin
     // URL format: https://mangabuddy.com/jun-and-wang-xin
+    const normalizedMangaId = normalizeMangaId(mangaId);
     const request = {
-      url: `${baseUrl}/${mangaId}`,
+      url: `https://mangak.io/${normalizedMangaId}`,
       method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
 
-    const title = $("h1").text().trim();
-    const altTitles = $("h2").text().trim().split(" • ");
+    const detailRoot = $("h1").first().closest("div.flex-1");
+
+    const title = detailRoot.find("h1").first().text().trim() || $("h1").first().text().trim();
+
     const image =
-      $(".img-cover img").attr("data-src") ||
-      $(".img-cover img").attr("src") ||
+      $("img[alt='" + title.replace(/'/g, "\\'") + "']").first().attr("src") ||
+      $("img[alt='" + title.replace(/'/g, "\\'") + "']").first().attr("data-src") ||
+      $("meta[property='og:image']").attr("content") ||
       "";
-    const description = $("p.content").text().trim();
+
+    const summaryText =
+      detailRoot.find("p.line-clamp-3").first().text().trim() ||
+      detailRoot.find("div.max-w p").first().text().trim() ||
+      $("meta[property='og:description']").attr("content") ||
+      "";
+
+    const altTitles = summaryText
+      .split(/\s*\/\s*|\s*•\s*/)
+      .map((text) => text.trim())
+      .filter((text) => text.length > 0 && text.toLowerCase() !== title.toLowerCase());
+
+    const description = summaryText;
+
     let rating = 1;
-    const ratingText = $(".rate-view .rating").text().trim();
+    const ratingText =
+      detailRoot.find(".tabular-nums").first().text().trim() ||
+      detailRoot.text().match(/★\s*(\d+(?:\.\d+)?)/)?.[1] ||
+      "";
     if (ratingText) {
       rating = parseFloat(ratingText);
     }
 
     let status = "UNKNOWN";
-    const statusText = $("p strong:contains('Status')")
-      .next("a")
-      .text()
-      .toLowerCase();
+    const statusText = detailRoot.find(".status-pill").first().text().trim().toLowerCase();
     if (statusText.includes("ongoing")) {
       status = "ONGOING";
     } else if (statusText.includes("completed")) {
@@ -208,15 +225,12 @@ export class MangabuddyExtension implements BuddyImplementation {
 
     const tags: TagSection[] = [];
     const genres: string[] = [];
-    $("p strong:contains('Genres')")
-      .parent()
-      .find("a")
-      .each((_, element) => {
-        const genre = $(element).text().trim().replace(/,\s*$/, "");
-        if (genre) {
-          genres.push(genre);
-        }
-      });
+    detailRoot.find("a[href^='/genres/']").each((_, element) => {
+      const genre = $(element).text().trim().replace(/,\s*$/, "");
+      if (genre && !genres.includes(genre)) {
+        genres.push(genre);
+      }
+    });
 
     if (genres.length > 0) {
       tags.push({
@@ -233,7 +247,7 @@ export class MangabuddyExtension implements BuddyImplementation {
     }
 
     return {
-      mangaId: mangaId,
+      mangaId: normalizedMangaId,
       mangaInfo: {
         primaryTitle: title,
         secondaryTitles: altTitles,
@@ -349,15 +363,14 @@ export class MangabuddyExtension implements BuddyImplementation {
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/${mangaId}`;
+    return `${baseUrl}/${normalizeMangaId(mangaId)}`;
   }
 
   async getUpdatedSectionItems(
     _section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const request = {
       url: `${baseUrl}/latest?page=${page}`,
@@ -375,7 +388,7 @@ export class MangabuddyExtension implements BuddyImplementation {
         unit.find(".thumb img").attr("data-src") ||
         unit.find(".thumb img").attr("src") ||
         "";
-      const mangaId = link.attr("href")?.substring(1) || "";
+      const mangaId = normalizeMangaId(link.attr("href"));
       const latestChapter = unit.find(".thumb .latest-chapter").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
       const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
@@ -406,8 +419,11 @@ export class MangabuddyExtension implements BuddyImplementation {
   async getPopularSectionItems(
     /* eslint-disable @typescript-eslint/no-unused-vars */
     section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = 1;
+    const collectedIds: string[] = [];
+    
+
     const request = {
       url: `${baseUrl}/home`,
       method: "GET",
@@ -423,7 +439,7 @@ export class MangabuddyExtension implements BuddyImplementation {
         unit.find("img").first().attr("data-src") ||
         unit.find("img").first().attr("src") ||
         "";
-      const mangaId = unit.find(".thumb a").attr("href")?.substring(1) || "";
+      const mangaId = normalizeMangaId(unit.find(".thumb a").attr("href"));
 
       const latestChapter = unit.find(".chap-item a").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
@@ -449,10 +465,9 @@ export class MangabuddyExtension implements BuddyImplementation {
 
   async getNewMangaSectionItems(
     section: DiscoverSection,
-    metadata: { page?: number; collectedIds?: string[] } | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds: string[] = [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -476,7 +491,7 @@ export class MangabuddyExtension implements BuddyImplementation {
         item.find(".thumb img").attr("data-src") ||
         item.find(".thumb img").attr("src") ||
         "";
-      const mangaId = link.attr("href")?.substring(1) || "";
+      const mangaId = normalizeMangaId(link.attr("href"));
       const latestChapter = item.find(".thumb .latest-chapter").text().trim();
       const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
       const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
@@ -545,6 +560,19 @@ function createDiscoverSectionItem(options: {
     subtitle: options.subtitle,
     metadata: undefined,
   };
+}
+
+function normalizeMangaId(hrefOrId: string | undefined): string {
+  if (!hrefOrId) return "";
+
+  try {
+    const parsedUrl = new URL(hrefOrId, baseUrl);
+    return parsedUrl.pathname.replace(/^\/+|\/+$/g, "");
+  } catch {
+    return hrefOrId
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/^\/+|\/+$/g, "");
+  }
 }
 
 function convertToISO8601(dateText: string): string {
