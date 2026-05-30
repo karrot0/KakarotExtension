@@ -1,8 +1,8 @@
 import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
-  name: "Mangabuddy",
-  description: "Extension that pulls content from mangabuddy.com.",
+  name: "Mangak",
+  description: "Extension that pulls content from mangak.io.",
   version: "1.0.0-alpha.6",
   icon: "icon.png",
   language: "en",

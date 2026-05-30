@@ -1,4 +1,4 @@
-export interface BuddyMetadata {
+export interface MangakMetadata {
   offset?: number;
   collectedIds?: string[];
 }

@@ -1,6 +1,6 @@
 import { PaperbackInterceptor, Request, Response } from "@paperback/types";
 
-export class BuddyInterceptor extends PaperbackInterceptor {
+export class MangakInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
     const isMangak = request.url.includes("mangak.io");
     request.headers = {

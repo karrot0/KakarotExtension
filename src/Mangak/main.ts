@@ -29,10 +29,10 @@ import * as cheerio from "cheerio";
 import { CheerioAPI } from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
-import { BuddyMetadata } from "./Mangabuddy";
-import { BuddyInterceptor } from "./MangabuddyInterceptor";
+import { MangakMetadata } from "./Mangak";
+import { MangakInterceptor } from "./MangakInterceptor";
 
-const baseUrl = "https://mangabuddy.com";
+const baseUrl = "https://mangak.io";
 
 type BuddyImplementation = Extension &
   SearchResultsProviding &
@@ -41,8 +41,8 @@ type BuddyImplementation = Extension &
   CloudflareBypassRequestProviding &
   DiscoverSectionProviding;
 
-export class MangabuddyExtension implements BuddyImplementation {
-  requestManager = new BuddyInterceptor("main");
+export class MangakExtension implements BuddyImplementation {
+  requestManager = new MangakInterceptor("main");
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
     numberOfRequests: 5,
     bufferInterval: 1,
@@ -173,8 +173,8 @@ export class MangabuddyExtension implements BuddyImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    // Expected mangaId: jun-and-wang-xin
-    // URL format: https://mangabuddy.com/jun-and-wang-xin
+    // Expected mangaId: eternally-regressing-knight
+    // URL format: https://mangak.io/eternally-regressing-knight
     const normalizedMangaId = normalizeMangaId(mangaId);
     const request = {
       url: `https://mangak.io/${normalizedMangaId}`,
@@ -262,74 +262,48 @@ export class MangabuddyExtension implements BuddyImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    // Expected mangaId: my-furry-harem-is-after-me
-
-    const request = {
-      url: `${baseUrl}/api/manga/${sourceManga.mangaId}/chapters?source=detail`,
+    const $ = await this.fetchCheerio({
+      url: `${baseUrl}/${sourceManga.mangaId}`,
       method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const chapters: Chapter[] = [];
-
-    
-    $(".chapter-list li").each((_, element) => {
-      const li = $(element);
-      const link = li.find("a");
-      const chapterUrl = link.attr("href") || "";
-
-      const chapterMatch = chapterUrl.match(/chapter-(\d+(\.\d+)?)/i);
-      const chapterNumber =
-        chapterMatch && !isNaN(Number(chapterMatch[1]))
-          ? Number(chapterMatch[1])
-          : null;
-
-      const parts = chapterUrl.split("/").filter(Boolean);
-      const chapterId = parts.length > 0 ? parts[parts.length - 1] : "0";
-      
-
-      const chapterTitle = link.find(".chapter-title").text().trim();
-
-      const dateText = link.find("time.chapter-update").text().trim();
-
-      chapters.push({
-        chapterId: chapterId,
-        title: chapterTitle,
-        sourceManga,
-        chapNum: chapterNumber,
-        publishDate: dateText
-          ? new Date(convertToISO8601(dateText))
-          : undefined,
-        volume: undefined,
-        langCode: "🇬🇧",
-      });
     });
 
-    for (let i=0;i<chapters.length;i++){
-      if (chapters[i].chapNum != null) continue;
-      let prevIdx=i-1; while(prevIdx>=0 && chapters[prevIdx].chapNum==null) prevIdx--;
-      const prevNum = prevIdx>=0?chapters[prevIdx].chapNum:null;
-      let nextIdx=i+1; while(nextIdx<chapters.length && chapters[nextIdx].chapNum==null) nextIdx++;
-      const nextNum = nextIdx<chapters.length?chapters[nextIdx].chapNum:null;
-      const runStart=i; let runEnd=i; while(runEnd+1<chapters.length && chapters[runEnd+1].chapNum==null) runEnd++; const runCount = runEnd-runStart+1;
-      if (prevNum!=null && nextNum!=null && prevNum>nextNum){
-        const gap = prevNum - nextNum;
-        const step = Math.max(gap/(runCount+1), 0.001);
-        for (let j=0;j<runCount;j++){
-          const assigned = prevNum - (j+1)*step;
-          chapters[runStart+j].chapNum = Number(assigned.toFixed(2));
-        }
-      } else if (prevNum!=null){
-        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((prevNum - (j+1)*0.001).toFixed(2));
-      } else if (nextNum!=null){
-        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((nextNum + (runCount - j)*0.001).toFixed(2));
-      } else {
-        for (let j=0;j<runCount;j++) chapters[runStart+j].chapNum = Number((runCount - j).toFixed(2));
-      }
-      i = runEnd;
+    const nextDataText = $("#__NEXT_DATA__").html() || "{}";
+    let internalId: string;
+    try {
+      const nextData = JSON.parse(nextDataText);
+      internalId = nextData?.props?.pageProps?.initialManga?.id;
+      if (!internalId) throw new Error("missing id");
+    } catch {
+      throw new Error(`Could not extract internal manga ID for ${sourceManga.mangaId}`);
     }
 
-    return chapters;
+    const [response, data] = await Application.scheduleRequest({
+      url: `https://api.mangak.io/titles/${internalId}/chapters`,
+      method: "GET",
+    });
+    this.checkCloudflareStatus(response.status);
+
+    const json = JSON.parse(Application.arrayBufferToUTF8String(data));
+    if (!json.success || !Array.isArray(json.data?.chapters)) return [];
+
+    return json.data.chapters.map((ch: {
+      slug: string;
+      name: string;
+      updated_at: string;
+      chapter_number: number;
+    }, index: number): Chapter => {
+      const nameMatch = ch.name?.match(/(\d+(?:\.\d+)?)/);
+      const chapNum = nameMatch ? Number(nameMatch[1]) : (ch.chapter_number ?? index + 1);
+      return {
+        chapterId: ch.slug,
+        title: ch.name ?? "",
+        sourceManga,
+        chapNum,
+        publishDate: ch.updated_at ? new Date(ch.updated_at) : undefined,
+        volume: undefined,
+        langCode: "🇬🇧",
+      };
+    });
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
@@ -425,25 +399,50 @@ export class MangabuddyExtension implements BuddyImplementation {
     
 
     const request = {
-      url: `${baseUrl}/home`,
+      url: `${baseUrl}/top/day`,
       method: "GET",
     };
 
     const $ = await this.fetchCheerio(request);
     const items: DiscoverSectionItem[] = [];
 
-    $(".top-item").each((_, element) => {
+    const elements = $(".top-item").length ? $(".top-item") : $("article.group, .group");
+
+    elements.each((_, element) => {
       const unit = $(element);
-      const title = unit.find(".meta .title a").text().trim();
+
       const image =
         unit.find("img").first().attr("data-src") ||
         unit.find("img").first().attr("src") ||
         "";
-      const mangaId = normalizeMangaId(unit.find(".thumb a").attr("href"));
 
-      const latestChapter = unit.find(".chap-item a").text().trim();
-      const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
-      const supertitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : "";
+      const hrefAnchor =
+        unit.find("a[aria-label]").first().attr("href") ||
+        unit.find("a[title]").first().attr("href") ||
+        unit.find("a").first().attr("href") ||
+        "";
+
+      const mangaId = normalizeMangaId(hrefAnchor);
+
+      const title =
+        (unit.find("a[title]").first().attr("title") as string) ||
+        unit.find(".meta .title a").text().trim() ||
+        unit.find("a > span").first().text().trim() ||
+        (unit.find("img").first().attr("alt") || "").toString();
+
+      const latestChapter =
+        unit.find('a[href*="/chapter"]').first().text().trim() ||
+        unit.find('a[href*="/notice"]').first().text().trim() ||
+        unit.find('.thumb .latest-chapter').text().trim() ||
+        "";
+
+      const views =
+        unit.find('span[title="Views"] .tabular-nums').first().text().trim() ||
+        unit.find('span[title="Views"] span').last().text().trim() ||
+        "";
+
+      const chapterMatch = latestChapter.match(/Chapter\s*([0-9]+(?:\.[0-9]+)?)/i);
+      const supertitle = views || (chapterMatch ? `Ch. ${chapterMatch[1]}` : (latestChapter || ""));
 
       if (title && mangaId) {
         items.push({
@@ -451,7 +450,7 @@ export class MangabuddyExtension implements BuddyImplementation {
           mangaId: mangaId,
           imageUrl: image,
           title: title,
-          supertitle: supertitle,
+          supertitle: supertitle || undefined,
           metadata: undefined,
         });
       }
@@ -575,42 +574,5 @@ function normalizeMangaId(hrefOrId: string | undefined): string {
   }
 }
 
-function convertToISO8601(dateText: string): string {
-  const now = new Date();
 
-  if (!dateText?.trim()) return now.toISOString();
-
-  if (/^yesterday$/i.test(dateText)) {
-    now.setDate(now.getDate() - 1);
-    return now.toISOString();
-  }
-
-  const relativeMatch = dateText.match(
-    /(\d+)\s+(second|minute|hour|day)s?\s+ago/i,
-  );
-  if (relativeMatch) {
-    const [_, value, unit] = relativeMatch;
-    switch (unit.toLowerCase()) {
-      case "second":
-        now.setSeconds(now.getSeconds() - +value);
-        break;
-      case "minute":
-        now.setMinutes(now.getMinutes() - +value);
-        break;
-      case "hour":
-        now.setHours(now.getHours() - +value);
-        break;
-      case "day":
-        now.setDate(now.getDate() - +value);
-        break;
-    }
-    return now.toISOString();
-  }
-
-  const parsedDate = new Date(dateText);
-  return isNaN(parsedDate.getTime())
-    ? now.toISOString()
-    : parsedDate.toISOString();
-}
-
-export const Mangabuddy = new MangabuddyExtension();
+export const Mangak = new MangakExtension();
