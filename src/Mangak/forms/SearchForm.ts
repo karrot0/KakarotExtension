@@ -94,7 +94,7 @@ export class MangabuddySearchForm extends AdvancedSearchForm {
   constructor(initialMeta?: BuddySearchMetadata) {
     super();
     this.status = initialMeta?.status ? [initialMeta.status] : ["all"];
-    this.orderby = initialMeta?.orderby ? [initialMeta.orderby] : ["views"];
+    this.orderby = initialMeta?.orderby ? [initialMeta.orderby] : ["relevance"];
 
     this.genreForm = new TagFilterForm(GENRE_LIST, "genres", {
       included: initialMeta?.genreIncluded ?? [],
@@ -152,6 +152,7 @@ export class MangabuddySearchForm extends AdvancedSearchForm {
           title: "Sort By",
           value: this.orderby,
           options: [
+            { id: "relevance", title: "Relevance" },
             { id: "views", title: "Views" },
             { id: "updated", title: "Updated" },
             { id: "created", title: "Created" },

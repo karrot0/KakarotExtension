@@ -121,40 +121,58 @@ export class MangakExtension implements BuddyImplementation {
     const genreIncluded = searchMeta?.genreIncluded ?? [];
     const genreExcluded = searchMeta?.genreExcluded ?? [];
     const status = searchMeta?.status ?? "all";
-    const orderby = searchMeta?.orderby ?? "views";
+    const orderby = searchMeta?.orderby ?? "";
 
-    const searchUrl = new URLBuilder(baseUrl)
+    const apiUrl = new URLBuilder("https://api.mangak.io")
+      .addPath("titles")
       .addPath("search")
       .addQuery("q", query.title ?? "")
-      .addQuery("sort", orderby)
-      .addQuery("page", page.toString());
+      .addQuery("page", page.toString())
+      .addQuery("limit", "24");
 
+    // Only send sort when user explicitly picked one — omitting it gives relevance ranking
+    if (orderby && orderby !== "relevance") {
+      apiUrl.addQuery("sort", orderby);
+    }
     if (status && status !== "all") {
-      searchUrl.addQuery("status", status);
+      apiUrl.addQuery("status", status);
     }
     for (const id of genreIncluded) {
-      searchUrl.addQuery("include[]", id);
+      apiUrl.addQuery("include[]", id);
     }
     for (const id of genreExcluded) {
-      searchUrl.addQuery("exclude[]", id);
+      apiUrl.addQuery("exclude[]", id);
     }
 
-    const pageProps = await this.fetchNextData(searchUrl.build());
-    const rawItems = (pageProps.ssrItems as MangakItem[] | undefined) ?? [];
-    const pagination = pageProps.ssrPagination as MangakPagination | undefined;
+    const [response, data] = await Application.scheduleRequest({
+      url: apiUrl.build(),
+      method: "GET",
+      headers: { origin: "https://mangak.io", referer: "https://mangak.io/" },
+    });
+    this.checkCloudflareStatus(response.status);
 
-    const items: SearchResultItem[] = rawItems
+    const json = JSON.parse(Application.arrayBufferToUTF8String(data)) as {
+      success: boolean;
+      data?: {
+        items: Array<{ slug: string; name: string; cover: string; latest_chapters?: MangakChapterRef[] }>;
+        pagination: MangakPagination;
+      };
+    };
+
+    if (!json.success || !json.data) return { items: [] };
+
+    const items: SearchResultItem[] = json.data.items
       .filter((item) => item.slug)
       .map((item) => ({
         mangaId: item.slug,
         imageUrl: item.cover ?? "",
         title: item.name ?? "",
-        subtitle: item.latestChapters?.[0]?.name,
+        subtitle: item.latest_chapters?.[0]?.name,
       }));
 
     return {
       items,
-      metadata: pagination?.has_next ? { page: page + 1 } : undefined,
+      metadata: json.data.pagination.has_next ? { page: page + 1 } : undefined,
     };
   }
 
