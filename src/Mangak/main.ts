@@ -34,6 +34,24 @@ import { MangakInterceptor } from "./MangakInterceptor";
 
 const baseUrl = "https://mangak.io";
 
+interface MangakChapterRef {
+  slug: string;
+  name: string;
+}
+
+interface MangakItem {
+  slug: string;
+  name: string;
+  cover: string;
+  latestChapters?: MangakChapterRef[];
+}
+
+interface MangakPagination {
+  has_next: boolean;
+  page: number;
+  total_pages: number;
+}
+
 type BuddyImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
@@ -69,26 +87,20 @@ export class MangakExtension implements BuddyImplementation {
         id: "updated_section",
         title: "Recently Updated",
         type: DiscoverSectionType.chapterUpdates,
-      },
-      {
-        id: "new_manga_section",
-        title: "New Manga",
-        type: DiscoverSectionType.simpleCarousel,
-      },
+      }
     ];
   }
 
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
+    metadata?: Metadata,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
         return this.getPopularSectionItems(section);
       case "updated_section":
-        return this.getUpdatedSectionItems(section);
-      case "new_manga_section":
-        return this.getNewMangaSectionItems(section);
+        return this.getUpdatedSectionItems(section, metadata);
       default:
         return { items: [] };
     }
@@ -104,156 +116,94 @@ export class MangakExtension implements BuddyImplementation {
     metadata: { page?: number } | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
-
     const searchMeta = (query.metadata as { searchMeta?: BuddySearchMetadata } | undefined)?.searchMeta;
 
-    const searchUrl = new URLBuilder(baseUrl)
-      .addPath("search")
-      .addQuery("q", query.title)
-      .addQuery("page", page.toString());
-
     const genreIncluded = searchMeta?.genreIncluded ?? [];
-    const genreExcluded = new Set(searchMeta?.genreExcluded ?? []);
+    const genreExcluded = searchMeta?.genreExcluded ?? [];
     const status = searchMeta?.status ?? "all";
     const orderby = searchMeta?.orderby ?? "views";
 
-    for (const id of genreIncluded) {
-      searchUrl.addQuery("genre[]", id);
-    }
+    const searchUrl = new URLBuilder(baseUrl)
+      .addPath("search")
+      .addQuery("q", query.title ?? "")
+      .addQuery("sort", orderby)
+      .addQuery("page", page.toString());
 
     if (status && status !== "all") {
       searchUrl.addQuery("status", status);
     }
+    for (const id of genreIncluded) {
+      searchUrl.addQuery("include[]", id);
+    }
+    for (const id of genreExcluded) {
+      searchUrl.addQuery("exclude[]", id);
+    }
 
-    searchUrl.addQuery("sort", orderby);
+    const pageProps = await this.fetchNextData(searchUrl.build());
+    const rawItems = (pageProps.ssrItems as MangakItem[] | undefined) ?? [];
+    const pagination = pageProps.ssrPagination as MangakPagination | undefined;
 
-    const request = { url: searchUrl.build(), method: "GET" };
-
-    const $ = await this.fetchCheerio(request);
-    const searchResults: SearchResultItem[] = [];
-
-    $(".list.manga-list .book-detailed-item").each((_, element) => {
-      const item = $(element);
-      const link = item.find(".meta .title h3 a");
-      const title = link.text().trim();
-      const image =
-        item.find(".thumb img").attr("data-src") ||
-        item.find(".thumb img").attr("src") ||
-        "";
-      const mangaId = normalizeMangaId(link.attr("href"));
-      const latestChapter = item.find(".thumb .latest-chapter").text().trim();
-      const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
-      const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
-
-      if (genreExcluded.size > 0) {
-        const itemGenres: string[] = [];
-        item.find(".meta .genres span").each((_, el) => {
-          const genre = $(el).text().trim();
-          if (genre) itemGenres.push(genre.toLowerCase().replace(/\s+/g, "-"));
-        });
-        if (itemGenres.some((g) => genreExcluded.has(g))) return;
-      }
-
-      if (title && mangaId) {
-        searchResults.push({
-          mangaId: mangaId,
-          imageUrl: image,
-          title: title,
-          subtitle: subtitle,
-        });
-      }
-    });
-
-    const hasNextPage = !!$(".paginator .btn.link").not(".active").length;
+    const items: SearchResultItem[] = rawItems
+      .filter((item) => item.slug)
+      .map((item) => ({
+        mangaId: item.slug,
+        imageUrl: item.cover ?? "",
+        title: item.name ?? "",
+        subtitle: item.latestChapters?.[0]?.name,
+      }));
 
     return {
-      items: searchResults,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      items,
+      metadata: pagination?.has_next ? { page: page + 1 } : undefined,
     };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    // Expected mangaId: eternally-regressing-knight
-    // URL format: https://mangak.io/eternally-regressing-knight
     const normalizedMangaId = normalizeMangaId(mangaId);
-    const request = {
-      url: `https://mangak.io/${normalizedMangaId}`,
-      method: "GET",
-    };
+    const pageProps = await this.fetchNextData(`${baseUrl}/${normalizedMangaId}`);
 
-    const $ = await this.fetchCheerio(request);
+    const manga = pageProps.initialManga as {
+      name: string;
+      altNames?: { name: string }[];
+      cover: string;
+      status: string;
+      rating: number;
+      summary?: string;
+      genres?: { name: string; slug: string }[];
+    } | undefined;
 
-    const detailRoot = $("h1").first().closest("div.flex-1");
+    if (!manga) throw new Error(`Manga not found: ${normalizedMangaId}`);
 
-    const title = detailRoot.find("h1").first().text().trim() || $("h1").first().text().trim();
+    const altTitles = (manga.altNames ?? [])
+      .flatMap((a) => a.name.split(/\s*,\s*/))
+      .map((t) => t.trim())
+      .filter((t) => t && t.toLowerCase() !== manga.name.toLowerCase());
 
-    const image =
-      $("img[alt='" + title.replace(/'/g, "\\'") + "']").first().attr("src") ||
-      $("img[alt='" + title.replace(/'/g, "\\'") + "']").first().attr("data-src") ||
-      $("meta[property='og:image']").attr("content") ||
-      "";
-
-    const summaryText =
-      detailRoot.find("p.line-clamp-3").first().text().trim() ||
-      detailRoot.find("div.max-w p").first().text().trim() ||
-      $("meta[property='og:description']").attr("content") ||
-      "";
-
-    const altTitles = summaryText
-      .split(/\s*\/\s*|\s*•\s*/)
-      .map((text) => text.trim())
-      .filter((text) => text.length > 0 && text.toLowerCase() !== title.toLowerCase());
-
-    const description = summaryText;
-
-    let rating = 1;
-    const ratingText =
-      detailRoot.find(".tabular-nums").first().text().trim() ||
-      detailRoot.text().match(/★\s*(\d+(?:\.\d+)?)/)?.[1] ||
-      "";
-    if (ratingText) {
-      rating = parseFloat(ratingText);
-    }
-
-    let status = "UNKNOWN";
-    const statusText = detailRoot.find(".status-pill").first().text().trim().toLowerCase();
-    if (statusText.includes("ongoing")) {
-      status = "ONGOING";
-    } else if (statusText.includes("completed")) {
-      status = "COMPLETED";
-    }
+    const statusText = (manga.status ?? "").toLowerCase();
+    const status = statusText.includes("ongoing")
+      ? "ONGOING"
+      : statusText.includes("completed")
+        ? "COMPLETED"
+        : "UNKNOWN";
 
     const tags: TagSection[] = [];
-    const genres: string[] = [];
-    detailRoot.find("a[href^='/genres/']").each((_, element) => {
-      const genre = $(element).text().trim().replace(/,\s*$/, "");
-      if (genre && !genres.includes(genre)) {
-        genres.push(genre);
-      }
-    });
-
+    const genres = manga.genres ?? [];
     if (genres.length > 0) {
       tags.push({
         id: "genres",
         title: "Genres",
-        tags: genres.map((genre) => ({
-          id: genre
-            .toLowerCase()
-            .replace(/\s+/g, "-")
-            .replace(/[^a-z0-9-]/g, ""),
-          title: genre,
-        })),
+        tags: genres.map((g) => ({ id: g.slug, title: g.name })),
       });
     }
 
     return {
       mangaId: normalizedMangaId,
       mangaInfo: {
-        primaryTitle: title,
+        primaryTitle: manga.name,
         secondaryTitles: altTitles,
-        thumbnailUrl: image,
-        synopsis: description,
-        rating: rating,
+        thumbnailUrl: manga.cover ?? "",
+        synopsis: manga.summary ?? "",
+        rating: manga.rating ?? 0,
         contentRating: ContentRating.EVERYONE,
         status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
         tagGroups: tags,
@@ -308,32 +258,19 @@ export class MangakExtension implements BuddyImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const chapterUrl = `${baseUrl}/${chapter.sourceManga.mangaId}/${chapter.chapterId}`;
-    console.log(`Parsing chapter ${chapterUrl}`);
+    const pageProps = await this.fetchNextData(chapterUrl);
 
-    try {
-      const request: Request = { url: chapterUrl, method: "GET" };
-      const $ = await this.fetchCheerio(request);
+    const pages = pageProps?.initialChapter?.images as string[] | undefined;
 
-      const pages: string[] = [];
-
-      const scriptContent = $('script:contains("var chapImages")').html() || "";
-      const match = scriptContent.match(/var\s+chapImages\s*=\s*'([^']+)'/);
-
-      if (match) {
-        pages.push(...match[1].split(","));
-      } else {
-        console.error("Chapter images not found in script");
-      }
-
-      return {
-        mangaId: chapter.sourceManga.mangaId,
-        id: chapter.chapterId,
-        pages: pages,
-      };
-    } catch (error) {
-      console.error("Error fetching chapter details:", error);
-      throw error;
+    if (!pages.length) {
+      throw new Error(`No images found for chapter ${chapter.chapterId}`);
     }
+
+    return {
+      mangaId: chapter.sourceManga.mangaId,
+      id: chapter.chapterId,
+      pages,
+    };
   }
 
   getMangaShareUrl(mangaId: string): string {
@@ -342,51 +279,32 @@ export class MangakExtension implements BuddyImplementation {
 
   async getUpdatedSectionItems(
     _section: DiscoverSection,
+    metadata?: Metadata,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds: string[] = [];
+    const page = (metadata as { page?: number } | undefined)?.page ?? 1;
 
-    const request = {
-      url: `${baseUrl}/latest?page=${page}`,
-      method: "GET",
-    };
+    const pageProps = await this.fetchNextData(
+      `${baseUrl}/latest?sort=latest&page=${page}`,
+    );
 
-    const $ = await this.fetchCheerio(request);
-    const items: DiscoverSectionItem[] = [];
+    const rawItems = (pageProps.items as MangakItem[] | undefined) ?? [];
+    const pagination = pageProps.pagination as MangakPagination | undefined;
 
-    $(".list.manga-list .book-detailed-item").each((_, element) => {
-      const unit = $(element);
-      const link = unit.find(".meta .title h3 a");
-      const title = link.text().trim();
-      const image =
-        unit.find(".thumb img").attr("data-src") ||
-        unit.find(".thumb img").attr("src") ||
-        "";
-      const mangaId = normalizeMangaId(link.attr("href"));
-      const latestChapter = unit.find(".thumb .latest-chapter").text().trim();
-      const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
-      const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
-      const chapterId = unit.find(".chapter-link").attr("data-id") || "0";
-
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
-        collectedIds.push(mangaId);
-        items.push({
-          type: "chapterUpdatesCarouselItem",
-          mangaId: mangaId,
-          imageUrl: image,
-          title: title,
-          subtitle: subtitle,
-          chapterId: chapterId,
-          metadata: undefined,
-        });
-      }
-    });
-
-    const hasNextPage = !!$(".paginator .btn.link").not(".active").length;
+    const items: DiscoverSectionItem[] = rawItems
+      .filter((item) => item.slug)
+      .map((item) => ({
+        type: "chapterUpdatesCarouselItem" as const,
+        mangaId: item.slug,
+        imageUrl: item.cover ?? "",
+        title: item.name ?? "",
+        subtitle: item.latestChapters?.[0]?.name,
+        chapterId: item.latestChapters?.[0]?.slug ?? "",
+        metadata: undefined,
+      }));
 
     return {
-      items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+      items,
+      metadata: pagination?.has_next ? { page: page + 1 } : undefined,
     };
   }
 
@@ -462,61 +380,6 @@ export class MangakExtension implements BuddyImplementation {
     };
   }
 
-  async getNewMangaSectionItems(
-    section: DiscoverSection,
-  ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds: string[] = [];
-
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("search")
-        .addQuery("status", "all")
-        .addQuery("sort", "created_at")
-        .addQuery("q", "")
-        .addQuery("page", page.toString())
-        .build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const items: DiscoverSectionItem[] = [];
-
-    $(".list.manga-list .book-detailed-item").each((_, element) => {
-      const item = $(element);
-      const link = item.find(".meta .title h3 a");
-      const title = link.text().trim();
-      const image =
-        item.find(".thumb img").attr("data-src") ||
-        item.find(".thumb img").attr("src") ||
-        "";
-      const mangaId = normalizeMangaId(link.attr("href"));
-      const latestChapter = item.find(".thumb .latest-chapter").text().trim();
-      const chapterMatch = latestChapter.match(/Chapter (\d+)/i);
-      const subtitle = chapterMatch ? `Ch. ${chapterMatch[1]}` : undefined;
-
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
-        collectedIds.push(mangaId);
-        items.push(
-          createDiscoverSectionItem({
-            id: mangaId,
-            image: image,
-            title: title,
-            subtitle: subtitle,
-            type: "simpleCarouselItem",
-          }),
-        );
-      }
-    });
-
-    const hasNextPage = !!$(".paginator .btn.link").not(".active").length;
-
-    return {
-      items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
-    };
-  }
-
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
@@ -535,6 +398,13 @@ export class MangakExtension implements BuddyImplementation {
     }
   }
 
+  async fetchNextData(url: string): Promise<Record<string, unknown>> {
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+    const raw = $("#__NEXT_DATA__").html() || "{}";
+    const doc = JSON.parse(raw) as { props?: { pageProps?: Record<string, unknown> } };
+    return doc?.props?.pageProps ?? {};
+  }
+
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
     this.checkCloudflareStatus(response.status);
@@ -544,26 +414,8 @@ export class MangakExtension implements BuddyImplementation {
   }
 }
 
-function createDiscoverSectionItem(options: {
-  id: string;
-  image: string;
-  title: string;
-  subtitle?: string;
-  type: "simpleCarouselItem";
-}): DiscoverSectionItem {
-  return {
-    type: options.type,
-    mangaId: options.id,
-    imageUrl: options.image,
-    title: options.title,
-    subtitle: options.subtitle,
-    metadata: undefined,
-  };
-}
-
 function normalizeMangaId(hrefOrId: string | undefined): string {
   if (!hrefOrId) return "";
-
   try {
     const parsedUrl = new URL(hrefOrId, baseUrl);
     return parsedUrl.pathname.replace(/^\/+|\/+$/g, "");
@@ -573,6 +425,5 @@ function normalizeMangaId(hrefOrId: string | undefined): string {
       .replace(/^\/+|\/+$/g, "");
   }
 }
-
 
 export const Mangak = new MangakExtension();
