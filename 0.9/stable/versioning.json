@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-05-31T20:13:04.175Z",
+  "buildTime": "2026-05-31T20:51:01.901Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.89",
     "types": "1.0.0-alpha.89"
@@ -419,7 +419,7 @@
     {
       "name": "ScribbleHub",
       "description": "Extension that pulls content from scribblehub.com.",
-      "version": "1.0.0-alpha.1",
+      "version": "1.0.0-alpha.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
