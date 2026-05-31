@@ -1,8 +1,8 @@
 {
-  "buildTime": "2026-05-30T21:53:09.728Z",
+  "buildTime": "2026-05-31T17:55:06.223Z",
   "builtWith": {
-    "toolchain": "1.0.0-alpha.78",
-    "types": "1.0.0-alpha.78"
+    "toolchain": "1.0.0-alpha.89",
+    "types": "1.0.0-alpha.89"
   },
   "repository": {
     "name": "kakarotextension",
