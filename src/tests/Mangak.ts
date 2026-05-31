@@ -18,7 +18,6 @@ export async function runTests(logger: TestLogger) {
     },
   })
 
-  // getChapters chains off getMangaDetails
   suite.test('getChapters', async () => {
     const sourceManga = suite.state['MangaProviding.getMangaDetails'] as Awaited<ReturnType<typeof Mangak.getMangaDetails>> | undefined
     if (!sourceManga) throw new Error('getMangaDetails must pass first')
@@ -43,7 +42,6 @@ export async function runTests(logger: TestLogger) {
     if (!details.pages[0].startsWith('http')) throw new Error(`Invalid page URL: ${details.pages[0]}`)
   })
 
-  // Updated section with pagination
   suite.test('getUpdatedSectionItems page 1', async () => {
     const result = await Mangak.getDiscoverSectionItems(
       { id: 'updated_section', title: 'Recently Updated', type: 'chapterUpdates' as never },
@@ -60,13 +58,11 @@ export async function runTests(logger: TestLogger) {
       p1.metadata,
     )
     if (!result.items.length) throw new Error('Expected items on page 2')
-    // Verify the two pages returned different content
     const p1Ids = new Set((suite.state['updatedPage1'] as { items: { mangaId: string }[] }).items.map(i => i.mangaId))
     const overlap = result.items.filter(i => p1Ids.has((i as { mangaId: string }).mangaId))
     if (overlap.length === result.items.length) throw new Error('Page 2 returned identical items to page 1')
   })
 
-  // Search with exclude filter
   suite.test('getSearchResults with exclude', async () => {
     const result = await Mangak.getSearchResults(
       { title: '', metadata: { searchMeta: { genreIncluded: [], genreExcluded: ['yaoi'], status: 'all', orderby: 'views' } } },

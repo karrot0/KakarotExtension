@@ -10,6 +10,7 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
+  type Metadata,
   MangaProviding,
   NovelChapter,
   PagedResults,
@@ -23,9 +24,9 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import * as htmlparser2 from "htmlparser2";
-import { URLBuilder } from "../utils/url-builder/base";
 import { ScribbleHubInterceptor } from "./interceptors";
-import { type ScribbleHubMetadata} from "./model";
+import { type ScribbleHubMetadata, type ScribbleHubSearchMeta, SORTS } from "./model";
+import { ScribbleHubSearchForm } from "./forms/SearchForm";
 import type { CheerioAPI } from "cheerio";
 
 const baseUrl = "https://www.scribblehub.com";
@@ -63,7 +64,7 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
       },
       {
         id: "latest_updates_section",
-        title: "latest Updates",
+        title: "Latest Updates",
         type: DiscoverSectionType.chapterUpdates,
       },
     ];
@@ -71,24 +72,26 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
+    metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const meta = metadata as ScribbleHubMetadata | undefined;
     switch (section.id) {
       case "trending_section":
-        return this.getTrendingSectionItems(section);
+        return this.getTrendingSectionItems(section, meta);
       case "latest_section":
-        return this.getLatestSectionItems(section);
+        return this.getLatestSectionItems(section, meta);
       case "latest_updates_section":
-        return this.getLatestUpdatesSectionItems(section);
+        return this.getLatestUpdatesSectionItems(section, meta);
       default:
         return { items: [] };
     }
   }
 
-  async getSortingOptions(_query: SearchQuery<Metadata>): Promise<SortingOption[]> {
+  async getSortingOptions(_query: SearchQuery<ScribbleHubMetadata>): Promise<SortingOption[]> {
     return SORTS.map((s) => ({ id: s.id, label: s.label }));
   }
 
-  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+  async getAdvancedSearchForm(query: SearchQuery<ScribbleHubMetadata>): Promise<AdvancedSearchForm> {
     const meta = (query.metadata as { searchMeta?: ScribbleHubSearchMeta } | undefined)?.searchMeta;
     return new ScribbleHubSearchForm(meta);
   }
@@ -101,64 +104,29 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
     const paginationMeta = metadata as { page?: number } | undefined;
     const page = paginationMeta?.page ?? 1;
 
+    const searchMeta = (query.metadata as { searchMeta?: ScribbleHubSearchMeta } | undefined)?.searchMeta;
+    const genres = searchMeta?.genres ?? {};
+    const sort = sortingOption?.id ?? "1";
+
+    const included = Object.keys(genres).filter((id) => genres[id] === "included");
+    const excluded = Object.keys(genres).filter((id) => genres[id] === "excluded");
+    const hasGenreFilter = included.length > 0 || excluded.length > 0;
+
+    let url: string;
     if (query.title && query.title.trim() !== "") {
-      const searchUrl = `${baseUrl}/ajax/searchLive?inputContent=${encodeURIComponent(query.title.trim())}`;
-      const [, data] = await Application.scheduleRequest({ url: searchUrl, method: "GET" });
-      const jsonString = Application.arrayBufferToUTF8String(data);
-      const result = JSON.parse(jsonString) as NovelFireResult;
-      const html = String(result?.result?.html ?? "");
-      const dom = htmlparser2.parseDocument(html);
-      const $ = cheerio.load(dom);
-      const items: SearchResultItem[] = [];
-      $(".novel-item").each((_, el) => {
-        const novel = $(el);
-        const a = novel.find("a");
-        const url = String(a.attr("href")) || "";
-        const title = String(novel.find(".novel-title").text()).trim();
-        const coverUrl = String(novel.find("img").attr("src")) || "";
-        const mangaId = url.split("/book/")[1] || url;
-        if (title && mangaId) {
-          items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
-        }
-      });
-      return { items };
+      url = `${baseUrl}/?s=${encodeURIComponent(query.title.trim())}&post_type=fictionposts`;
+    } else if (hasGenreFilter) {
+      const parts = [`sf=1`, `sort=${sort}`, `order=1`, `pg=${page}`];
+      if (included.length > 0) parts.push(`gi=${included.join(",")}`);
+      if (excluded.length > 0) parts.push(`ge=${excluded.join(",")}`);
+      url = `${baseUrl}/series-finder/?${parts.join("&")}`;
+    } else {
+      url = `${baseUrl}/series-ranking/?sort=${sort}&order=1&pg=${page}`;
     }
 
-    const searchMeta = (query.metadata as { searchMeta?: NovelFireSearchMeta } | undefined)?.searchMeta;
-    const genre = searchMeta?.genre ?? "genre-all";
-    const sort = sortingOption?.id ?? searchMeta?.sort ?? "sort-latest-release";
-    const status = searchMeta?.status ?? "status-all";
-
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath(genre)
-        .addPath(sort)
-        .addPath(status)
-        .addPath("all-novel")
-        .addQuery("page", String(page))
-        .build(),
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
-    const collectedIds: string[] = [];
-    const items: SearchResultItem[] = [];
-
-    $(".novel-item").each((_, el) => {
-      const novel = $(el);
-      const a = novel.find("a");
-      const url = a.attr("href") || "";
-      const title = a.attr("title") || a.text().trim();
-      const imgurl = novel.find("img").attr("data-src") || novel.find("img").attr("src") || "";
-      const coverUrl = imgurl.startsWith("http") ? imgurl : `${baseUrl}${imgurl}`;
-      const mangaId = url.split("/book/")[1] || "";
-      if (title && mangaId && !collectedIds.includes(mangaId)) {
-        collectedIds.push(mangaId);
-        items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
-      }
-    });
-
-    const hasNextPage = !!$(".simple-pagination li.active").next("li:not(.disabled)").length;
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+    const items = await this.parseSearchResults($);
+    const hasNextPage = $("a.page-link.next").length > 0;
 
     return {
       items,
@@ -318,9 +286,10 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
 
   private async getTrendingSectionItems(
     _section: DiscoverSection,
+    metadata: ScribbleHubMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds = [] as string[];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: `${baseUrl}/series-ranking/?sort=5&order=1&pg=${page}`,
@@ -343,19 +312,20 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
       }
     });
 
-    const hasNextPage = $(".simple-pagination a.page-link.next").length > 0;
+    const hasNextPage = $("a.page-link.next").length > 0;
 
     return {
-      items: items,
-      metadata: hasNextPage ? ({ page: page + 1 } satisfies { page: number }) : undefined,
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies ScribbleHubMetadata : undefined,
     };
   }
 
   private async getLatestUpdatesSectionItems(
     _section: DiscoverSection,
+    metadata: ScribbleHubMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds = [] as string[];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: `${baseUrl}/latest-series/?pg=${page}`,
@@ -379,20 +349,21 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
       }
     });
 
-    const hasNextPage = $(".simple-pagination a.page-link.next").length > 0;
+    const hasNextPage = $("a.page-link.next").length > 0;
 
 
     return {
-      items: items,
-      metadata: hasNextPage ? ({ page: page + 1 } satisfies { page: number }) : undefined,
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies ScribbleHubMetadata : undefined,
     };
   }
 
   private async getLatestSectionItems(
     _section: DiscoverSection,
+    metadata: ScribbleHubMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    let page = 1;
-    let collectedIds = [] as string[];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: `${baseUrl}/latest-series/?pg=${page}`,
@@ -415,11 +386,11 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
       }
     });
 
-    const hasNextPage = $(".simple-pagination a.page-link.next").length > 0;
+    const hasNextPage = $("a.page-link.next").length > 0;
 
     return {
-      items: items,
-      metadata: { page: page + 1, collectedIds: collectedIds },
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies ScribbleHubMetadata : undefined,
     };
   }
 
