@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-05-31T17:55:06.223Z",
+  "buildTime": "2026-05-31T19:47:39.342Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.89",
     "types": "1.0.0-alpha.89"
@@ -415,6 +415,26 @@
         }
       ],
       "id": "ReadComicsOnline"
+    },
+    {
+      "name": "ScribbleHub",
+      "description": "Extension that pulls content from scribblehub.com.",
+      "version": "1.0.0-alpha.1",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": [
+        4,
+        64,
+        1
+      ],
+      "badges": [],
+      "developers": [
+        {
+          "name": "Karrot"
+        }
+      ],
+      "id": "ScribbleHub"
     }
   ]
 }
