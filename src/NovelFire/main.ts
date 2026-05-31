@@ -1,7 +1,7 @@
 import {
+  type AdvancedSearchForm,
   BasicRateLimiter,
   Chapter,
-  ChapterDetails,
   ChapterProviding,
   CloudflareError,
   ContentRating,
@@ -10,15 +10,15 @@ import {
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
-  Form,
   MangaProviding,
+  NovelChapter,
+  Metadata,
   PagedResults,
-  PBCanvas,
   Request,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SortingOption,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -26,11 +26,11 @@ import * as cheerio from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 import { URLBuilder } from "../utils/url-builder/base";
 import { NovelFireInterceptor } from "./interceptors";
-import { NovelFireMetadata } from "./model";
-import type { CheerioAPI, Cheerio } from "cheerio";
+import { type NovelFireMetadata, type NovelFireResult, type NovelFireSearchMeta, SORTS } from "./model";
+import { NovelFireSearchForm } from "./forms/SearchForm";
+import type { CheerioAPI } from "cheerio";
 
 const baseUrl = "https://novelfire.net";
-const apiUrl = "https://novels-83gm.onrender.com";
 
 type NovelFireImplementation = Extension &
   SearchResultsProviding &
@@ -73,76 +73,99 @@ export class NovelFireExtension implements NovelFireImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: NovelFireMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section, metadata);
+        return this.getPopularSectionItems(section);
       case "updated_section":
-        return this.getUpdatedSectionItems(section, metadata);
+        return this.getUpdatedSectionItems(section);
       case "new_section":
-        return this.getNewSectionItems(section, metadata);
+        return this.getNewSectionItems(section);
       default:
         return { items: [] };
     }
   }
 
-  async getSearchFilters(): Promise<SearchFilter[]> {
-    return [];
+  async getSortingOptions(_query: SearchQuery<Metadata>): Promise<SortingOption[]> {
+    return SORTS.map((s) => ({ id: s.id, label: s.label }));
+  }
+
+  async getAdvancedSearchForm(query: SearchQuery<Metadata>): Promise<AdvancedSearchForm> {
+    const meta = (query.metadata as { searchMeta?: NovelFireSearchMeta } | undefined)?.searchMeta;
+    return new NovelFireSearchForm(meta);
   }
 
   async getSearchResults(
-    query: SearchQuery,
-    _metadata: NovelFireMetadata | undefined,
+    query: SearchQuery<Metadata>,
+    metadata: Metadata | undefined,
+    sortingOption: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    if (!query.title || query.title.trim() === "") {
-      // Show popular section if no query
-      const section = {
-        id: "popular_section",
-        title: "Popular",
-        type: DiscoverSectionType.featured,
-      };
-      const results = await this.getPopularSectionItems(section, undefined);
-      // Only map items with required properties
-      const items = results.items
-        .filter(item => "mangaId" in item && "title" in item && "imageUrl" in item)
-        .map(item => ({
-          mangaId: (item as any).mangaId,
-          title: (item as any).title,
-          imageUrl: (item as any).imageUrl,
-          subtitle: (item as any).supertitle || (item as any).subtitle,
-          metadata: (item as any).metadata,
-        }));
+    const paginationMeta = metadata as { page?: number } | undefined;
+    const page = paginationMeta?.page ?? 1;
+
+    if (query.title && query.title.trim() !== "") {
+      const searchUrl = `${baseUrl}/ajax/searchLive?inputContent=${encodeURIComponent(query.title.trim())}`;
+      const [, data] = await Application.scheduleRequest({ url: searchUrl, method: "GET" });
+      const jsonString = Application.arrayBufferToUTF8String(data);
+      const result = JSON.parse(jsonString) as NovelFireResult;
+      const html = String(result?.result?.html ?? "");
+      const dom = htmlparser2.parseDocument(html);
+      const $ = cheerio.load(dom);
+      const items: SearchResultItem[] = [];
+      $(".novel-item").each((_, el) => {
+        const novel = $(el);
+        const a = novel.find("a");
+        const url = String(a.attr("href")) || "";
+        const title = String(novel.find(".novel-title").text()).trim();
+        const coverUrl = String(novel.find("img").attr("src")) || "";
+        const mangaId = url.split("/book/")[1] || url;
+        if (title && mangaId) {
+          items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
+        }
+      });
       return { items };
     }
-    const searchUrl = `${baseUrl}/ajax/searchLive?inputContent=${encodeURIComponent(query.title)}`;
+
+    const searchMeta = (query.metadata as { searchMeta?: NovelFireSearchMeta } | undefined)?.searchMeta;
+    const genre = searchMeta?.genre ?? "genre-all";
+    const sort = sortingOption?.id ?? searchMeta?.sort ?? "sort-latest-release";
+    const status = searchMeta?.status ?? "status-all";
+
     const request = {
-      url: searchUrl,
+      url: new URLBuilder(baseUrl)
+        .addPath(genre)
+        .addPath(sort)
+        .addPath(status)
+        .addPath("all-novel")
+        .addQuery("page", String(page))
+        .build(),
       method: "GET",
     };
-    const [, data] = await Application.scheduleRequest(request);
-    const jsonString = Application.arrayBufferToUTF8String(data);
-    const result = JSON.parse(jsonString) as { html: string };
-    const $ = cheerio.load(result.html);
+
+    const $ = await this.fetchCheerio(request);
+    const collectedIds: string[] = [];
     const items: SearchResultItem[] = [];
+
     $(".novel-item").each((_, el) => {
       const novel = $(el);
       const a = novel.find("a");
-      const url = String(a.attr("href")) || "";
-      const title = String(novel.find(".novel-title").text()).trim();
-      const coverUrl = String(novel.find("img").attr("src")) || "";
-      const mangaId = url.split("/book/")[1] || url;
-      if (title && mangaId) {
-        items.push({
-          mangaId,
-          title,
-          imageUrl: coverUrl,
-          subtitle: undefined,
-          metadata: undefined,
-        });
+      const url = a.attr("href") || "";
+      const title = a.attr("title") || a.text().trim();
+      const imgurl = novel.find("img").attr("data-src") || novel.find("img").attr("src") || "";
+      const coverUrl = imgurl.startsWith("http") ? imgurl : `${baseUrl}${imgurl}`;
+      const mangaId = url.split("/book/")[1] || "";
+      if (title && mangaId && !collectedIds.includes(mangaId)) {
+        collectedIds.push(mangaId);
+        items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
       }
     });
-    return { items };
+
+    const hasNextPage = !!$(".pagination .page-item.active + .page-item").length;
+
+    return {
+      items,
+      metadata: hasNextPage ? ({ page: page + 1 } satisfies NovelFireMetadata) : undefined,
+    };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
@@ -197,6 +220,7 @@ export class NovelFireExtension implements NovelFireImplementation {
         synopsis: description,
         rating: rating,
         contentRating: ContentRating.EVERYONE,
+        contentType: "novel",
         status: status as "ONGOING" | "COMPLETED" | "UNKNOWN",
         tagGroups: tagGroups,
       },
@@ -239,7 +263,7 @@ export class NovelFireExtension implements NovelFireImplementation {
     return chapters;
   }
 
-  async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
+  async getChapterDetails(chapter: Chapter): Promise<NovelChapter> {
     const request = {
       url: new URLBuilder(baseUrl)
         .addPath("book")
@@ -248,37 +272,18 @@ export class NovelFireExtension implements NovelFireImplementation {
       method: "GET",
     };
 
-    const $ = await this.fetchCheerio(request);
-    const contentDiv = $("#content");
-    // Remove ads
-    contentDiv.find(".nf-ads, .adcash, iframe").remove();
-    // Remove custom tags
-    contentDiv.find("*").each((_, el) => {
-      if ($(el).prop("tagName")?.startsWith("AZ")) {
-        $(el).remove();
-      }
-    });
-    const textContent = contentDiv.html() || "";
+    const $ = (await this.fetchCheerio(request));
 
-    // Generate images from text via API
-    const apiRequest = {
-      url: apiUrl + "/create_images",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: textContent }),
-    };
-    const [, data] = await Application.scheduleRequest(apiRequest);
-    const jsonString = Application.arrayBufferToUTF8String(data);
-    const dataObj = JSON.parse(jsonString) as { status: string; data?: { images: string[] }; error?: string };
-    if (dataObj.status !== "success") {
-      throw new Error(dataObj.error || "Failed to generate images");
-    }
-    const imageUrls = dataObj.data!.images.map((url: string) => apiUrl + url);
+    $(".nf-ads").remove();
+
+    const content = $("#content").map((_, el) => $(el).html() ?? "").toArray().join("");
+    const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
 
     return {
       mangaId: chapter.sourceManga.mangaId,
       id: chapter.chapterId,
-      pages: imageUrls,
+      type: "html",
+      html,
     };
   }
 
@@ -287,11 +292,10 @@ export class NovelFireExtension implements NovelFireImplementation {
   }
 
   private async getPopularSectionItems(
-    section: DiscoverSection,
-    metadata: NovelFireMetadata | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds = [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -312,10 +316,11 @@ export class NovelFireExtension implements NovelFireImplementation {
       const a = novel.find("a");
       const url = a.attr("href") || "";
       const title = a.attr("title") || "";
-      const coverUrl =
+      const imgurl =
         novel.find("img").attr("data-src") ||
         novel.find("img").attr("src") ||
         "";
+      const coverUrl = `${baseUrl}${imgurl}`;
       const rating =
         parseFloat(novel.find(".badge._br").text().trim()) || undefined;
       const chapters =
@@ -332,7 +337,6 @@ export class NovelFireExtension implements NovelFireImplementation {
           imageUrl: coverUrl,
           title: title,
           supertitle: rating ? `⭐ ${rating}` : undefined,
-          metadata: undefined,
         });
       }
     });
@@ -342,16 +346,14 @@ export class NovelFireExtension implements NovelFireImplementation {
 
     return {
       items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
   }
 
   private async getUpdatedSectionItems(
-    section: DiscoverSection,
-    metadata: NovelFireMetadata | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds = [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -372,10 +374,11 @@ export class NovelFireExtension implements NovelFireImplementation {
       const a = novel.find("a");
       const url = a.attr("href") || "";
       const title = a.attr("title") || "";
-      const coverUrl =
+      const imgurl =
         novel.find("img").attr("data-src") ||
         novel.find("img").attr("src") ||
         "";
+      const coverUrl = `${baseUrl}${imgurl}`;
       const chapters =
         parseInt(novel.find(".novel-stats").text().replace(/\D/g, "")) ||
         undefined;
@@ -391,7 +394,6 @@ export class NovelFireExtension implements NovelFireImplementation {
           imageUrl: coverUrl,
           title: title,
           subtitle: chapters ? `${chapters} chapters` : undefined,
-          metadata: undefined,
         });
       }
     });
@@ -401,16 +403,14 @@ export class NovelFireExtension implements NovelFireImplementation {
 
     return {
       items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
   }
 
   private async getNewSectionItems(
-    section: DiscoverSection,
-    metadata: NovelFireMetadata | undefined,
+    _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = metadata?.page ?? 1;
-    const collectedIds = metadata?.collectedIds ?? [];
+    const page = 1;
+    const collectedIds = [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -431,10 +431,11 @@ export class NovelFireExtension implements NovelFireImplementation {
       const a = novel.find("a");
       const url = a.attr("href") || "";
       const title = a.attr("title") || "";
-      const coverUrl =
+      const imgurl =
         novel.find("img").attr("data-src") ||
         novel.find("img").attr("src") ||
         "";
+      const coverUrl = `${baseUrl}${imgurl}`;
       const rating =
         parseFloat(novel.find(".badge._br").text().trim()) || undefined;
 
@@ -448,7 +449,6 @@ export class NovelFireExtension implements NovelFireImplementation {
           imageUrl: coverUrl,
           title: title,
           subtitle: rating ? `⭐ ${rating}` : undefined,
-          metadata: undefined,
         });
       }
     });
@@ -458,7 +458,6 @@ export class NovelFireExtension implements NovelFireImplementation {
 
     return {
       items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
   }
 
