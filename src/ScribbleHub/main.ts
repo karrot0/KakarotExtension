@@ -195,41 +195,53 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const request = {
-      url: `${baseUrl}/series/${sourceManga.mangaId}/`,
-      method: "GET",
-    };
-
-    const $ = await this.fetchCheerio(request);
+    const numericId = sourceManga.mangaId.split("/")[0];
     const chapters: Chapter[] = [];
+    let page = 1;
 
-    $("ol.toc_ol li.toc_w").each((_, el) => {
-      const li = $(el);
-      const a = li.find("a.toc_a");
-      const href = String(a.attr("href") ?? "");
-      const title = a.text().trim();
-
-      const chapterIdMatch = href.match(/\/(read\/.+\/chapter\/\d+)/);
-      const chapterId = chapterIdMatch?.[1] ?? "";
-      if (!chapterId) return;
-
-      const chapNumMatch = title.match(/chapter\s+([\d.]+)/i);
-      const chapNum = chapNumMatch ? parseFloat(chapNumMatch[1]) : 0;
-
-      const dateTitle = String(li.find("span.fic_date_pub").attr("title") ?? "");
-      const publishDate = dateTitle && !dateTitle.includes("ago") ? new Date(dateTitle) : undefined;
-
-      chapters.push({
-        chapterId,
-        title,
-        sourceManga,
-        chapNum,
-        publishDate,
-        volume: 0,
-        langCode: "en",
-        version: "1",
+    while (true) {
+      const $ = await this.fetchCheerio({
+        url: `${baseUrl}/wp-admin/admin-ajax.php`,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: `action=wi_getreleases_pagination&mypostid=${numericId}&pagenum=${page}`,
       });
-    });
+
+      const rows = $("li.toc_w");
+      if (rows.length === 0) break;
+
+      rows.each((_, el) => {
+        const li = $(el);
+        const a = li.find("a.toc_a");
+        const href = String(a.attr("href") ?? "").trim();
+        const title = a.text().trim();
+
+        const chapterIdMatch = href.match(/\/(read\/.+\/chapter\/\d+)/);
+        const chapterId = chapterIdMatch?.[1] ?? "";
+        if (!chapterId) return;
+
+        const chapNum = parseInt(li.attr("order") ?? "0", 10) || 0;
+
+        const dateTitle = String(li.find("span.fic_date_pub").attr("title") ?? "");
+        const publishDate = dateTitle && !dateTitle.includes("ago") ? new Date(dateTitle) : undefined;
+
+        chapters.push({
+          chapterId,
+          title,
+          sourceManga,
+          chapNum,
+          publishDate,
+          volume: 0,
+          langCode: "en",
+          version: "1",
+        });
+      });
+
+      page++;
+    }
 
     return chapters;
   }
