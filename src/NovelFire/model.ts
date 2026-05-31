@@ -5,13 +5,12 @@ export interface NovelFireMetadata {
 }
 
 export interface NovelFireSearchMeta {
-  genre: string;
+  genres: Record<string, "included" | "excluded">;
   sort: string;
   status: string;
 }
 
 export const GENRES = [
-  { id: "genre-all", label: "All" },
   { id: "genre-action", label: "Action" },
   { id: "genre-adventure", label: "Adventure" },
   { id: "genre-comedy", label: "Comedy" },
@@ -51,9 +50,16 @@ export const STATUSES = [
   { id: "status-completed", label: "Completed" },
 ];
 
+export interface NovelFireResultItem {
+  image: string;
+  rank: number;
+  slug: string;
+  title: string;
+  total_chapter: number;
+}
+
 export interface NovelFireResult {
-  status: number;
-  result: { html: string; title_format?: string };
+  data: NovelFireResultItem[];
 }
 
 export interface NovelFirePageResponse {

@@ -3,8 +3,11 @@ import {
   BasicRateLimiter,
   Chapter,
   ChapterProviding,
+  CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
+  Cookie,
+  CookieStorageInterceptor,
   DiscoverSection,
   DiscoverSectionItem,
   DiscoverSectionProviding,
@@ -36,7 +39,8 @@ type NovelFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
   ChapterProviding &
-  DiscoverSectionProviding;
+  DiscoverSectionProviding &
+  CloudflareBypassRequestProviding;
 
 export class NovelFireExtension implements NovelFireImplementation {
   requestManager = new NovelFireInterceptor("main");
@@ -45,10 +49,24 @@ export class NovelFireExtension implements NovelFireImplementation {
     bufferInterval: 1,
     ignoreImages: true,
   });
+  cookieStorageInterceptor = new CookieStorageInterceptor({
+    storage: "stateManager",
+  });
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.globalRateLimiter.registerInterceptor();
+    this.cookieStorageInterceptor.registerInterceptor();
+  }
+
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    for (const cookie of this.cookieStorageInterceptor.cookies) {
+      this.cookieStorageInterceptor.deleteCookie(cookie);
+    }
+    for (const cookie of cookies) {
+      if (cookie.expires && cookie.expires.getTime() <= Date.now()) continue;
+      this.cookieStorageInterceptor.setCookie(cookie);
+    }
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -73,14 +91,16 @@ export class NovelFireExtension implements NovelFireImplementation {
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
+    metadata: Metadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    const meta = metadata as NovelFireMetadata | undefined;
     switch (section.id) {
       case "popular_section":
-        return this.getPopularSectionItems(section);
+        return this.getPopularSectionItems(section, meta);
       case "updated_section":
-        return this.getUpdatedSectionItems(section);
+        return this.getUpdatedSectionItems(section, meta);
       case "new_section":
-        return this.getNewSectionItems(section);
+        return this.getNewSectionItems(section, meta);
       default:
         return { items: [] };
     }
@@ -104,31 +124,22 @@ export class NovelFireExtension implements NovelFireImplementation {
     const page = paginationMeta?.page ?? 1;
 
     if (query.title && query.title.trim() !== "") {
-      const searchUrl = `${baseUrl}/ajax/searchLive?inputContent=${encodeURIComponent(query.title.trim())}`;
+      const searchUrl = `${baseUrl}/ajax/searchLive?keyword=${encodeURIComponent(query.title.trim())}&type=title`;
       const [, data] = await Application.scheduleRequest({ url: searchUrl, method: "GET" });
       const jsonString = Application.arrayBufferToUTF8String(data);
       const result = JSON.parse(jsonString) as NovelFireResult;
-      const html = String(result?.result?.html ?? "");
-      const dom = htmlparser2.parseDocument(html);
-      const $ = cheerio.load(dom);
-      const items: SearchResultItem[] = [];
-      $(".novel-item").each((_, el) => {
-        const novel = $(el);
-        const a = novel.find("a");
-        const url = String(a.attr("href")) || "";
-        const title = String(novel.find(".novel-title").text()).trim();
-        const coverUrl = String(novel.find("img").attr("src")) || "";
-        const mangaId = url.split("/book/")[1] || url;
-        if (title && mangaId) {
-          items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
-        }
-      });
+      const items: SearchResultItem[] = (result?.data ?? []).map((item) => ({
+        mangaId: item.slug,
+        title: item.title,
+        imageUrl: item.image.startsWith("http") ? item.image : `${baseUrl}/${item.image}`,
+        subtitle: `${item.total_chapter} chapters`,
+      }));
       return { items };
     }
 
     const searchMeta = (query.metadata as { searchMeta?: NovelFireSearchMeta } | undefined)?.searchMeta;
-    const genre = searchMeta?.genre ?? "genre-all";
-    const sort = sortingOption?.id ?? searchMeta?.sort ?? "sort-latest-release";
+    const genre = Object.entries(searchMeta?.genres ?? {}).find(([, s]) => s === "included")?.[0] ?? "genre-all";
+    const sort = sortingOption?.id ?? "sort-latest-release";
     const status = searchMeta?.status ?? "status-all";
 
     const request = {
@@ -293,9 +304,10 @@ export class NovelFireExtension implements NovelFireImplementation {
 
   private async getPopularSectionItems(
     _section: DiscoverSection,
+    metadata: NovelFireMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds = [];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -341,19 +353,20 @@ export class NovelFireExtension implements NovelFireImplementation {
       }
     });
 
-    const hasNextPage = !!$(".pagination .page-item.active + .page-item")
-      .length;
+    const hasNextPage = !!$(".pagination .page-item.active + .page-item").length;
 
     return {
-      items: items,
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies NovelFireMetadata : undefined,
     };
   }
 
   private async getUpdatedSectionItems(
     _section: DiscoverSection,
+    metadata: NovelFireMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds = [];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -390,7 +403,7 @@ export class NovelFireExtension implements NovelFireImplementation {
         items.push({
           type: "chapterUpdatesCarouselItem",
           mangaId: mangaId,
-          chapterId: "", // No specific chapter
+          chapterId: "",
           imageUrl: coverUrl,
           title: title,
           subtitle: chapters ? `${chapters} chapters` : undefined,
@@ -398,19 +411,20 @@ export class NovelFireExtension implements NovelFireImplementation {
       }
     });
 
-    const hasNextPage = !!$(".pagination .page-item.active + .page-item")
-      .length;
+    const hasNextPage = !!$(".pagination .page-item.active + .page-item").length;
 
     return {
-      items: items,
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies NovelFireMetadata : undefined,
     };
   }
 
   private async getNewSectionItems(
     _section: DiscoverSection,
+    metadata: NovelFireMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const page = 1;
-    const collectedIds = [];
+    const page = metadata?.page ?? 1;
+    const collectedIds: string[] = metadata?.collectedIds ?? [];
 
     const request = {
       url: new URLBuilder(baseUrl)
@@ -453,11 +467,11 @@ export class NovelFireExtension implements NovelFireImplementation {
       }
     });
 
-    const hasNextPage = !!$(".pagination .page-item.active + .page-item")
-      .length;
+    const hasNextPage = !!$(".pagination .page-item.active + .page-item").length;
 
     return {
-      items: items,
+      items,
+      metadata: hasNextPage ? { page: page + 1, collectedIds } satisfies NovelFireMetadata : undefined,
     };
   }
 
