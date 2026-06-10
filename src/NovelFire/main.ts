@@ -240,37 +240,50 @@ export class NovelFireExtension implements NovelFireImplementation {
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId;
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("book")
-        .addPath(mangaId)
-        .addPath("chapters")
-        .build(),
-      method: "GET",
-    };
-
-    const $ = (await this.fetchCheerio(request));
     const chapters: Chapter[] = [];
-    $(".chapter-list li").each((_, el) => {
-      const li = $(el);
-      const a = li.find("a");
-      const url = String(a.attr("href")) || "";
-      const title = String(a.attr("title")) || a.text().trim();
-      const chapterNo =
-        parseFloat(String(a.find(".chapter-no").text()).trim()) || undefined;
-      const createdAt = String(a.find("time").attr("datetime"));
-      const chapterId = url.split("/book/")[1] || url;
-      chapters.push({
-        chapterId: chapterId,
-        title: title,
-        sourceManga,
-        chapNum: chapterNo ?? 0,
-        publishDate: createdAt ? new Date(createdAt) : undefined,
-        volume: 0,
-        langCode: "en",
-        version: "1",
+    let page = 1;
+
+    while (true) {
+      const request = {
+        url: new URLBuilder(baseUrl)
+          .addPath("book")
+          .addPath(mangaId)
+          .addPath("chapters")
+          .addQuery("page", String(page))
+          .build(),
+        method: "GET",
+      };
+
+      const $ = await this.fetchCheerio(request);
+      const items = $(".chapter-list li");
+      if (items.length === 0) break;
+
+      items.each((_, el) => {
+        const li = $(el);
+        const a = li.find("a");
+        const url = String(a.attr("href")) || "";
+        const title = String(a.attr("title")) || a.text().trim();
+        const chapterNo =
+          parseFloat(String(a.find(".chapter-no").text()).trim()) || undefined;
+        const createdAt = String(a.find("time").attr("datetime"));
+        const chapterId = url.split("/book/")[1] || url;
+        chapters.push({
+          chapterId: chapterId,
+          title: title,
+          sourceManga,
+          chapNum: chapterNo ?? 0,
+          publishDate: createdAt ? new Date(createdAt) : undefined,
+          volume: 0,
+          langCode: "en",
+          version: "1",
+        });
       });
-    });
+
+      const hasNextPage = !!$(".pagination .page-item.active + .page-item").length;
+      if (!hasNextPage) break;
+      page++;
+    }
+
     return chapters;
   }
 
