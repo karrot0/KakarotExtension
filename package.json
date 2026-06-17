@@ -35,7 +35,7 @@
     "postinstall": "patch-package"
   },
   "devDependencies": {
-    "@paperback/toolchain": "1.0.0-alpha.91",
+    "@paperback/toolchain": "1.0.0-alpha.92",
     "@paperback/types": "1.0.0-alpha.91",
     "cheerio": "^1.2.0",
     "husky": "^9.1.7",
