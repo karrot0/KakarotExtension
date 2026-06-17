@@ -1,8 +1,8 @@
 {
-  "buildTime": "2026-06-10T16:24:22.663Z",
+  "buildTime": "2026-06-17T14:39:31.772Z",
   "builtWith": {
-    "toolchain": "1.0.0-alpha.89",
-    "types": "1.0.0-alpha.89"
+    "toolchain": "1.0.0-alpha.91",
+    "types": "1.0.0-alpha.91"
   },
   "repository": {
     "name": "kakarotextension",
@@ -405,7 +405,7 @@
     {
       "name": "ReadComicsOnlineRu",
       "description": "Extension that pulls content from readcomicsonline.ru.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
