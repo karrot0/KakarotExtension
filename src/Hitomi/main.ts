@@ -1940,7 +1940,11 @@ export class HitomiExtension
       .join("; ");
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     const now = Date.now();
     let changed = false;
     for (const cookie of cookies) {

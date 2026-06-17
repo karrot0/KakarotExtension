@@ -1,4 +1,9 @@
-import { PaperbackInterceptor, Request, Response } from "@paperback/types";
+import {
+  CloudflareError,
+  PaperbackInterceptor,
+  Request,
+  Response,
+} from "@paperback/types";
 
 export class ElftoonInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {
@@ -22,6 +27,16 @@ export class ElftoonInterceptor extends PaperbackInterceptor {
     response: Response,
     data: ArrayBuffer,
   ): Promise<ArrayBuffer> {
+    const cfMitigated = response.headers?.["cf-mitigated"];
+    if (cfMitigated === "challenge") {
+      throw new CloudflareError({
+        url: request.url,
+        method: request.method ?? "GET",
+        headers: {
+          "user-agent": await Application.getDefaultUserAgent(),
+        },
+      });
+    }
     return data;
   }
 }

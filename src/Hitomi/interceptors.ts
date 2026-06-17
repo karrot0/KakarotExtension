@@ -1,4 +1,4 @@
-import { PaperbackInterceptor, Request } from "@paperback/types";
+import { CloudflareError, PaperbackInterceptor, Request } from "@paperback/types";
 import { HitomiFile } from "./model";
 import { addDataReceived } from "./settings";
 import { ImageUriResolver } from "./utils/uri";
@@ -214,6 +214,20 @@ export class HitomiInterceptor extends PaperbackInterceptor {
     const accountedBytes = bodyBytes > 0 ? bodyBytes : contentLengthBytes;
     if (accountedBytes > 0) {
       addDataReceived(accountedBytes);
+    }
+
+    if (response !== null && typeof response === "object") {
+      const cfMitigated = (response as { headers?: Record<string, string> })
+        .headers?.["cf-mitigated"];
+      if (cfMitigated === "challenge") {
+        throw new CloudflareError({
+          url: request.url,
+          method: request.method ?? "GET",
+          headers: {
+            "user-agent": await Application.getDefaultUserAgent(),
+          },
+        });
+      }
     }
 
     // Detect CDN 404/403: indicates gg.js has been rotated server-side.

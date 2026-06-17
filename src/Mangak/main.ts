@@ -6,7 +6,6 @@ import {
   ChapterDetails,
   ChapterProviding,
   CloudflareBypassRequestProviding,
-  CloudflareError,
   ContentRating,
   Cookie,
   CookieStorageInterceptor,
@@ -149,7 +148,6 @@ export class MangakExtension implements BuddyImplementation {
       method: "GET",
       headers: { origin: "https://mangak.io", referer: "https://mangak.io/" },
     });
-    this.checkCloudflareStatus(response.status);
 
     const json = JSON.parse(Application.arrayBufferToUTF8String(data)) as {
       success: boolean;
@@ -249,7 +247,6 @@ export class MangakExtension implements BuddyImplementation {
       url: `https://api.mangak.io/titles/${internalId}/chapters`,
       method: "GET",
     });
-    this.checkCloudflareStatus(response.status);
 
     const json = JSON.parse(Application.arrayBufferToUTF8String(data));
     if (!json.success || !Array.isArray(json.data?.chapters)) return [];
@@ -398,7 +395,11 @@ export class MangakExtension implements BuddyImplementation {
     };
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
@@ -410,12 +411,6 @@ export class MangakExtension implements BuddyImplementation {
     }
   }
 
-  checkCloudflareStatus(status: number): void {
-    if (status == 503 || status == 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
-    }
-  }
-
   async fetchNextData(url: string): Promise<Record<string, unknown>> {
     const $ = await this.fetchCheerio({ url, method: "GET" });
     const raw = $("#__NEXT_DATA__").html() || "{}";
@@ -424,8 +419,7 @@ export class MangakExtension implements BuddyImplementation {
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus(response.status);
+    const [, data] = await Application.scheduleRequest(request);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);

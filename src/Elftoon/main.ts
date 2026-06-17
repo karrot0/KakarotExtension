@@ -4,7 +4,6 @@ import {
   ChapterDetails,
   ChapterProviding,
   CloudflareBypassRequestProviding,
-  CloudflareError,
   ContentRating,
   Cookie,
   CookieStorageInterceptor,
@@ -653,7 +652,11 @@ export class ElftoonExtension implements ElftoonImplementation {
     };
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
@@ -666,30 +669,11 @@ export class ElftoonExtension implements ElftoonImplementation {
     }
   }
 
-  async checkCloudflareStatus(status: number): Promise<void> {
-    switch (status) {
-      case 503:
-      case 403:
-        console.log(`Cloudflare protection detected. Status: ${status}`);
-        throw new CloudflareError(
-          {
-            url: baseUrl,
-            method: "GET",
-            headers: {
-              referer: baseUrl,
-              origin: baseUrl,
-            },
-          },
-          "Cloudflare bypass required, please complete the challenge.",
-        );
-      case 404:
-        throw new Error("Content not found");
-    }
-  }
-
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
-    await this.checkCloudflareStatus(response.status);
+    if (response.status === 404) {
+      throw new Error("Content not found");
+    }
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);

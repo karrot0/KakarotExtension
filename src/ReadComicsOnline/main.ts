@@ -5,7 +5,6 @@ import {
   Cookie,
   CookieStorageInterceptor,
   CloudflareBypassRequestProviding,
-  CloudflareError,
   ContentRating,
   DiscoverSection,
   DiscoverSectionItem,
@@ -106,8 +105,7 @@ export class ReadComicsOnlineExtension
       method: "GET",
     };
 
-    const [response, data] = await Application.scheduleRequest(request);
-    await this.checkCloudflareStatus(response.status);
+    const [, data] = await Application.scheduleRequest(request);
     const responseText = Application.arrayBufferToUTF8String(data);
     
     let searchResults: SearchResultItem[] = [];
@@ -492,7 +490,11 @@ export class ReadComicsOnlineExtension
     return `${baseUrl}/${mangaId}`;
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
@@ -505,30 +507,11 @@ export class ReadComicsOnlineExtension
     }
   }
 
-  async checkCloudflareStatus(status: number): Promise<void> {
-    switch (status) {
-      case 503:
-      case 403:
-        console.log("Cloudflare protection detected. Status:", status);
-        throw new CloudflareError(
-          {
-            url: baseUrl,
-            method: "GET",
-            headers: {
-              referer: baseUrl,
-              origin: baseUrl,
-            },
-          },
-          "Cloudflare bypass required, please complete the challenge."
-        );
-      case 404:
-        throw new Error("Content not found");
-    }
-  }
-
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
-    await this.checkCloudflareStatus(response.status);
+    if (response.status === 404) {
+      throw new Error("Content not found");
+    }
     return cheerio.load(Application.arrayBufferToUTF8String(data));
   }
 }

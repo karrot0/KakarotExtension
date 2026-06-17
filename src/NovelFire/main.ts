@@ -4,7 +4,6 @@ import {
   Chapter,
   ChapterProviding,
   CloudflareBypassRequestProviding,
-  CloudflareError,
   ContentRating,
   Cookie,
   CookieStorageInterceptor,
@@ -59,7 +58,11 @@ export class NovelFireExtension implements NovelFireImplementation {
     this.cookieStorageInterceptor.registerInterceptor();
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
@@ -488,15 +491,8 @@ export class NovelFireExtension implements NovelFireImplementation {
     };
   }
 
-  checkCloudflareStatus(status: number): void {
-    if (status == 503 || status == 403) {
-      throw new CloudflareError({ url: baseUrl, method: "GET" });
-    }
-  }
-
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus((data as any)?.status ?? 200);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);

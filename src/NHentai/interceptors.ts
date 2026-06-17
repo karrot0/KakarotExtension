@@ -1,4 +1,9 @@
-import { PaperbackInterceptor, Request, Response } from "@paperback/types";
+import {
+  CloudflareError,
+  PaperbackInterceptor,
+  Request,
+  Response,
+} from "@paperback/types";
 import { addDataReceived } from "./settings";
 
 export class NHentaiInterceptor extends PaperbackInterceptor {
@@ -18,6 +23,16 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
   ): Promise<ArrayBuffer> {
     if (data && typeof data.byteLength === "number") {
       addDataReceived(data.byteLength);
+    }
+    const cfMitigated = response.headers?.["cf-mitigated"];
+    if (cfMitigated === "challenge") {
+      throw new CloudflareError({
+        url: request.url,
+        method: request.method ?? "GET",
+        headers: {
+          "user-agent": await Application.getDefaultUserAgent(),
+        },
+      });
     }
     return data;
   }

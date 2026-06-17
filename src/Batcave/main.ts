@@ -5,7 +5,6 @@ import {
   Cookie,
   CloudflareBypassRequestProviding,
   CookieStorageInterceptor,
-  CloudflareError,
   ContentRating,
   DiscoverSection,
   DiscoverSectionItem,
@@ -708,7 +707,11 @@ export class BatcaveExtension implements BatcaveImplementation {
     return `${baseUrl}/${mangaId}`;
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
@@ -722,25 +725,8 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
+    const [, data] = await Application.scheduleRequest(request);
     const html = Application.arrayBufferToUTF8String(data);
-    
-    if (
-      response.status === 503 ||
-      response.status === 403 ||
-      html.includes("/_v") ||
-      (html.includes("window.performance") && html.includes("crypto.subtle"))
-    ) {
-      throw new CloudflareError({
-        url: baseUrl,
-        method: "GET",
-        headers: {
-          referer: baseUrl,
-          origin: baseUrl,
-        },
-      } as Request);
-    }
-    
     return cheerio.load(html);
   }
 }

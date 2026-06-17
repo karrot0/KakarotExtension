@@ -681,7 +681,11 @@ export class MangaballExtension implements MangaballImplementation {
     return { items: parsed.items, metadata: { page: page + 1, collectedIds: parsed.collectedIds } };
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }

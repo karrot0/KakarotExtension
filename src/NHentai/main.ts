@@ -1090,7 +1090,11 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
     // Filter out expired cookies before storing
     const now = Date.now();
     const validCookies = cookies.filter((cookie) => {
