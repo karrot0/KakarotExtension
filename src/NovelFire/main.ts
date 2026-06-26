@@ -300,7 +300,7 @@ export class NovelFireExtension implements NovelFireImplementation {
 
     $(".nf-ads").remove();
 
-    const content = $("#content").map((_, el) => $(el).html() ?? "").toArray().join("");
+    const content = $("#content").map((_, el) => $(el).html() ?? "").toArray().join("").replace(/&nbsp;/g, " ");
     const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
 
     return {
