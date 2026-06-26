@@ -29,14 +29,14 @@
     "bundle": "paperback-cli bundle",
     "test": "npx --package @paperback/toolchain@1.0.0-alpha.78 paperback-cli test --noConsole --output ./bundles/tests.json",
     "serve": "paperback-cli serve",
-    "logcat": "paperback-cli logcat",
+    "logcat": "paperback-cli logcat --ip 192.168.1.65",
     "dev": "paperback-cli serve --watch --port 3000",
     "prepare": "husky",
     "postinstall": "patch-package"
   },
   "devDependencies": {
-    "@paperback/toolchain": "1.0.0-alpha.89",
-    "@paperback/types": "1.0.0-alpha.89",
+    "@paperback/toolchain": "1.0.0-alpha.91",
+    "@paperback/types": "1.0.0-alpha.91",
     "cheerio": "^1.2.0",
     "husky": "^9.1.7",
     "patch-package": "^8.0.1",
