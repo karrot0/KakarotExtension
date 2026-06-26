@@ -256,7 +256,7 @@ export class ScribbleHubExtension implements ScribbleHubImplementation {
 
     $(".wi-ads, .ads-title").remove();
 
-    const content = $(".chp_raw").map((_, el) => $(el).html() ?? "").toArray().join("");
+    const content = $(".chp_raw").map((_, el) => $(el).html() ?? "").toArray().join("").replace(/&nbsp;/g, " ");
     const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
 
     return {
