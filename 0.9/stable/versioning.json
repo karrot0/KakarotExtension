@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-06-26T02:41:39.490Z",
+  "buildTime": "2026-06-26T02:49:01.437Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.91",
     "types": "1.0.0-alpha.91"
@@ -296,7 +296,7 @@
     {
       "name": "NovelFire",
       "description": "Extension that pulls content from novelfire.net.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -442,7 +442,7 @@
     {
       "name": "ScribbleHub",
       "description": "Extension that pulls content from scribblehub.com.",
-      "version": "1.0.0-alpha.3",
+      "version": "1.0.0-alpha.4",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
