@@ -1,26 +1,33 @@
 import {
   ButtonRow,
+  EditSection,
   Form,
+  FormSectionElement,
   InputRow,
   LabelRow,
   NavigationRow,
   Section,
   SelectRow,
+  StepperRow,
   ToggleRow,
 } from "@paperback/types";
 import {
   ALL_DISCOVER_SECTIONS,
   DATE_SEPARATOR_OPTIONS,
+  DateFormatId,
+  DateSeparatorId,
   DaysOldRange,
   DEFAULT_SECTION_ORDER,
   DiscoverSectionDef,
   DisplayOptionId,
+  getApiKeyAuthorizedSetting,
   getDateFormatOptionsWithSeparator,
-  getDateFormatSetting,
-  getDateSeparatorSetting,
-  getDaysOldFilterSetting,
-  getDiscoverSectionOrder,
   getDisplayOptionsSetting,
+
+  getDaysOldFilterSetting,
+  getDiscoverCarouselTilesSetting,
+  getDiscoverPageTilesSetting,
+  getDiscoverSectionOrder,
   getEnableRelatedSetting,
   getExcludeTagsSetting,
   getFavoritesThresholdMaxSetting,
@@ -32,20 +39,28 @@ import {
   getIncognitoModeSetting,
   getLanguageSetting,
   getMarkReadOnViewSetting,
+  getNHentaiApiKey,
   getPagesExpressionSetting,
+  getRateLimitLiteFallbackSetting,
   getRelatedLanguageSetting,
   getRemoveSeparatorSpacesSetting,
   getScreenTimeEnabledSetting,
+  getSearchPageTilesSetting,
   getStrictFavoritesFilterSetting,
   getThumbnailQualitySetting,
+  isSubtitleHydrationRateLimitedMode,
   LANGUAGE_OPTIONS,
   resetNHentaiSettings,
   sanitizePagesExpressionInput,
-  setDateFormatSetting,
+  setApiKeyAuthorizedSetting,
+
   setDateSeparatorSetting,
-  setDaysOldFilterSetting,
-  setDiscoverSectionOrder,
   setDisplayOptionsSetting,
+
+  setDaysOldFilterSetting,
+  setDiscoverCarouselTilesSetting,
+  setDiscoverPageTilesSetting,
+  setDiscoverSectionOrder,
   setEnableRelatedSetting,
   setExcludeTagsSetting,
   setFavoritesThresholdMaxSetting,
@@ -57,17 +72,20 @@ import {
   setIncognitoModeSetting,
   setLanguageSetting,
   setMarkReadOnViewSetting,
+  setNHentaiApiKey,
   setPagesExpressionSetting,
+  setRateLimitLiteFallbackSetting,
   setRelatedLanguageSetting,
   setRemoveSeparatorSpacesSetting,
+  setSearchPageTilesSetting,
   setStrictFavoritesFilterSetting,
   setThumbnailQualitySetting,
   THUMBNAIL_QUALITY_OPTIONS,
   ThumbnailQuality,
 } from "./settings";
+import * as NHentaiSettings from "./settings";
 import { StatisticsForm } from "./statistics";
 
-// Helper function to format date examples based on current date format
 function getDateExampleFor(dateFormatId: string, separator: string): string {
   const now = new Date();
   const d = now.getDate();
@@ -77,7 +95,7 @@ function getDateExampleFor(dateFormatId: string, separator: string): string {
   const dd = d.toString().padStart(2, "0");
   const mm = m.toString().padStart(2, "0");
 
-  const examples: Record<string, string> = {
+  const patterns: Record<string, string> = {
     mm_dd_yy: `${mm}${separator}${dd}${separator}${yy}`,
     dd_mm_yyyy: `${dd}${separator}${mm}${separator}${yyyy}`,
     yyyy_mm_dd: `${yyyy}${separator}${mm}${separator}${dd}`,
@@ -87,10 +105,9 @@ function getDateExampleFor(dateFormatId: string, separator: string): string {
     m_yy: `${m}${separator}${yy}`,
     yy_m: `${yy}${separator}${m}`,
   };
-  return examples[dateFormatId] || "";
+  return patterns[dateFormatId] || "";
 }
 
-// Helper to format relative date display (1.0y format for >= 1 year)
 function formatRelativeDays(days: number | undefined): string {
   if (days === undefined) return "";
   // Show years format for values >= 1 year (365 days)
@@ -101,18 +118,24 @@ function formatRelativeDays(days: number | undefined): string {
   return `${days}d`;
 }
 
-// Get dynamic separator options using current date format
 function getDateSeparatorOptionsWithFormat(
-  dateFormatId: string,
-): { id: string; label: string; char: string }[] {
-  return DATE_SEPARATOR_OPTIONS.map((opt) => ({
-    id: opt.id,
-    label: `${getDateExampleFor(dateFormatId, opt.char)} - ${opt.id.charAt(0).toUpperCase() + opt.id.slice(1)}`,
-    char: opt.char,
-  }));
+  format: DateFormatId,
+): { id: DateSeparatorId; label: string }[] {
+  const names: Record<DateSeparatorId, string> = {
+    period: "Period",
+    dash: "Dash",
+    slash: "Slash",
+    comma: "Comma",
+    space: "Space",
+  };
+  return DATE_SEPARATOR_OPTIONS.map((opt) => {
+    return {
+      id: opt.id,
+      label: `${getDateExampleFor(format, opt.char)} - ${names[opt.id]}`,
+    };
+  });
 }
 
-// Display option labels with examples
 function getDisplayOptionLabel(
   id: DisplayOptionId,
   dateFormat: string,
@@ -157,11 +180,122 @@ function getDisplayOptionLabel(
   return labels[id] || id;
 }
 
+function getHydrationLimitedEnabledOptions(): string[] {
+  const displayOptions = getDisplayOptionsSetting();
+  const enabledOptions: string[] = [];
+  if (displayOptions.includes("subtitle_date")) {
+    enabledOptions.push("Date in Subtitle");
+  }
+  if (displayOptions.includes("subtitle_relative")) {
+    enabledOptions.push("Relative Date in Subtitle");
+  }
+  return enabledOptions;
+}
+
+function formatNaturalOptionsList(enabledOptions: string[]): string {
+  if (enabledOptions.length === 0) return "subtitle information options";
+
+  const baseLabels = enabledOptions.map((option) => {
+    switch (option) {
+      case "Date in Subtitle":
+        return "- Dates in Subtitles";
+      case "Relative Date in Subtitle":
+        return "- Relative Dates in Subtitles";
+      default:
+        return option;
+    }
+  });
+
+  return baseLabels.join("\n");
+}
+
+const DISPLAY_OPTION_IDS: DisplayOptionId[] = [
+  "hide_read_letter",
+  "show_lang_tip",
+  "show_lang_desc",
+  "show_page_count",
+  "show_favorite_count",
+  "abbreviate_favorites",
+  "subtitle_date",
+  "subtitle_relative",
+  "desc_show_date",
+  "desc_relative_date",
+  "parodies_bottom",
+  "show_id",
+  "show_tags_in_desc",
+  "show_related_order",
+  "show_tag_counts",
+  "show_reread_count",
+];
+
+class NHentaiApiKeyForm extends Form {
+  private apiKey = getNHentaiApiKey() ?? "";
+
+
+  async updateApiKey(value: string): Promise<void> {
+    this.apiKey = value.trim();
+    setNHentaiApiKey(this.apiKey.length > 0 ? this.apiKey : undefined);
+
+    if (this.apiKey.length > 0) {
+
+      this.reloadForm();
+
+      try {
+        // The API root is public, so use a normal API endpoint to confirm the
+        // key is accepted in the same shape the app sends during browsing.
+        const [response] = await Application.scheduleRequest({
+          url: `https://nhentai.net/api/v2/search?query=english&page=1&sort=date`,
+          method: "GET",
+          headers: {
+            Authorization: `Key ${this.apiKey}`,
+          },
+        });
+
+        // Log status for easier debugging when users report auth issues.
+        console.log(
+          `[NHentai] API key validation response: ${response.status} for provided key (length ${this.apiKey.length})`,
+        );
+
+        setApiKeyAuthorizedSetting(response.status === 200);
+      } catch (e) {
+        setApiKeyAuthorizedSetting(false);
+      } finally {
+
+      }
+    } else {
+      setApiKeyAuthorizedSetting(false);
+    }
+
+    this.reloadForm();
+  }
+
+  override getSections(): FormSectionElement<unknown>[] {
+    return [
+      Section(
+        {
+          id: "instructions",
+          footer:
+            "1. Create an account on nhentai.net.\n2. Go to settings followed by API Keys.\n3. Name it anything. Press Create Key.\n4. Copy and paste the API Key below.\nNote: Accounts must be 2 weeks old to create a key.\n\nRate Limits (Authenticated / Unauthenticated):\n• Searches/min: 20 / 10\n• Gallery Details/min: 45 / 20\n• Thumbnails/min: 240 / 180",
+        },
+        [],
+      ),
+      Section("apiKeyInput", [
+        InputRow("apiKey", {
+          title: "NHentai API Key",
+          value: this.apiKey,
+          onValueChange: Application.Selector(this as any, "updateApiKey"),
+        }),
+      ]),
+    ];
+  }
+}
+
 export class SettingsForm extends Form {
   private languageSetting = getLanguageSetting();
-  private dateFormat = getDateFormatSetting();
-  private dateSeparator = getDateSeparatorSetting();
-  private displayOptions = getDisplayOptionsSetting();
+  private dateFormat = NHentaiSettings.getDateFormatSetting();
+  private dateSeparator = NHentaiSettings.getDateSeparatorSetting();
+  private useMilitaryTime = NHentaiSettings.getMilitaryTimeSetting();
+  private displayOptions = NHentaiSettings.getDisplayOptionsSetting();
   private enableRelated = getEnableRelatedSetting();
   private relatedLanguage = getRelatedLanguageSetting();
   private thumbnailQuality = getThumbnailQualitySetting();
@@ -182,17 +316,29 @@ export class SettingsForm extends Form {
     }
     setLanguageSetting(this.languageSetting);
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateDateFormat(value: string[]): Promise<void> {
-    const selected = (value?.[0] as typeof this.dateFormat) ?? this.dateFormat;
-    this.dateFormat = selected;
-    setDateFormatSetting(selected);
+    const selectedIds = Array.isArray(value) ? value.filter(Boolean) : [];
+    const militarySelected = selectedIds.includes("military_time");
+    const dateFormatIds = selectedIds.filter((id) => id !== "military_time");
+
+    const availableDateFormats = getDateFormatOptionsWithSeparator(
+      this.dateSeparator,
+    ).map((opt) => opt.id);
+
+    let selectedDateFormat = this.dateFormat;
+    const validDateFormatIds = dateFormatIds.filter(
+      (id): id is DateFormatId => availableDateFormats.includes(id),
+    );
+    if (validDateFormatIds.length > 0) {
+      selectedDateFormat = validDateFormatIds[0];
+    }
+
+    this.dateFormat = selectedDateFormat;
+    this.useMilitaryTime = militarySelected;
+    NHentaiSettings.setDateFormatSetting(selectedDateFormat);
+    NHentaiSettings.setMilitaryTimeSetting(this.useMilitaryTime);
     this.reloadForm();
   }
 
@@ -207,12 +353,9 @@ export class SettingsForm extends Form {
   async updateDisplayOptions(value: string[]): Promise<void> {
     this.displayOptions = value as typeof this.displayOptions;
     setDisplayOptionsSetting(this.displayOptions);
+    // Re-read persisted state so footer text updates immediately.
+    this.displayOptions = getDisplayOptionsSetting();
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateEnableRelated(value: boolean): Promise<void> {
@@ -254,79 +397,46 @@ export class SettingsForm extends Form {
 
   async handleReset(): Promise<void> {
     resetNHentaiSettings();
-    this.languageSetting = getLanguageSetting();
-    this.dateFormat = getDateFormatSetting();
-    this.dateSeparator = getDateSeparatorSetting();
-    this.displayOptions = getDisplayOptionsSetting();
+    this.languageSetting = NHentaiSettings.getLanguageSetting();
+    this.dateFormat = NHentaiSettings.getDateFormatSetting();
+    this.dateSeparator = NHentaiSettings.getDateSeparatorSetting();
+    this.useMilitaryTime = NHentaiSettings.getMilitaryTimeSetting();
+    this.displayOptions = NHentaiSettings.getDisplayOptionsSetting();
     this.enableRelated = getEnableRelatedSetting();
     this.relatedLanguage = getRelatedLanguageSetting();
     this.thumbnailQuality = getThumbnailQualitySetting();
     this.hideRead = getHideReadSetting();
     this.removeSpaces = getRemoveSeparatorSpacesSetting();
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   /**
    * Generate rate limit warning footer based on current display settings.
    * When favorites/date options are enabled, the gallery detail endpoint (45/min)
-   * is used instead of the faster search endpoint (60/min effective).
+   * is used instead of the search endpoint (20/min).
+   * For anonymous users (no API key), search is limited to 10/min.
    */
   private getRateLimitFooter(): string {
-    const hasFavorites = this.displayOptions.includes("show_favorite_count");
-    const hasSubtitleDate = this.displayOptions.includes("subtitle_date");
-    const hasRelativeDate = this.displayOptions.includes("subtitle_relative");
+    const hasApiKey = !!getNHentaiApiKey();
+    const enabledOptions = getHydrationLimitedEnabledOptions();
 
-    // List which options are causing the lower rate limit
-    const enabledOptions: string[] = [];
-    if (hasFavorites) enabledOptions.push("Favorites in Subtitle");
-    if (hasSubtitleDate) enabledOptions.push("Date in Subtitle");
-    if (hasRelativeDate) enabledOptions.push("Relative Date in Subtitle");
+    if (!hasApiKey) {
+      // Anonymous rate limits are lower; reflect this accurately.
+      if (enabledOptions.length === 0) {
+        return `API Rate Limit: 10 search requests/minute (No API key)`;
+      }
+      const optionsList = formatNaturalOptionsList(enabledOptions);
+      return `API Rate Limit: 20 total manga requests/minute (No API key)\n\nFor a 10 search requests/minute limit disable: ${optionsList}`;
+    }
 
     if (enabledOptions.length === 0) {
-      return "API Rate Limit: 60 requests/minute (optimal speed)\n\nEnabling any Display Options below (Favorites in Subtitle, Date in Subtitle, or Relative Date in Subtitle) will reduce the limit to 45/minute.";
+      return `API Rate Limit: 20 search requests/minute (Authenticated)`;
     }
 
-    // Format the list with proper grammar (x, y, and z)
-    let optionsList: string;
-    if (enabledOptions.length === 1) {
-      optionsList = enabledOptions[0];
-    } else if (enabledOptions.length === 2) {
-      optionsList = enabledOptions.join(" and ");
-    } else {
-      optionsList =
-        enabledOptions.slice(0, -1).join(", ") +
-        ", and " +
-        enabledOptions[enabledOptions.length - 1];
-    }
-
-    return `API Rate Limit: 45 requests/minute (limited by Display Options)\n\nYou have enabled: ${optionsList}\n\nDisable ${enabledOptions.length === 1 ? "this option" : "these options"} in Display Options to increase rate limit to 60/minute for faster loading.`;
+    return `API Rate Limit: 45 manga requests/minute (Authenticated)\nFor a 20 search requests/minute limit disable:\n${formatNaturalOptionsList(enabledOptions)}`;
   }
 
-  override getSections() {
-    // Build display options with dynamic date examples
-    const displayOptionValues = [
-      "hide_read_letter",
-      "show_lang_tip",
-      "show_lang_desc",
-      "show_page_count",
-      "abbreviate_favorites",
-      "show_favorite_count",
-      "subtitle_date",
-      "subtitle_relative",
-      "desc_show_date",
-      "desc_relative_date",
-      "parodies_bottom",
-      "show_id",
-      "show_tags_in_desc",
-      "show_related_order",
-      "show_tag_counts",
-    ] as DisplayOptionId[];
-
+  override getSections(): FormSectionElement<unknown>[] {
     // Build subtitle example based on current display options
     const sep = this.removeSpaces ? "|" : " | ";
     const parts: string[] = [];
@@ -342,8 +452,8 @@ export class SettingsForm extends Form {
     if (this.displayOptions.includes("subtitle_relative")) parts.push("5h");
     if (this.displayOptions.includes("subtitle_date")) {
       const dateSep =
-        DATE_SEPARATOR_OPTIONS.find((s) => s.id === this.dateSeparator)?.char ??
-        ".";
+        DATE_SEPARATOR_OPTIONS.find((s) => s.id === (this.dateSeparator as any))
+          ?.char ?? ".";
       parts.push(getDateExampleFor(this.dateFormat, dateSep));
     }
     const subtitleExample =
@@ -360,34 +470,38 @@ export class SettingsForm extends Form {
           title: "NHentai Settings",
           subtitle: `Subtitle Preview: ${subtitleExample}`,
         }),
-        SelectRow("language", {
+        SelectRow("languageNav", {
           title:
             this.languageSetting.includes("all") ||
-            this.languageSetting.length !== 1
+              this.languageSetting.length !== 1
               ? "Preferred Languages"
               : "Preferred Language",
-          subtitle: "Applied To Home And Search Results",
+          layout: "list",
           value: this.languageSetting,
-          options: LANGUAGE_OPTIONS.map((option) => ({
+          items: LANGUAGE_OPTIONS.map((option) => ({
             id: option.id,
             title: option.label,
           })),
+          onValueChange: Application.Selector(this as any, "updateLanguage"),
           minItemCount: 1,
           maxItemCount: LANGUAGE_OPTIONS.length,
-          onValueChange: Application.Selector(
-            this as SettingsForm,
-            "updateLanguage",
-          ),
+        }),
+        NavigationRow("apiKeyNav", {
+          title: "NHentai API Key",
+          value: getApiKeyAuthorizedSetting()
+            ? "Status: Authorized"
+            : "Status: Unauthorized",
+          form: new NHentaiApiKeyForm(),
         }),
       ]),
       // Thumbnail and Display Options section
       Section("displaySettingsNav", [
         // Display Options first
-        SelectRow("displayOptions", {
+        SelectRow("displayOptionsNav", {
           title: "Display Options",
-          subtitle: "Customize Subtitles and Descriptions",
+          layout: "list",
           value: this.displayOptions,
-          options: displayOptionValues.map((id) => ({
+          options: DISPLAY_OPTION_IDS.map((id) => ({
             id,
             title: getDisplayOptionLabel(
               id,
@@ -396,34 +510,34 @@ export class SettingsForm extends Form {
               this.removeSpaces,
             ),
           })),
-          minItemCount: 0,
-          maxItemCount: displayOptionValues.length,
           onValueChange: Application.Selector(
-            this as SettingsForm,
+            this as any,
             "updateDisplayOptions",
           ),
+          minItemCount: 0,
+          maxItemCount: DISPLAY_OPTION_IDS.length,
         }),
-        // Thumbnail Quality moved here under display options
-        SelectRow("thumbnailQuality", {
+        SelectRow("thumbnailQualityNav", {
           title: "Thumbnail Quality",
+          layout: "list",
           value: [this.thumbnailQuality],
           options: THUMBNAIL_QUALITY_OPTIONS.map((opt) => ({
             id: opt.id,
             title: opt.label,
           })),
-          minItemCount: 1,
-          maxItemCount: 1,
           onValueChange: Application.Selector(
-            this as SettingsForm,
+            this as any,
             "updateThumbnailQuality",
           ),
+          minItemCount: 1,
+          maxItemCount: 1,
         }),
         // Remove Spaces setting
         ToggleRow("removeSpaces", {
           title: "Remove Spaces From Separators",
           value: this.removeSpaces,
           onValueChange: Application.Selector(
-            this as SettingsForm,
+            this as any,
             "updateRemoveSpaces",
           ),
         }),
@@ -432,7 +546,7 @@ export class SettingsForm extends Form {
       Section("statistics", [
         NavigationRow("mangaFiltersNav", {
           title: "Manga Filters",
-          subtitle: "Applied To Home And Search Results",
+          subtitle: "Applies To Search And Discover",
           form: new MangaFiltersForm(),
         }),
         NavigationRow("discoverOrderNav", {
@@ -449,24 +563,27 @@ export class SettingsForm extends Form {
       ]),
       // Date Settings section with rate limit warning footer
       Section({ id: "dateSettings", footer: this.getRateLimitFooter() }, [
-        SelectRow("dateFormat", {
-          title: "Date Format",
-          value: [this.dateFormat],
-          options: getDateFormatOptionsWithSeparator(this.dateSeparator).map(
-            (opt) => ({
-              id: opt.id,
-              title: opt.label,
-            }),
-          ),
+        SelectRow("dateFormatNav", {
+          title: "Date & Time Format",
+          layout: "list",
+          value: [
+            this.dateFormat,
+            ...(this.useMilitaryTime ? ["military_time"] : []),
+          ],
+          options: [
+            ...getDateFormatOptionsWithSeparator(this.dateSeparator),
+            { id: "military_time", label: "16:07 - Military Time" } as const,
+          ].map((opt) => ({
+            id: opt.id,
+            title: "label" in opt ? opt.label : (opt as any).title,
+          })),
+          onValueChange: Application.Selector(this as any, "updateDateFormat"),
           minItemCount: 1,
-          maxItemCount: 1,
-          onValueChange: Application.Selector(
-            this as SettingsForm,
-            "updateDateFormat",
-          ),
+          maxItemCount: 2,
         }),
-        SelectRow("dateSeparator", {
+        SelectRow("dateSeparatorNav", {
           title: "Date Separator",
+          layout: "list",
           value: [this.dateSeparator],
           options: getDateSeparatorOptionsWithFormat(this.dateFormat).map(
             (opt) => ({
@@ -474,19 +591,18 @@ export class SettingsForm extends Form {
               title: opt.label,
             }),
           ),
-          minItemCount: 1,
-          maxItemCount: 1,
           onValueChange: Application.Selector(
-            this as SettingsForm,
+            this as any,
             "updateDateSeparator",
           ),
+          minItemCount: 1,
+          maxItemCount: 1,
         }),
       ]),
-      // Reset section
       Section("reset", [
         ButtonRow("reset", {
           title: "Reset to Defaults",
-          onSelect: Application.Selector(this as SettingsForm, "handleReset"),
+          onSelect: Application.Selector(this as any, "handleReset"),
         }),
       ]),
     ];
@@ -499,9 +615,8 @@ function stripTagPrefix(value: string): string {
     .map((t) => t.trim())
     .filter(Boolean)
     .map((t) => {
-      // Check if this is an OR group (contains || or OR)
+      // Detect OR groups (|| or OR keyword) for union-then-intersect processing
       if (/\s*\|\|\s*|\s+OR\s+/i.test(t)) {
-        // Split by OR but preserve the OR syntax
         const orParts = t
           .split(/\s*\|\|\s*|\s+OR\s+/i)
           .map((part) => {
@@ -543,10 +658,14 @@ class MangaFiltersForm extends Form {
   private includeTags = getIncludeTagsSetting();
   private excludeTags = getExcludeTagsSetting();
   private pagesExpr = getPagesExpressionSetting();
+  private discoverCarouselTiles = getDiscoverCarouselTilesSetting();
+  private discoverPageTiles = getDiscoverPageTilesSetting();
+  private searchPageTiles = getSearchPageTilesSetting();
   private daysOldFilter = getDaysOldFilterSetting();
   private favoritesThreshold = getFavoritesThresholdSetting();
   private favoritesThresholdMax = getFavoritesThresholdMaxSetting();
   private strictFavorites = getStrictFavoritesFilterSetting();
+  private rateLimitLiteFallback = getRateLimitLiteFallbackSetting();
   private incognito = getIncognitoModeSetting();
   private hideRead = getHideReadSetting();
   private enableRelated = getEnableRelatedSetting();
@@ -554,141 +673,186 @@ class MangaFiltersForm extends Form {
   private hideReadInRelated = getHideReadInRelatedSetting();
   private markReadOnView = getMarkReadOnViewSetting();
 
-  override getSections() {
-    const markReadOnViewEnabled = this.hideRead && !this.incognito;
+  private normalizeStepperValue(
+    value: unknown,
+    min: number,
+    max: number,
+    fallback: number,
+  ): number {
+    const normalized: unknown =
+      Array.isArray(value) && value.length > 0
+        ? (value as unknown[])[0]
+        : value;
+    let parsed = NaN;
+    if (typeof normalized === "number") {
+      parsed = normalized;
+    } else if (typeof normalized === "string") {
+      parsed = Number.parseInt(normalized, 10);
+    } else if (typeof normalized === "boolean") {
+      parsed = normalized ? 1 : 0;
+    }
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, Math.floor(parsed)));
+  }
+
+  override getSections(): FormSectionElement<unknown>[] {
+    const showHydrationToggle = isSubtitleHydrationRateLimitedMode();
 
     return [
+      Section("tileLayoutSection", [
+        ...(showHydrationToggle
+          ? [
+            ToggleRow("rateLimitLiteFallback", {
+              title: "Dynamic Rate Limit Fallback",
+              subtitle: `After the ${getNHentaiApiKey() ? "45" : "20"} manga/min limit is reached, remove dates in subtitles to display more manga.`,
+              value: this.rateLimitLiteFallback,
+              onValueChange: Application.Selector(
+                this as any,
+                "updateRateLimitLiteFallback",
+              ),
+            }),
+          ]
+          : []),
+        StepperRow("discoverCarouselTiles", {
+          title: "Tiles on Carousel",
+          value: this.discoverCarouselTiles,
+          minValue: 1,
+          maxValue: 6,
+          stepValue: 1,
+          loopOver: false,
+          onValueChange: Application.Selector(
+            this as any,
+            "updateDiscoverCarouselTiles",
+          ),
+        }),
+        StepperRow("discoverPageTiles", {
+          title: "Tiles on Discover",
+          value: this.discoverPageTiles,
+          minValue: 1,
+          maxValue: 12,
+          stepValue: 1,
+          loopOver: false,
+          onValueChange: Application.Selector(
+            this as any,
+            "updateDiscoverPageTiles",
+          ),
+        }),
+        StepperRow("searchPageTiles", {
+          title: "Tiles on Search",
+          value: this.searchPageTiles,
+          minValue: 1,
+          maxValue: 16,
+          stepValue: 1,
+          loopOver: false,
+          onValueChange: Application.Selector(
+            this as any,
+            "updateSearchPageTiles",
+          ),
+        }),
+      ]),
       // Section 1: Tags and filters
       Section("filtersSection", [
         InputRow("includeTags", {
           title: "Included Tags (e.g. yuri, anal OR maid)",
           value: stripTagPrefix(this.includeTags),
-          onValueChange: Application.Selector(
-            this as MangaFiltersForm,
-            "updateIncludeTags",
-          ),
+          onValueChange: Application.Selector(this as any, "updateIncludeTags"),
         }),
         InputRow("excludeTags", {
           title: "Excluded Tags (e.g. netorare, bbw)",
           value: stripTagPrefix(this.excludeTags),
-          onValueChange: Application.Selector(
-            this as MangaFiltersForm,
-            "updateExcludeTags",
-          ),
+          onValueChange: Application.Selector(this as any, "updateExcludeTags"),
         }),
         InputRow("pagesFilter", {
           title: "Page Count (e.g. 20-50, >30, 100+, 69<)",
           value: this.pagesExpr,
-          onValueChange: Application.Selector(
-            this as MangaFiltersForm,
-            "updatePagesExpr",
-          ),
+          onValueChange: Application.Selector(this as any, "updatePagesExpr"),
         }),
         InputRow("favoritesFilter", {
           title: "Favorites (e.g. >500, 1000+, 69<)",
           value: this.formatFavoritesThreshold(),
           onValueChange: Application.Selector(
-            this as MangaFiltersForm,
+            this as any,
             "updateFavoritesThreshold",
           ),
         }),
-        ...(this.favoritesThreshold !== undefined
+        ...(this.favoritesThreshold !== undefined ||
+          this.favoritesThresholdMax !== undefined
           ? [
-              ToggleRow("strictFavorites", {
-                title: "Strict Client-side Favorites Filtering",
-                subtitle: "Lowers Rate Limits. Not Recommended.",
-                value: this.strictFavorites,
-                onValueChange: Application.Selector(
-                  this as MangaFiltersForm,
-                  "updateStrictFavorites",
-                ),
-              }),
-            ]
+            ToggleRow("strictFavorites", {
+              title: "Strict Client-side Favorites Filtering",
+              subtitle: "Lowers Rate Limits. Not Recommended.",
+              value: this.strictFavorites,
+              onValueChange: Application.Selector(
+                this as any,
+                "updateStrictFavorites",
+              ),
+            }),
+          ]
           : []),
         InputRow("daysOldFilter", {
           title: "Date Added (e.g. 7+, <7d, 1w-3y, 14-)",
           value: this.formatDaysOldFilter(),
           onValueChange: Application.Selector(
-            this as MangaFiltersForm,
+            this as any,
             "updateDaysOldFilter",
           ),
         }),
       ]),
       // Section 2: Behavior toggles — single section, reordered
       Section("behaviorSection", [
+        ToggleRow("pauseHideRead", {
+          title: "Pause Read Manga Tracking",
+          subtitle: "Paperback Continues Tracking History",
+          value: this.incognito,
+          onValueChange: Application.Selector(this as any, "updateIncognito"),
+        }),
         ToggleRow("filterRelatedByLanguage", {
-          title: "Related Preferred Language",
-          subtitle: "Only Show Related Entries Matching the Preferred Language (Slower)",
+          title: "Apply Preferred Language to Related Section",
+          subtitle: "Related Manga Will Follow Preferred Langugage Setting",
           value: this.relatedLanguage !== "all",
           onValueChange: Application.Selector(
-            this as MangaFiltersForm,
+            this as any,
             "updateRelatedLanguage",
-          ),
-        }),
-        ToggleRow("pauseHideRead", {
-          title: "Pause Manga Tracking",
-          subtitle: "App Continues Tracking",
-          value: this.incognito,
-          onValueChange: Application.Selector(
-            this as MangaFiltersForm,
-            "updateIncognito",
           ),
         }),
         ToggleRow("hideReadInRelated", {
           title: "Hide Read Manga in Related",
+          subtitle: "Applies To Related Manga Section",
           value: this.hideReadInRelated,
           onValueChange: Application.Selector(
-            this as MangaFiltersForm,
+            this as any,
             "updateHideReadInRelated",
           ),
         }),
         ToggleRow("hideRead", {
           title: "Hide Read Manga",
-          subtitle: "Applies To Search And Discover",
+          subtitle: "Applies to Search and Discover",
           value: this.hideRead,
+          onValueChange: Application.Selector(this as any, "updateHideRead"),
+        }),
+        ToggleRow("markReadOnView", {
+          title: "Mark As Read On Description",
+          subtitle: "Mark Manga as Read When Viewing Their Description",
+          value: this.markReadOnView,
           onValueChange: Application.Selector(
-            this as MangaFiltersForm,
-            "updateHideRead",
+            this as any,
+            "updateMarkReadOnView",
           ),
         }),
-        ...(markReadOnViewEnabled
-          ? [
-              ToggleRow("markReadOnView", {
-                title: "Mark As Read On Description",
-                value: this.markReadOnView,
-                onValueChange: Application.Selector(
-                  this as MangaFiltersForm,
-                  "updateMarkReadOnView",
-                ),
-              }),
-            ]
-          : []),
       ]),
     ];
   }
 
   async updateIncludeTags(value: string): Promise<void> {
-    // Store the raw value - backend will handle tag: prefix formatting
     this.includeTags = value ?? "";
     setIncludeTagsSetting(value ?? "");
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateExcludeTags(value: string): Promise<void> {
-    // Store the raw value - backend will handle -tag: prefix formatting
     this.excludeTags = value ?? "";
     setExcludeTagsSetting(value ?? "");
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updatePagesExpr(value: string): Promise<void> {
@@ -696,26 +860,12 @@ class MangaFiltersForm extends Form {
     setPagesExpressionSetting(this.pagesExpr);
     this.pagesExpr = getPagesExpressionSetting();
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateHideRead(value: boolean): Promise<void> {
     this.hideRead = !!value;
     setHideReadSetting(this.hideRead);
-    if (!this.hideRead && this.markReadOnView) {
-      this.markReadOnView = false;
-      setMarkReadOnViewSetting(false);
-    }
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateEnableRelated(value: boolean): Promise<void> {
@@ -726,11 +876,6 @@ class MangaFiltersForm extends Form {
       setHideReadInRelatedSetting(false);
     }
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateRelatedLanguage(value: boolean): Promise<void> {
@@ -753,11 +898,6 @@ class MangaFiltersForm extends Form {
       this.favoritesThresholdMax = undefined;
       setFavoritesThresholdSetting(undefined);
       setFavoritesThresholdMaxSetting(undefined);
-      try {
-        Application.invalidateSearchFilters();
-      } catch {
-        /* ignore */
-      }
       return;
     }
 
@@ -772,28 +912,71 @@ class MangaFiltersForm extends Form {
       this.favoritesThresholdMax = max;
       setFavoritesThresholdSetting(min);
       setFavoritesThresholdMaxSetting(max);
-      try {
-        Application.invalidateSearchFilters();
-      } catch {
-        /* ignore */
-      }
+
       return;
     }
 
-    // Support: >500, >=500, 500+, 500> (postfix), 69< (postfix greater-than)
-    // All treated as "favorites >= threshold"
-    const gtMatch = trimmed.match(/^>=?(\d+)$|^(\d+)\+$|^(\d+)[><]$/);
-    if (gtMatch) {
-      const n = Number(gtMatch[1] || gtMatch[2] || gtMatch[3]);
+    // Prefix comparator: >500, >=500, <500, <=500
+    const prefixCmpMatch = trimmed.match(/^(>=|<=|>|<)\s*(\d+)$/);
+    if (prefixCmpMatch) {
+      const op = prefixCmpMatch[1];
+      const n = Number(prefixCmpMatch[2]);
+      if (!Number.isNaN(n)) {
+        if (op === ">" || op === ">=") {
+          this.favoritesThreshold = n;
+          this.favoritesThresholdMax = undefined;
+        } else {
+          this.favoritesThreshold = undefined;
+          this.favoritesThresholdMax = n;
+        }
+      }
+      setFavoritesThresholdSetting(this.favoritesThreshold);
+      setFavoritesThresholdMaxSetting(this.favoritesThresholdMax);
+
+      return;
+    }
+
+    // Support: 500+
+    const plusMatch = trimmed.match(/^(\d+)\+$/);
+    if (plusMatch) {
+      const n = Number(plusMatch[1]);
       this.favoritesThreshold = Number.isNaN(n) ? undefined : n;
       this.favoritesThresholdMax = undefined;
       setFavoritesThresholdSetting(this.favoritesThreshold);
       setFavoritesThresholdMaxSetting(undefined);
-      try {
-        Application.invalidateSearchFilters();
-      } catch {
-        /* ignore */
+
+      return;
+    }
+
+    // Support: 500-
+    const minusMatch = trimmed.match(/^(\d+)-$/);
+    if (minusMatch) {
+      const n = Number(minusMatch[1]);
+      this.favoritesThreshold = undefined;
+      this.favoritesThresholdMax = Number.isNaN(n) ? undefined : n;
+      setFavoritesThresholdSetting(undefined);
+      setFavoritesThresholdMaxSetting(this.favoritesThresholdMax);
+
+      return;
+    }
+
+    // Postfix comparator syntax: 500>, 500>=, 500<, 500<=
+    const postfixCmpMatch = trimmed.match(/^(\d+)\s*(>=|<=|>|<)$/);
+    if (postfixCmpMatch) {
+      const n = Number(postfixCmpMatch[1]);
+      const op = postfixCmpMatch[2];
+      if (!Number.isNaN(n)) {
+        if (op === ">" || op === ">=") {
+          this.favoritesThreshold = n;
+          this.favoritesThresholdMax = undefined;
+        } else {
+          this.favoritesThreshold = undefined;
+          this.favoritesThresholdMax = n;
+        }
       }
+      setFavoritesThresholdSetting(this.favoritesThreshold);
+      setFavoritesThresholdMaxSetting(this.favoritesThresholdMax);
+
       return;
     }
 
@@ -805,11 +988,6 @@ class MangaFiltersForm extends Form {
       this.favoritesThresholdMax = undefined;
       setFavoritesThresholdSetting(this.favoritesThreshold);
       setFavoritesThresholdMaxSetting(undefined);
-      try {
-        Application.invalidateSearchFilters();
-      } catch {
-        /* ignore */
-      }
     }
   }
 
@@ -818,16 +996,49 @@ class MangaFiltersForm extends Form {
     setStrictFavoritesFilterSetting(this.strictFavorites);
   }
 
+  async updateRateLimitLiteFallback(value: boolean): Promise<void> {
+    this.rateLimitLiteFallback = !!value;
+    setRateLimitLiteFallbackSetting(this.rateLimitLiteFallback);
+  }
+
+  async updateDiscoverCarouselTiles(value: unknown): Promise<void> {
+    this.discoverCarouselTiles = this.normalizeStepperValue(
+      value,
+      1,
+      6,
+      this.discoverCarouselTiles,
+    );
+    setDiscoverCarouselTilesSetting(this.discoverCarouselTiles);
+    this.reloadForm();
+  }
+
+  async updateDiscoverPageTiles(value: unknown): Promise<void> {
+    this.discoverPageTiles = this.normalizeStepperValue(
+      value,
+      1,
+      12,
+      this.discoverPageTiles,
+    );
+    setDiscoverPageTilesSetting(this.discoverPageTiles);
+    this.reloadForm();
+  }
+
+  async updateSearchPageTiles(value: unknown): Promise<void> {
+    this.searchPageTiles = this.normalizeStepperValue(
+      value,
+      1,
+      16,
+      this.searchPageTiles,
+    );
+    setSearchPageTilesSetting(this.searchPageTiles);
+    this.reloadForm();
+  }
+
   async updateDaysOldFilter(value: string): Promise<void> {
     const parsed = this.parseDaysOldFilter(value);
     this.daysOldFilter = parsed;
     setDaysOldFilterSetting(parsed);
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateIncognito(value: boolean): Promise<void> {
@@ -838,11 +1049,6 @@ class MangaFiltersForm extends Form {
       setMarkReadOnViewSetting(false);
     }
     this.reloadForm();
-    try {
-      Application.invalidateSearchFilters();
-    } catch {
-      /* ignore */
-    }
   }
 
   async updateMarkReadOnView(value: boolean): Promise<void> {
@@ -851,11 +1057,19 @@ class MangaFiltersForm extends Form {
   }
 
   private formatFavoritesThreshold(): string {
-    if (this.favoritesThreshold === undefined) return "";
-    if (this.favoritesThresholdMax !== undefined) {
+    if (
+      this.favoritesThreshold !== undefined &&
+      this.favoritesThresholdMax !== undefined
+    ) {
       return `${this.favoritesThreshold}-${this.favoritesThresholdMax}`;
     }
-    return `>${this.favoritesThreshold}`;
+    if (this.favoritesThreshold !== undefined) {
+      return `${this.favoritesThreshold}+`;
+    }
+    if (this.favoritesThresholdMax !== undefined) {
+      return `${this.favoritesThresholdMax}-`;
+    }
+    return "";
   }
 
   private formatDaysOldFilter(): string {
@@ -915,25 +1129,25 @@ class MangaFiltersForm extends Form {
 
     // Suffix: 30+ or 1y+ means that many days or more old (older)
     const olderMatch = trimmed.match(
-      new RegExp(`^(${numPat})\\s*\\+$|^>(${numPat})$`),
+      new RegExp(`^(${numPat})\\s*\\+$|^>=?(${numPat})$`),
     );
     if (olderMatch)
       return { oldest: this.parseDaysValue(olderMatch[1] || olderMatch[2]) };
 
     // Postfix >: 5000> means older than 5000 days
-    const postfixOlderMatch = trimmed.match(new RegExp(`^(${numPat})\\s*>$`));
+    const postfixOlderMatch = trimmed.match(new RegExp(`^(${numPat})\\s*>=?$`));
     if (postfixOlderMatch)
       return { oldest: this.parseDaysValue(postfixOlderMatch[1]) };
 
     // Prefix: <7d means less than 7 days old (newer)
     const newerMatch = trimmed.match(
-      new RegExp(`^(${numPat})\\s*-$|^<(${numPat})$`),
+      new RegExp(`^(${numPat})\\s*-$|^<=?(${numPat})$`),
     );
     if (newerMatch)
       return { newest: this.parseDaysValue(newerMatch[1] || newerMatch[2]) };
 
     // Postfix <: 5000< means newer than 5000 days
-    const postfixNewerMatch = trimmed.match(new RegExp(`^(${numPat})\\s*<$`));
+    const postfixNewerMatch = trimmed.match(new RegExp(`^(${numPat})\\s*<=?$`));
     if (postfixNewerMatch)
       return { newest: this.parseDaysValue(postfixNewerMatch[1]) };
 
@@ -976,122 +1190,204 @@ class DiscoverOrderForm extends Form {
 
   constructor() {
     super();
-    for (const def of ALL_DISCOVER_SECTIONS) {
-      (this as any)[`moveUp_${def.id}`] = async () => {
-        this.moveSection(def.id, -1);
-      };
-      (this as any)[`moveDown_${def.id}`] = async () => {
-        this.moveSection(def.id, 1);
-      };
-      (this as any)[`toggle_${def.id}`] = async (value: boolean) => {
-        if (value) {
-          this.hidden.delete(def.id);
-        } else {
-          this.hidden.add(def.id);
-        }
-        setHiddenSections(this.hidden);
-        this.reloadForm();
-      };
-    }
   }
 
-  private moveSection(sectionId: string, direction: number) {
-    const idx = this.order.indexOf(sectionId);
-    if (idx < 0) return;
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= this.order.length) return;
-    [this.order[idx], this.order[newIdx]] = [
-      this.order[newIdx],
-      this.order[idx],
-    ];
+  private getVisibleIds(): string[] {
+    return this.order.filter((id) => !this.hidden.has(id));
+  }
+
+  private getHiddenIds(): string[] {
+    return this.order.filter((id) => this.hidden.has(id));
+  }
+
+  private persistLists(visibleIds: string[], hiddenIds: string[]): void {
+    const knownIds = ALL_DISCOVER_SECTIONS.map((section) => section.id);
+    const seen = new Set<string>();
+    const nextVisible = visibleIds.filter((id) => {
+      if (!knownIds.includes(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    const nextHidden = hiddenIds.filter((id) => {
+      if (!knownIds.includes(id) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    for (const id of knownIds) {
+      if (!seen.has(id)) {
+        nextVisible.push(id);
+        seen.add(id);
+      }
+    }
+
+    this.order = [...nextVisible, ...nextHidden];
+    this.hidden = new Set(nextHidden);
     setDiscoverSectionOrder(this.order);
+    setHiddenSections(this.hidden);
+  }
+
+  private reorderListByIndices(
+    list: string[],
+    srcIndex: number,
+    destIndex: number,
+  ): string[] {
+    const length = list.length;
+    if (length < 2) return list;
+    const normalizedSrc = Math.trunc(Number(srcIndex));
+    const normalizedDestInput = Math.trunc(Number(destIndex));
+    if (
+      !Number.isFinite(normalizedSrc) ||
+      !Number.isFinite(normalizedDestInput)
+    ) {
+      return list;
+    }
+    if (normalizedSrc < 0 || normalizedSrc >= length) return list;
+
+    const normalizedDest = Math.max(0, Math.min(normalizedDestInput, length));
+    if (normalizedDest === normalizedSrc) {
+      return list;
+    }
+
+    const next = [...list];
+    const [moved] = next.splice(normalizedSrc, 1);
+    if (!moved) return list;
+    const boundedDest = Math.max(0, Math.min(normalizedDest, next.length));
+    next.splice(boundedDest, 0, moved);
+    return next;
+  }
+
+  async rowDidReorderVisible(
+    srcIndex: number,
+    destIndex: number,
+  ): Promise<void> {
+    const visible = this.getVisibleIds();
+    const hidden = this.getHiddenIds();
+    const nextVisible = this.reorderListByIndices(visible, srcIndex, destIndex);
+    if (
+      nextVisible.length === visible.length &&
+      nextVisible.every((id, index) => id === visible[index])
+    ) {
+      return;
+    }
+    this.persistLists(nextVisible, hidden);
     this.reloadForm();
   }
 
-  override getSections() {
+  async rowDidReorderHidden(
+    srcIndex: number,
+    destIndex: number,
+  ): Promise<void> {
+    const visible = this.getVisibleIds();
+    const hidden = this.getHiddenIds();
+    const nextHidden = this.reorderListByIndices(hidden, srcIndex, destIndex);
+    if (
+      nextHidden.length === hidden.length &&
+      nextHidden.every((id, index) => id === hidden[index])
+    ) {
+      return;
+    }
+    this.persistLists(visible, nextHidden);
+    this.reloadForm();
+  }
+
+  async rowDidDeleteVisible(index: number): Promise<void> {
+    const visible = this.getVisibleIds();
+    const hidden = this.getHiddenIds();
+    const normalizedIndex = Math.trunc(Number(index));
+    if (!Number.isFinite(normalizedIndex)) return;
+    if (normalizedIndex < 0 || normalizedIndex >= visible.length) return;
+    const [id] = visible.splice(normalizedIndex, 1);
+    if (!id) return;
+    if (!hidden.includes(id)) hidden.push(id);
+    this.persistLists(visible, hidden);
+    this.reloadForm();
+  }
+
+  async rowDidDeleteHidden(index: number): Promise<void> {
+    const visible = this.getVisibleIds();
+    const hidden = this.getHiddenIds();
+    const normalizedIndex = Math.trunc(Number(index));
+    if (!Number.isFinite(normalizedIndex)) return;
+    if (normalizedIndex < 0 || normalizedIndex >= hidden.length) return;
+    const [id] = hidden.splice(normalizedIndex, 1);
+    if (!id) return;
+    if (!visible.includes(id)) visible.push(id);
+    this.persistLists(visible, hidden);
+    this.reloadForm();
+  }
+
+  override getSections(): FormSectionElement<unknown>[] {
     const sectionMap = new Map<string, DiscoverSectionDef>(
       ALL_DISCOVER_SECTIONS.map((s) => [s.id, s]),
     );
 
-    // Visibility toggles - prefix with "Show", only show subtitles for specific sections
-    const toggleRows = this.order
+    const visibleIds = this.getVisibleIds();
+    const hiddenIds = this.getHiddenIds();
+
+    const visibleRows = visibleIds
       .map((id) => {
         const def = sectionMap.get(id);
-        if (!def) return null;
-        return ToggleRow(`vis_${id}`, {
-          title: `Show ${def.title}`,
+        if (!def) return undefined;
+        return LabelRow(`visible_${id}`, {
+          title: def.title,
           subtitle: def.subtitle,
-          value: !this.hidden.has(id),
-          onValueChange: Application.Selector(
-            this as DiscoverOrderForm,
-            `toggle_${id}` as any,
-          ),
         });
       })
-      .filter((r): r is NonNullable<typeof r> => r != null);
+      .filter((row): row is NonNullable<typeof row> => row !== undefined);
 
-    // Order rows with move buttons
-    const orderRows: any[] = [];
-    for (let i = 0; i < this.order.length; i++) {
-      const id = this.order[i];
-      const def = sectionMap.get(id);
-      if (!def) continue;
-      const hiddenMark = this.hidden.has(id) ? " (hidden)" : "";
-      orderRows.push(
-        LabelRow(`order_${id}`, {
-          title: `${i + 1}. ${def.title}${hiddenMark}`,
-        }),
-      );
-      if (i > 0) {
-        orderRows.push(
-          ButtonRow(`up_${id}`, {
-            title: "↑ Move Up",
-            onSelect: Application.Selector(
-              this as DiscoverOrderForm,
-              `moveUp_${id}` as any,
-            ),
-          }),
-        );
-      }
-      if (i < this.order.length - 1) {
-        orderRows.push(
-          ButtonRow(`down_${id}`, {
-            title: "↓ Move Down",
-            onSelect: Application.Selector(
-              this as DiscoverOrderForm,
-              `moveDown_${id}` as any,
-            ),
-          }),
-        );
-      }
-    }
+    const hiddenRows = hiddenIds
+      .map((id) => {
+        const def = sectionMap.get(id);
+        if (!def) return undefined;
+        return LabelRow(`hidden_${id}`, {
+          title: def.title,
+          subtitle: def.subtitle,
+        });
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== undefined);
 
-    // Build current visible order as arrow-separated footer
-    const visibleOrderFooter =
-      this.order
-        .filter((id) => !this.hidden.has(id))
-        .map((id) => sectionMap.get(id)?.title)
-        .filter(Boolean)
-        .join(" -> ") || "No visible sections";
+    const visibleReorderSelectorId = Application.Selector(
+      this as any,
+      "rowDidReorderVisible",
+    );
+    const visibleDeletionSelectorId = Application.Selector(
+      this as any,
+      "rowDidDeleteVisible",
+    );
+    const hiddenReorderSelectorId = Application.Selector(
+      this as any,
+      "rowDidReorderHidden",
+    );
+    const hiddenDeletionSelectorId = Application.Selector(
+      this as any,
+      "rowDidDeleteHidden",
+    );
 
     return [
-      Section("header", [
-        LabelRow("topLabel", {
-          title: "Home & Search Sections",
-          subtitle: "Disable unused sections for faster loading.",
-        }),
-      ]),
-      Section({ id: "visibility", footer: visibleOrderFooter }, [
-        ...toggleRows,
-      ]),
-      Section("ordering", [...orderRows]),
+      EditSection("visibleOrdering", {
+        id: "visibleOrdering",
+        header: "VISIBLE ORDERING",
+        footer: "Drag to reorder. Swipe to hide.",
+        items: visibleRows,
+        allowReorder: true,
+        allowDeletion: true,
+        onReorder: visibleReorderSelectorId as never,
+        onDeletion: visibleDeletionSelectorId as never,
+      }),
+      EditSection("hiddenSections", {
+        id: "hiddenSections",
+        header: "HIDDEN SECTIONS",
+        items: hiddenRows,
+        allowReorder: true,
+        allowDeletion: true,
+        onReorder: hiddenReorderSelectorId as never,
+        onDeletion: hiddenDeletionSelectorId as never,
+      }),
       Section("resetOrder", [
         ButtonRow("resetOrderBtn", {
           title: "Reset to Default Order",
-          onSelect: Application.Selector(
-            this as DiscoverOrderForm,
-            "handleReset",
-          ),
+          onSelect: Application.Selector(this as any, "handleReset"),
         }),
       ]),
     ];

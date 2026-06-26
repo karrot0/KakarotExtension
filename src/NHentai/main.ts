@@ -7,28 +7,144 @@ import {
   CloudflareError,
   ContentRating,
   Cookie,
-  CookieStorageInterceptor,
   DiscoverSection,
   DiscoverSectionItem,
   DiscoverSectionProviding,
   DiscoverSectionType,
   Extension,
   Form,
+  InputRow,
+  JSONValue,
+  LabelRow,
   MangaProviding,
   PagedResults,
   Request,
   Response,
-  SearchFilter,
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  Section,
   SettingsFormProviding,
   SortingOption,
   SourceManga,
   Tag,
   TagSection,
+  TriStateSelectSection,
 } from "@paperback/types";
+import {
+  SearchFilterForm,
+  type SearchFilter,
+  type SearchFilterValue,
+} from "@paperback/types/lib/compat/0.8/searchFilters";
+import { closureSelector } from "@paperback/types/lib/impl/Selector.js";
+// -- SHA-256 (pure JS, synchronous) --
+function sha256(input: Uint8Array): Uint8Array {
+  const K: number[] = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
+    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+    0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+    0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ];
+  const msgLen = input.length;
+  const bitLen = msgLen * 8;
+  const padLen = (64 - ((msgLen + 9) % 64)) % 64;
+  const totalLen = msgLen + 1 + padLen + 8;
+  const padded = new Uint8Array(totalLen);
+  padded.set(input);
+  padded[msgLen] = 0x80;
+  const dv = new DataView(padded.buffer);
+  dv.setUint32(totalLen - 4, bitLen, false);
+  let h0 = 0x6a09e667;
+  let h1 = 0xbb67ae85;
+  let h2 = 0x3c6ef372;
+  let h3 = 0xa54ff53a;
+  let h4 = 0x510e527f;
+  let h5 = 0x9b05688c;
+  let h6 = 0x1f83d9ab;
+  let h7 = 0x5be0cd19;
+  const w = new Int32Array(64);
+  for (let offset = 0; offset < totalLen; offset += 64) {
+    for (let i = 0; i < 16; i++) {
+      w[i] = dv.getInt32(offset + i * 4, false);
+    }
+    for (let i = 16; i < 64; i++) {
+      const s0 =
+        (((w[i - 15] >>> 7) | (w[i - 15] << 25)) ^
+          ((w[i - 15] >>> 18) | (w[i - 15] << 14)) ^
+          (w[i - 15] >>> 3)) |
+        0;
+      const s1 =
+        (((w[i - 2] >>> 17) | (w[i - 2] << 15)) ^
+          ((w[i - 2] >>> 19) | (w[i - 2] << 13)) ^
+          (w[i - 2] >>> 10)) |
+        0;
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    let a = h0,
+      b = h1,
+      c = h2,
+      d = h3,
+      e = h4,
+      f = h5,
+      g = h6,
+      h = h7;
+    for (let i = 0; i < 64; i++) {
+      const S1 =
+        (((e >>> 6) | (e << 26)) ^
+          ((e >>> 11) | (e << 21)) ^
+          ((e >>> 25) | (e << 7))) |
+        0;
+      const ch = ((e & f) ^ (~e & g)) | 0;
+      const temp1 = (h + S1 + ch + K[i] + w[i]) | 0;
+      const S0 =
+        (((a >>> 2) | (a << 30)) ^
+          ((a >>> 13) | (a << 19)) ^
+          ((a >>> 22) | (a << 10))) |
+        0;
+      const maj = ((a & b) ^ (a & c) ^ (b & c)) | 0;
+      const temp2 = (S0 + maj) | 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + temp1) | 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (temp1 + temp2) | 0;
+    }
+    h0 = (h0 + a) | 0;
+    h1 = (h1 + b) | 0;
+    h2 = (h2 + c) | 0;
+    h3 = (h3 + d) | 0;
+    h4 = (h4 + e) | 0;
+    h5 = (h5 + f) | 0;
+    h6 = (h6 + g) | 0;
+    h7 = (h7 + h) | 0;
+  }
+  const result = new Uint8Array(32);
+  const rv = new DataView(result.buffer);
+  rv.setInt32(0, h0, false);
+  rv.setInt32(4, h1, false);
+  rv.setInt32(8, h2, false);
+  rv.setInt32(12, h3, false);
+  rv.setInt32(16, h4, false);
+  rv.setInt32(20, h5, false);
+  rv.setInt32(24, h6, false);
+  rv.setInt32(28, h7, false);
+  return result;
+}
+function sha256Bytes(input: Uint8Array): Uint8Array {
+  return sha256(input);
+}
 import { SettingsForm } from "./forms";
+import * as NHentaiSettings from "./settings";
 import { NHentaiInterceptor } from "./interceptors";
 import {
   addDescMarkedReadId,
@@ -39,10 +155,13 @@ import {
   formatDateByPattern,
   getAddTagsToDescriptionSetting,
   getAllRereadManga,
+  getApiKeyAuthorizedSetting,
   getDateFormatSetting,
   getDaysOldFilterSetting,
   getDefaultSearchSortSetting,
   getDescMarkedReadIds,
+  getDiscoverCarouselTilesSetting,
+  getDiscoverPageTilesSetting,
   getDiscoverSectionOrder,
   getDisplayOptionsSetting,
   getEnableRelatedSetting,
@@ -59,7 +178,9 @@ import {
   getLanguageSetting,
   getLanguageToken,
   getMarkReadOnViewSetting,
+  getNHentaiApiKey,
   getPagesExpressionSetting,
+  getRateLimitLiteFallbackSetting,
   getRelatedLanguageSetting,
   getRemoveSeparatorSpacesSetting,
   getRereadCount,
@@ -67,6 +188,8 @@ import {
   getSearchFilterFavorites,
   getSearchFilterLength,
   getSearchFilterTags,
+  getSearchPageTilesSetting,
+  getStatsTrackingEnabledSetting,
   getStrictFavoritesFilterSetting,
   getThumbnailQualitySetting,
   incrementDisplayedManga,
@@ -86,10 +209,94 @@ import {
   SORT_OPTIONS,
 } from "./settings";
 
+class InlineSearchFilterForm extends SearchFilterForm {
+  override getSections() {
+    if (!this.filters) {
+      return [
+        Section("loading", [LabelRow("loading", { title: "Loading Filters" })]),
+      ];
+    }
+    if (this.filters instanceof Error) {
+      return [
+        Section("error", [
+          LabelRow("error", {
+            title: "Error loading search filters",
+            subtitle: this.filters.message,
+          }),
+        ]),
+      ];
+    }
+
+    return this.filters.map((filter) => {
+      switch (filter.type) {
+        case "dropdown": {
+          const selectedOptionId = (this.selectedFilterValues[filter.id] ??
+            filter.value) as string;
+          return Section(
+            { id: filter.id, header: filter.title },
+            filter.options.map((option) =>
+              LabelRow(option.id, {
+                title: option.value,
+                value: selectedOptionId === option.id ? "✓" : undefined,
+                onSelect: closureSelector(
+                  this,
+                  `${filter.id}#${option.id}`,
+                  async () => {
+                    this.selectedFilterValues[filter.id] = option.id;
+                    this.reloadForm();
+                  },
+                ),
+              }),
+            ),
+          );
+        }
+        case "multiselect": {
+          if (!this.selectedFilterValues[filter.id]) {
+            this.selectedFilterValues[filter.id] = { ...filter.value };
+          }
+          const value = this.selectedFilterValues[filter.id] as Record<
+            string,
+            "included" | "excluded"
+          >;
+          return TriStateSelectSection(this, {
+            id: filter.id,
+            header: filter.title,
+            layout: "flow",
+            value,
+            items: filter.options.map((o) => ({ id: o.id, title: o.value })),
+            allowExclusion: filter.allowExclusion,
+            allowEmptySelection: filter.allowEmptySelection,
+            maximum: filter.maximum ?? undefined,
+          });
+        }
+        case "input": {
+          const value = (this.selectedFilterValues[filter.id] ??
+            filter.value) as string;
+          return Section({ id: filter.id, header: filter.title }, [
+            InputRow(filter.id, {
+              title: filter.title,
+              value,
+              onValueChange: closureSelector(
+                this,
+                filter.id,
+                async (newValue: string) => {
+                  this.selectedFilterValues[filter.id] = newValue;
+                  this.reloadForm();
+                },
+              ),
+            }),
+          ]);
+        }
+      }
+    });
+  }
+}
+
 const DOMAIN = "https://nhentai.net";
 const API_V2_URL = `${DOMAIN}/api/v2`;
 const EMPTY_QUERY = '""';
 const READ_STATE_KEY = "nhentai.readHistory";
+const COOKIE_JAR_STATE_KEY = "nhentai.cookieJar";
 const RELATED_IDS_CACHE_KEY = "nhentai.relatedIdsCache";
 const RELATED_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const RELATED_VIEW_COUNTS_KEY = "nhentai.relatedViewCounts";
@@ -98,20 +305,63 @@ const CDN_THUMB_SERVERS_STATE_KEY = "nhentai.cdn.thumbServers";
 const CDN_TS_STATE_KEY = "nhentai.cdn.ts";
 const CDN_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
 
-// Minimum tile counts before returning results
-const MIN_CAROUSEL_TILES = 6;
-const SEARCH_PAGE_SIZE = 12;
-const STANDARD_SECTION_PAGE_SIZE = 12;
-const LAST_READ_PAGE_SIZE = 10;
-// Special sections (top_reread, last_read, related) show fewer tiles in carousel
-const SPECIAL_SECTION_CAROUSEL_TILES = 6;
+// Default tile counts before user settings are available.
+const DEFAULT_CAROUSEL_TILES = 4;
+const DEFAULT_DISCOVER_PAGE_SIZE = 9;
+const DEFAULT_SEARCH_PAGE_SIZE = 9;
 const MAX_SEARCH_PAGES = 50; // Max API pages to search through when filtering
-const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours; search pages are safe to reuse across app restarts
+const SEARCH_CACHE_STATE_KEY = "nhentai.searchCache.v1";
+// Keep initial discover burst to one request per section to manage rate limits.
+// With 6 discover sections (Popular, Recent, Random, etc.), this prevents burst 429s.
+const DISCOVER_FETCH_INITIAL_BATCH_SIZE = 1;
 const DISCOVER_FETCH_BATCH_SIZE = 1;
 
 // Track how many times each related manga has been shown in the carousel
 let relatedViewCounts: Map<number, number> | undefined;
+/**
+ * Related carousel cycles age out after user scrolls 72 tiles past the final item.
+ * This allows cycles to gradually become stale while staying visible for initial discovery.
+ */
 const RELATED_AGE_WINDOW_TILES = 72;
+
+function getCarouselTiles(): number {
+  const value = getDiscoverCarouselTilesSetting();
+  if (!Number.isFinite(value)) return DEFAULT_CAROUSEL_TILES;
+  return Math.max(1, Math.min(6, Math.floor(value)));
+}
+
+function getDiscoverPageSize(): number {
+  const value = getDiscoverPageTilesSetting();
+  if (!Number.isFinite(value)) return DEFAULT_DISCOVER_PAGE_SIZE;
+  return Math.max(1, Math.min(12, Math.floor(value)));
+}
+
+function getSearchPageSize(): number {
+  const value = getSearchPageTilesSetting();
+  if (!Number.isFinite(value)) return DEFAULT_SEARCH_PAGE_SIZE;
+  return Math.max(1, Math.min(16, Math.floor(value)));
+}
+
+function getEffectiveOffset(metadata: PaginationMetadata | undefined): number {
+  if (typeof metadata?.scanOffset === "number") {
+    return Math.max(0, Math.floor(metadata.scanOffset));
+  }
+  if (typeof metadata?.offset === "number") {
+    return Math.max(0, Math.floor(metadata.offset));
+  }
+  return 0;
+}
+
+function buildOffsetMetadata(
+  displayOffset: number,
+  scanOffset: number,
+): PaginationMetadata {
+  return {
+    offset: Math.max(0, Math.floor(displayOffset)),
+    scanOffset: Math.max(0, Math.floor(scanOffset)),
+  };
+}
 
 function getRelatedViewCounts(): Map<number, number> {
   if (!relatedViewCounts) {
@@ -168,6 +418,42 @@ const FAVORITES_FILTER_OPTIONS: FilterOption[] = [
   { id: "fav_50000", label: "More than 50k favorites", token: ">50000" },
 ];
 
+function isSearchFilterValue(value: unknown): value is SearchFilterValue {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { id?: unknown; value?: unknown };
+  if (typeof candidate.id !== "string") return false;
+  if (typeof candidate.value === "string") return true;
+  return typeof candidate.value === "object" && candidate.value !== null;
+}
+
+function cleanSearchFilterValues(
+  metadata: SearchFilterValue[] | undefined,
+): SearchFilterValue[] | undefined {
+  if (!Array.isArray(metadata)) return undefined;
+  return metadata.filter(isSearchFilterValue).map((filter) => {
+    if (filter.id !== "tags" || typeof filter.value !== "object") {
+      return filter;
+    }
+
+    const tags = { ...filter.value } as Record<string, "included" | "excluded">;
+    delete tags["__apply_manga_filter_tags__"];
+    return { ...filter, value: tags };
+  });
+}
+
+function getActiveSearchFilterValues(
+  filters: SearchFilterValue[],
+): SearchFilterValue[] {
+  return filters.filter((filter) => {
+    if (typeof filter.value === "string") {
+      return filter.value.trim().length > 0 && filter.value !== "all";
+    }
+    return Object.keys(filter.value).some(
+      (key) => key !== "__apply_manga_filter_tags__",
+    );
+  });
+}
+
 const POPULAR_SECTIONS = [
   { id: "popular_today", title: "Popular Today", sort: "popular-today" },
   { id: "popular_week", title: "Popular This Week", sort: "popular-week" },
@@ -181,22 +467,30 @@ const POPULAR_TAGS_TS_STATE_KEY = "nhentai.popularTagsCacheTs";
 
 // Persistent gallery cache - survives app restarts
 const GALLERY_CACHE_STATE_KEY = "nhentai.galleryCache";
-const GALLERY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const GALLERY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours; cached details prevent repeat hydration requests after restarts
+const GALLERY_CACHE_PAGE1_TTL_MS = 30 * 60 * 1000; // 30 minutes for page 1 of Date Added / Search feeds so newly published manga appear
 const GALLERY_CACHE_MAX_SIZE = 200; // Max galleries to persist (reduced for storage efficiency)
 
-const RATE_LIMIT_WINDOW_SECONDS = 1.0;
+const RATE_LIMIT_WINDOW_SECONDS = 0.1;
 // Static limiter defaults reapplied on each extension initialization.
-const NHENTAI_BACKUP_API_REQUESTS_PER_SECOND = 20;
-const NHENTAI_IMAGE_REQUESTS_PER_SECOND = 8;
+// Backup limiter: fallback for cases where endpoint-specific limiting doesn't apply.
+const NHENTAI_BACKUP_API_REQUESTS_PER_SECOND = 18;
+// Image rate limiter: separate budget for concurrent image/thumbnail fetches.
+const NHENTAI_IMAGE_REQUESTS_PER_SECOND = 24;
 
 // ============================================================================
 // Endpoint-Aware Rate Limiting with Mutex-Style Queue (Session-Only)
 // ============================================================================
-// nhentai API v2 rate limits per endpoint (from docs):
-//   - /api/v2/search: 30/1min per IP
+// nhentai API v2 rate limits per endpoint (as of 2026-04-26):
+//   - /api/v2/search: 20/1min per IP (tightened from 30)
 //   - /api/v2/galleries/{id}: 45/1min per IP
-//   - /api/v2/galleries (list), /galleries/popular: 60/1min per IP
-//   - /api/v2/galleries/{id}/related, /tagged: 90/1min per IP
+//   - /api/v2/galleries (list), /galleries/tagged: 30/1min per IP
+//   - /api/v2/galleries/popular: 20/1min per IP
+//   - /api/v2/galleries/random: 60/1min per IP
+//   - /api/v2/galleries/{id}/related: 45/1min per IP
+//
+// CDN media endpoints (images/thumbnails) are generous; treat 429 as backoff.
+// Gallery paths are relative; fetch available servers from GET /api/v2/cdn.
 //
 // BURST-BASED RATE LIMITING:
 // Instead of waiting between each request, we allow requests to fire as fast as
@@ -207,73 +501,309 @@ const NHENTAI_IMAGE_REQUESTS_PER_SECOND = 8;
 type EndpointClass =
   | "search"
   | "galleryDetail"
+  | "media"
   | "galleries"
+  | "random"
   | "related"
   | "tagged"
+  | "popular"
+  | "config"
+  | "pow"
+  | "captcha"
   | "default";
+type RequestPriority = "foreground" | "background";
 
 // Track request timestamps for burst-based rate limiting
 // Each endpoint class has a list of timestamps of recent requests
 interface BurstQueue {
-  timestamps: number[];
-  mutex: Promise<void>;
+  timestamps: number[]; // Request timestamps within the current 60s window
+  mutex: Promise<void>; // Serializes admission checks to prevent race conditions
+  blockedChecks: number; // Debug counter for diagnostic logging
+  rateLimitedUntil: number; // Unix timestamp when rate limit cooldown expires
 }
 
+/**
+ * Per-endpoint burst queues for rate limiting.
+ * Each endpoint tracks its own request timestamps to respect individual rate limits.
+ * Burst-based: requests fire immediately up to the limit, only waits when limit exceeded.
+ */
 const burstQueues: Record<EndpointClass, BurstQueue> = {
-  search: { timestamps: [], mutex: Promise.resolve() },
-  galleryDetail: { timestamps: [], mutex: Promise.resolve() },
-  galleries: { timestamps: [], mutex: Promise.resolve() },
-  related: { timestamps: [], mutex: Promise.resolve() },
-  tagged: { timestamps: [], mutex: Promise.resolve() },
-  default: { timestamps: [], mutex: Promise.resolve() },
+  search: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  galleryDetail: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  media: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  galleries: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  random: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  related: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  tagged: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  popular: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  config: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  pow: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  captcha: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
+  default: {
+    timestamps: [],
+    mutex: Promise.resolve(),
+    blockedChecks: 0,
+    rateLimitedUntil: 0,
+  },
 };
 
-const NHENTAI_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
-  search: 30,
+const NHENTAI_AUTH_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
+  search: 20,
   galleryDetail: 45,
-  galleries: 60,
-  related: 90,
-  tagged: 90,
-  default: 45,
+  media: 240,
+  galleries: 30,
+  random: 30,
+  related: 30,
+  tagged: 30,
+  popular: 30,
+  config: 30,
+  pow: 30,
+  captcha: 12,
+  default: 30,
 };
 
-function getEndpointRateLimit(endpointClass: EndpointClass): number {
-  return NHENTAI_ENDPOINT_LIMITS[endpointClass];
+const NHENTAI_ANON_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
+  search: 10,
+  galleryDetail: 20,
+  media: 180,
+  galleries: 15,
+  random: 20,
+  related: 12,
+  tagged: 15,
+  popular: 15,
+  config: 15,
+  pow: 20,
+  captcha: 6,
+  default: 15,
+};
+
+function hasAuthorizationHeader(request?: Request): boolean {
+  const headers = request?.headers ?? {};
+  const authorization = headers.Authorization ?? headers.authorization;
+  return typeof authorization === "string" && /^Key\s+\S+/i.test(authorization);
+}
+
+function normalizeNhentaiApiUrl(url: string): string {
+  if (url.startsWith("http://nhentai.net/api/v2")) {
+    return url.replace(/^http:\/\/nhentai\.net\/api\/v2/i, API_V2_URL);
+  }
+  return url;
+}
+
+function shouldAuthorizeNhentaiApiRequest(request: Request): boolean {
+  return (
+    request.url.startsWith(API_V2_URL) &&
+    !hasAuthorizationHeader(request) &&
+    getApiKeyAuthorizedSetting()
+  );
+}
+
+function withNhentaiApiAuth(request: Request): Request {
+  const url = normalizeNhentaiApiUrl(request.url);
+  const normalizedRequest =
+    url === request.url
+      ? request
+      : {
+          ...request,
+          url,
+        };
+
+  if (!shouldAuthorizeNhentaiApiRequest(normalizedRequest)) {
+    return normalizedRequest;
+  }
+
+  const apiKey = getNHentaiApiKey();
+  if (!apiKey) {
+    return normalizedRequest;
+  }
+
+  return {
+    ...normalizedRequest,
+    headers: {
+      ...(normalizedRequest.headers ?? {}),
+      Authorization: `Key ${apiKey}`,
+    },
+  };
+}
+
+function getEndpointRateLimit(
+  endpointClass: EndpointClass,
+  authenticated = false,
+): number {
+  return (
+    authenticated ? NHENTAI_AUTH_ENDPOINT_LIMITS : NHENTAI_ANON_ENDPOINT_LIMITS
+  )[endpointClass];
+}
+
+function getBackgroundReservedSlots(endpointClass: EndpointClass): number {
+  switch (endpointClass) {
+    case "galleryDetail":
+      return 1; // Was 3 (effective 17/min anon); now 1 (effective 19/min anon)
+    case "search":
+    case "galleries":
+    case "related":
+    case "random":
+    case "popular":
+    case "tagged":
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+function utf8Bytes(input: string): Uint8Array {
+  const bytes: number[] = [];
+  for (let i = 0; i < input.length; i++) {
+    const codePoint = input.codePointAt(i) ?? 0;
+    if (codePoint > 0xffff) i++;
+    if (codePoint <= 0x7f) {
+      bytes.push(codePoint);
+    } else if (codePoint <= 0x7ff) {
+      bytes.push(0xc0 | (codePoint >> 6));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      bytes.push(0xe0 | (codePoint >> 12));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else {
+      bytes.push(0xf0 | (codePoint >> 18));
+      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+function hasLeadingZeroBits(bytes: Uint8Array, difficulty: number): boolean {
+  let remaining = Math.max(0, Math.floor(difficulty));
+  for (const byte of bytes) {
+    if (remaining <= 0) return true;
+    if (remaining >= 8) {
+      if (byte !== 0) return false;
+      remaining -= 8;
+      continue;
+    }
+    return byte >> (8 - remaining) === 0;
+  }
+  return remaining <= 0;
 }
 
 function classifyEndpoint(url: string): EndpointClass {
+  const mediaPathMatch = url.match(
+    /^https?:\/\/[^/]+\/galleries\/\d+\/(?:thumb|cover|\d+)\.[a-z0-9]+(?:\?|$)/i,
+  );
+  if (mediaPathMatch) {
+    return "media";
+  }
+
   // Extract path from URL
   const pathMatch = url.match(/\/api\/v2\/(.+?)(?:\?|$)/);
   if (!pathMatch) return "default";
   const path = pathMatch[1];
 
-  // Search endpoint (most restrictive - 30/min)
+  // Search endpoint (20/min - tightened from 30/min on 2026-04-04)
   if (path === "search" || path.startsWith("search?")) {
     return "search";
   }
 
-  // Related endpoints (90/min)
+  if (path === "" || path === "config" || path === "cdn") {
+    return "config";
+  }
+
+  if (path === "pow") {
+    return "pow";
+  }
+
+  if (path === "captcha") {
+    return "captcha";
+  }
+
+  // Related endpoint: /galleries/{id}/related
   if (path.includes("/related")) {
     return "related";
   }
 
-  // Tagged endpoint (90/min)
+  if (path === "galleries/random" || path.startsWith("galleries/random?")) {
+    return "random";
+  }
+
+  // Tagged endpoint: /galleries/tagged (30/min)
   if (path === "galleries/tagged" || path.startsWith("galleries/tagged?")) {
     return "tagged";
   }
 
-  // Gallery detail endpoint (45/min) - /galleries/{id}
-  // This is more restrictive than gallery list, needs separate queue
+  // Gallery detail endpoint: /galleries/{id} (45/min)
   // Pattern: galleries/<number> (not followed by /popular, /tagged, /random)
   const galleryDetailMatch = path.match(/^galleries\/(\d+)(?:$|\/pages)/);
   if (galleryDetailMatch) {
     return "galleryDetail";
   }
 
-  // Gallery list/popular endpoints (60/min) - includes:
-  // - /galleries (list)
-  // - /galleries/popular
-  // - /cdn, /tags, etc.
+  // Popular galleries endpoint: /galleries/popular (20/min - same as search)
+  if (path === "galleries/popular" || path.startsWith("galleries/popular?")) {
+    return "popular";
+  }
+
+  // Gallery list/CDN/tags endpoints:
+  // - /galleries (list): 30/min
+  // - /cdn: generous limits, treat 429 as backoff signal
+  // - /tags: 30/min
   if (
     path.startsWith("galleries") ||
     path.startsWith("cdn") ||
@@ -297,10 +827,20 @@ function classifyEndpoint(url: string): EndpointClass {
 async function withRateLimit<T>(
   endpointClass: EndpointClass,
   fn: () => Promise<T>,
+  options?: { authenticated?: boolean; priority?: RequestPriority },
 ): Promise<T> {
   const queue = burstQueues[endpointClass];
-  const rateLimit = getEndpointRateLimit(endpointClass);
+  const baseRateLimit = getEndpointRateLimit(
+    endpointClass,
+    options?.authenticated ?? false,
+  );
+  const reserve =
+    options?.priority === "background"
+      ? getBackgroundReservedSlots(endpointClass)
+      : 0;
+  const rateLimit = Math.max(1, baseRateLimit - reserve);
   const WINDOW_MS = 60_000; // 1 minute window
+  const MAX_COOLDOWN_MS = 60_000;
 
   // Mutex to prevent concurrent calls from racing
   let resolveMutex: () => void;
@@ -310,52 +850,119 @@ async function withRateLimit<T>(
   const prevMutex = queue.mutex;
   queue.mutex = myMutex;
 
+  let lockReleased = false;
+
   try {
     await prevMutex;
 
     const now = Date.now();
-    const windowStart = now - WINDOW_MS;
+
+    if (queue.rateLimitedUntil > now) {
+      const cappedUntil = Math.min(
+        queue.rateLimitedUntil,
+        now + MAX_COOLDOWN_MS,
+      );
+      queue.rateLimitedUntil = cappedUntil;
+      const cooldownMs = cappedUntil - now + 20;
+      // Compute current usage in the active window for diagnostics
+      const windowStartNow = Date.now() - WINDOW_MS;
+      queue.timestamps = queue.timestamps.filter((t) => t > windowStartNow);
+      const used = queue.timestamps.length;
+      const authText = options?.authenticated
+        ? "Authenticated"
+        : "Unauthenticated";
+      console.log(
+        `[NHentai] ${endpointClass} endpoint cooling down after 429 (${used}/${rateLimit}) ${authText}. ` +
+          `Waiting ${Math.round(cooldownMs / 1000)}s before next request.`,
+      );
+      await Application.sleep(cooldownMs / 1000);
+    }
+
+    const windowStart = Date.now() - WINDOW_MS;
 
     // Clean up expired timestamps (older than 1 minute)
     queue.timestamps = queue.timestamps.filter((t) => t > windowStart);
 
-    // Check if we're at the limit
-    if (queue.timestamps.length >= rateLimit) {
-      // Wait for the oldest request to expire
+    // Strictly wait for an actual free slot in the 60s window.
+    // For /search (30/min), never send early probes that would force extra 429s.
+    while (queue.timestamps.length >= rateLimit) {
       const oldestTimestamp = queue.timestamps[0];
-      const waitMs = oldestTimestamp + WINDOW_MS - now + 100; // +100ms buffer
+      const waitMs = oldestTimestamp + WINDOW_MS - Date.now() + 20;
       if (waitMs > 0) {
         console.log(
           `[NHentai] Rate limit reached for ${endpointClass} (${queue.timestamps.length}/${rateLimit}). ` +
             `Waiting ${Math.round(waitMs / 1000)}s for window to reset.`,
         );
         await Application.sleep(waitMs / 1000);
-        // Clean up again after waiting
-        queue.timestamps = queue.timestamps.filter(
-          (t) => t > Date.now() - WINDOW_MS,
-        );
       }
+      queue.timestamps = queue.timestamps.filter(
+        (t) => t > Date.now() - WINDOW_MS,
+      );
     }
 
-    // Record this request's timestamp
+    // Record normal budgeted request timestamps.
     queue.timestamps.push(Date.now());
+    queue.blockedChecks = 0;
 
-    // Execute the actual request
-    return await fn();
-  } finally {
+    // Release the admission lock before executing the request so in-flight
+    // network calls can overlap while still respecting budget checks.
     resolveMutex!();
+    lockReleased = true;
+
+    // Execute the actual request.
+    // If a request returns 429, cool down only until the next window slot is
+    // expected to free up instead of forcing a full minute stall.
+    try {
+      return await fn();
+    } catch (error) {
+      const message = getErrorMessage(error);
+      if (message.includes("429")) {
+        const nowOn429 = Date.now();
+        queue.timestamps = queue.timestamps.filter(
+          (t) => t > nowOn429 - WINDOW_MS,
+        );
+        const oldestTimestampInWindow = queue.timestamps[0];
+        const nextSlotAt =
+          oldestTimestampInWindow !== undefined
+            ? oldestTimestampInWindow + WINDOW_MS + 20
+            : nowOn429 + 500;
+        queue.rateLimitedUntil = Math.max(
+          queue.rateLimitedUntil,
+          Math.min(nextSlotAt, nowOn429 + MAX_COOLDOWN_MS),
+        );
+      }
+      throw error;
+    }
+  } finally {
+    if (!lockReleased) {
+      resolveMutex!();
+    }
   }
 }
 
 // ============================================================================
 // Discover Section Staggering
 // ============================================================================
-// Stagger section loads to reduce initial burst when app launches
-// All 6 sections fire nearly simultaneously, so we add progressive delays
-const SECTION_STAGGER_MS = 100; // 100ms between section API calls
+// Stagger section loads to reduce initial burst when app launches and respect
+// rate limits. Without staggering, 6 concurrent section requests (Popular, Recent,
+// Random, etc.) would hit endpoints quickly; spacing them out helps stay under limits.
+
+/**
+ * Delay between consecutive discover section requests (milliseconds).
+ * Chosen to respect the 20/min rate limit on search/popular endpoints.
+ * Staggering 6 sections at 245ms intervals helps distribute the burst.
+ */
+const SECTION_STAGGER_MS = 80;
+
+/** Maximum time window for sections to join the same stagger wave (milliseconds). */
+const SECTION_WAVE_JOIN_WINDOW_MS = 180;
 let lastSectionRequestTime = 0;
 
 async function staggeredSectionDelay(): Promise<void> {
+  if (SECTION_STAGGER_MS <= 0) {
+    lastSectionRequestTime = Date.now();
+    return;
+  }
   const now = Date.now();
   const timeSinceLast = now - lastSectionRequestTime;
 
@@ -371,15 +978,10 @@ async function staggeredSectionDelay(): Promise<void> {
 
 type TagDefinition = { id: string; label: string; count: string };
 
-const IMAGE_TYPE_MAP: Record<string, string> = {
-  j: "jpg",
-  p: "png",
-  g: "gif",
-  w: "webp",
-};
-
 const DEBUG_NHENTAI =
-  typeof process !== "undefined" && process?.env?.KAKAROT_DEBUG_NHENTAI === "1";
+  typeof globalThis !== "undefined" &&
+  (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env?.KAKAROT_DEBUG_NHENTAI === "1";
 
 function logDebug(...args: unknown[]) {
   if (DEBUG_NHENTAI) {
@@ -421,6 +1023,10 @@ function matchesFavoritesConstraint(
   return true;
 }
 
+function queryContainsFavoritesToken(query: string): boolean {
+  return /\bfavorites\s*:/i.test(query);
+}
+
 function interleaveGalleryLists(lists: Gallery[][]): Gallery[] {
   const seen = new Set<number>();
   const merged: Gallery[] = [];
@@ -447,6 +1053,150 @@ function normalizeBridgeString(value: unknown, fallback = ""): string {
     return String(value);
   }
   return fallback;
+}
+
+const CREATOR_LANGUAGE_TOKEN_SET = new Set(
+  [
+    "english",
+    "japanese",
+    "chinese",
+    "korean",
+    "spanish",
+    "french",
+    "german",
+    "italian",
+    "portuguese",
+    "russian",
+    "thai",
+    "vietnamese",
+    "indonesian",
+    "turkish",
+    "polish",
+    "simpchinese",
+    "tradchinese",
+    "simplifiedchinese",
+    "traditionalchinese",
+    "en",
+    "jp",
+    "ja",
+    "cn",
+    "zh",
+    "kr",
+    "ko",
+    "es",
+    "fr",
+    "de",
+    "it",
+    "pt",
+    "ru",
+    "th",
+    "vi",
+    "id",
+    "tr",
+    "pl",
+  ].map((value) => value.toLowerCase()),
+);
+
+function isLanguageLikeCreatorToken(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
+  if (!normalized) return true;
+  return CREATOR_LANGUAGE_TOKEN_SET.has(normalized);
+}
+
+function normalizeCreatorToken(value: string): string {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[,，]+|[,，]+$/g, "")
+    .trim();
+}
+
+function hasMeaningfulCreatorCharacters(value: string): boolean {
+  return /[\p{L}\p{N}]/u.test(value);
+}
+
+function dedupeCreatorTokens(values: string[]): string[] {
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const rawValue of values) {
+    const normalized = normalizeCreatorToken(rawValue);
+    if (
+      normalized.length === 0 ||
+      !hasMeaningfulCreatorCharacters(normalized) ||
+      isLanguageLikeCreatorToken(normalized)
+    ) {
+      continue;
+    }
+    const key = normalized.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(normalized);
+  }
+  return deduped;
+}
+
+function getCreatorFieldsFromTags(tags: GalleryTag[]): {
+  author: string;
+} {
+  const normalizeValues = (type: string) =>
+    dedupeCreatorTokens(
+      tags.filter((tag) => tag.type === type).map((tag) => tag.name),
+    );
+
+  const artists = normalizeValues("artist");
+  const artistKeySet = new Set(
+    artists.map((artist) => artist.toLocaleLowerCase()),
+  );
+  const groups = normalizeValues("group").filter(
+    (group) => !artistKeySet.has(group.toLocaleLowerCase()),
+  );
+  const authorCandidates = groups;
+  const artistCandidates = artists;
+  const formatCreatorField = (values: string[]): string => {
+    const cleaned = values
+      .map((v) => v.trim())
+      .filter(
+        (v) => v.length > 0 && /[\p{L}\p{N}]/u.test(v), // Keep only values with letters/numbers
+      );
+    if (cleaned.length === 0) return "";
+    if (cleaned.length === 1) return cleaned[0];
+    return cleaned.join(", ");
+  };
+
+  const author = formatCreatorField(authorCandidates);
+  const artist = formatCreatorField(artistCandidates);
+
+  const combined: string[] = [];
+  if (author) combined.push(...author.split(/,\s*/));
+  if (artist) {
+    for (const a of artist.split(/,\s*/)) {
+      if (!combined.includes(a)) combined.push(a);
+    }
+  }
+
+  return {
+    author: combined.join(", ") || "",
+  };
+}
+
+function formatSearchFilterSummary(
+  filteredCount: number,
+  readSkippedCount: number,
+  includeReadSkipped: boolean,
+): string {
+  const filtered = Math.max(0, Math.floor(filteredCount));
+  const readSkipped = includeReadSkipped
+    ? Math.max(0, Math.floor(readSkippedCount))
+    : 0;
+
+  if (filtered === 0 && readSkipped === 0) return "";
+  if (filtered === 0) {
+    return readSkipped > 0 ? `, filtered ${readSkipped}(read)` : "";
+  }
+  if (readSkipped > 0) {
+    return `, filtered ${filtered}+${readSkipped}(read)`;
+  }
+  return `, filtered ${filtered}`;
 }
 
 type NHentaiGlobalHooks = {
@@ -476,30 +1226,140 @@ function getErrorMessage(error: unknown): string {
 class ReadHistory {
   private _ordered: string[];
   private _lookup: Set<string>;
+
+  private static normalizeId(rawId: string): string {
+    const trimmed = String(rawId ?? "").trim();
+    if (!trimmed) return "";
+    if (/^\d+$/.test(trimmed)) return String(parseInt(trimmed, 10));
+    return trimmed;
+  }
+
   constructor(items: string[] = []) {
-    this._ordered = [...items];
-    this._lookup = new Set(items);
-  }
-  has(id: string): boolean {
-    return this._lookup.has(id);
-  }
-  markRead(id: string): boolean {
-    if (this._lookup.has(id)) {
-      this._ordered = [id, ...this._ordered.filter((x) => x !== id)];
-      return false;
+    const ordered: string[] = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      const normalized = ReadHistory.normalizeId(String(item ?? ""));
+      if (!normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      ordered.push(normalized);
     }
-    this._lookup.add(id);
-    this._ordered.unshift(id);
-    return true;
+    this._ordered = ordered;
+    this._lookup = new Set(ordered);
   }
+
+  has(id: string): boolean {
+    const normalized = ReadHistory.normalizeId(id);
+    return normalized ? this._lookup.has(normalized) : false;
+  }
+
+  markRead(id: string): boolean {
+    const normalized = ReadHistory.normalizeId(id);
+    if (!normalized) return false;
+    if (this._lookup.has(normalized)) {
+      // Move to front
+      this._ordered = [
+        normalized,
+        ...this._ordered.filter((x) => x !== normalized),
+      ];
+      return false; // not first-time
+    }
+    this._lookup.add(normalized);
+    this._ordered.unshift(normalized);
+    return true; // first-time marked
+  }
+
   get ordered(): string[] {
     return this._ordered;
   }
+
   get size(): number {
     return this._lookup.size;
   }
+
   toArray(): string[] {
     return [...this._ordered];
+  }
+}
+
+interface IdentifiableItem {
+  id: string;
+}
+
+type CacheEntry<T> = {
+  item: T;
+  createdDate: Date;
+  lastAccessDate: Date;
+};
+
+class MemoryCache<T extends IdentifiableItem> {
+  private items: string[] = [];
+  private cache: Record<string, CacheEntry<T>> = {};
+
+  maxCount = 500;
+  maxCountBuffer = 50;
+
+  get count(): number {
+    return this.items.length;
+  }
+
+  addItem(item: T): void {
+    if (!this.items.includes(item.id)) this.items.push(item.id);
+    const date = new Date();
+    this.cache[item.id] = { createdDate: date, lastAccessDate: date, item };
+    this.pruneCacheIfNeeded();
+  }
+
+  setEntry(
+    item: T,
+    createdDate: Date,
+    lastAccessDate: Date = createdDate,
+  ): void {
+    if (!this.items.includes(item.id)) this.items.push(item.id);
+    this.cache[item.id] = { item, createdDate, lastAccessDate };
+    this.pruneCacheIfNeeded();
+  }
+
+  getEntry(id: string, touch = true): CacheEntry<T> | undefined {
+    const entry = this.cache[id];
+    if (!entry) return undefined;
+    if (touch) entry.lastAccessDate = new Date();
+    return entry;
+  }
+
+  getItem(id: string): T | undefined {
+    const entry = this.getEntry(id);
+    return entry?.item;
+  }
+
+  contains(id: string): boolean {
+    return this.cache[id] != undefined;
+  }
+
+  removeItem(id: string): void {
+    if (!this.cache[id]) return;
+    delete this.cache[id];
+    this.items = this.items.filter((itemId) => itemId !== id);
+  }
+
+  entries(): Array<[string, CacheEntry<T>]> {
+    return this.items
+      .map((id) => {
+        const entry = this.cache[id];
+        return entry ? ([id, entry] as [string, CacheEntry<T>]) : undefined;
+      })
+      .filter((value): value is [string, CacheEntry<T>] => value !== undefined);
+  }
+
+  pruneCacheIfNeeded(): void {
+    if (this.count < this.maxCount + this.maxCountBuffer) return;
+    this.items.sort((a, b) => {
+      const aLastAccess = this.cache[a]?.lastAccessDate.getTime() ?? 0;
+      const bLastAccess = this.cache[b]?.lastAccessDate.getTime() ?? 0;
+      return aLastAccess - bLastAccess;
+    });
+    const evicted = this.items.splice(0, this.count - this.maxCount);
+    for (const id of evicted) delete this.cache[id];
   }
 }
 
@@ -514,8 +1374,10 @@ interface GalleryTag {
 }
 
 interface GalleryTitle {
-  english: string | null;
-  japanese: string | null;
+  // undefined instead of null — JSValue bridge throws on null in nested objects.
+  // The 'pretty' field always provides a valid fallback display title.
+  english?: string;
+  japanese?: string;
   pretty: string;
 }
 
@@ -541,6 +1403,11 @@ interface Gallery {
   upload_date: number;
 }
 
+type NHentaiGalleryCacheItem = {
+  id: string;
+  gallery: Gallery;
+};
+
 interface QueryResponse {
   result?: Gallery[];
   num_pages: number;
@@ -558,6 +1425,7 @@ interface V2GalleryListItem {
   japanese_title: string | null;
   tag_ids: number[];
   num_pages?: number; // Available from search API
+  num_favorites?: number; // Available from search API
 }
 
 interface V2SearchResponse {
@@ -622,16 +1490,74 @@ interface V2CdnResponse {
   error?: string;
 }
 
+interface V2ConfigResponse extends V2CdnResponse {
+  announcement?: {
+    message?: string;
+    links?: JSONValue[];
+  };
+}
+
+interface V2RootResponse {
+  version?: string;
+  message?: string;
+  error?: string;
+}
+
+interface V2PowResponse {
+  challenge: string;
+  difficulty: number;
+  error?: string;
+}
+
+interface PowTokenCacheEntry {
+  token: string;
+  challenge: string;
+  difficulty: number;
+  ts: number;
+}
+
 interface ResponseAndText {
   response: Response;
   text: string;
 }
 
 interface PaginationMetadata {
+  [key: string]: JSONValue | undefined;
   page?: number;
-  buffer?: Gallery[];
+  offset?: number;
+  scanOffset?: number;
+  buffer?: JSONValue[];
   numPages?: number;
 }
+
+type SectionWaveKind = "Home";
+
+type SectionWaveEntry = {
+  label: string;
+  items: number;
+  skipped: number;
+  readSkipped: number;
+  pagesScanned: number;
+  elapsedMs: number;
+  completedAt: number;
+};
+
+type SectionWaveState = {
+  id: number;
+  kind: SectionWaveKind;
+  startedAt: number;
+  lastJoinAt: number;
+  pending: Set<string>;
+  entries: SectionWaveEntry[];
+};
+
+type SectionWaveHandle = {
+  kind: SectionWaveKind;
+  waveId: number;
+  token: string;
+  startedAt: number;
+  label: string;
+};
 
 type NHentaiImplementation = Extension &
   SettingsFormProviding &
@@ -643,19 +1569,16 @@ type NHentaiImplementation = Extension &
 
 export class NHentaiExtension implements NHentaiImplementation {
   requestManager = new NHentaiInterceptor("main");
-  cookieStorageInterceptor = new CookieStorageInterceptor({
-    storage: "stateManager",
-  });
-  // Keep request pressure conservative to avoid NHentai 429 spikes under
-  // concurrent discover section loads. This is now a backup limiter - the
-  // primary rate limiting is done by the endpoint-aware system in fetchJson.
+  private cookieJar = new Map<string, Cookie>();
+  // Backup limiter for fallback cases. Primary rate limiting uses endpoint-aware
+  // burst queues in fetchJson which directly enforce per-endpoint limits.
   globalRateLimiter = new BasicRateLimiter("rateLimiter", {
     numberOfRequests: NHENTAI_BACKUP_API_REQUESTS_PER_SECOND,
     bufferInterval: RATE_LIMIT_WINDOW_SECONDS,
     ignoreImages: true,
   });
-  // Keep image requests throttled, but with a higher ceiling than API traffic.
-  // A low value here causes long reader queues when users scroll quickly.
+  // Image/thumbnail requests: separate budget from API calls. The ceiling here
+  // balances concurrent media fetches against overall responsiveness.
   imageRateLimiter = new BasicRateLimiter("imageRateLimiter", {
     numberOfRequests: NHENTAI_IMAGE_REQUESTS_PER_SECOND,
     bufferInterval: RATE_LIMIT_WINDOW_SECONDS,
@@ -668,6 +1591,12 @@ export class NHentaiExtension implements NHentaiImplementation {
   private cdnThumbServers?: string[];
   private cdnConfigTs?: number;
   private cdnConfigFetch?: Promise<void>;
+  private apiRootCache?: { response: V2RootResponse; ts: number };
+  private powCache = new Map<string, PowTokenCacheEntry>();
+  private powPending = new Map<
+    string,
+    Promise<PowTokenCacheEntry | undefined>
+  >();
   private searchCache = new Map<
     string,
     { response: QueryResponse; ts: number }
@@ -675,11 +1604,16 @@ export class NHentaiExtension implements NHentaiImplementation {
   private searchPending = new Map<string, Promise<QueryResponse>>();
   // Cached SearchFilter[] output to avoid rebuilding on every framework call
   // Cached SearchFilter[] output — REMOVED caching to ensure fresh state reads
-  private searchFiltersDirty = true;
+  private sectionWaveSeq = 0;
+  private sectionWaveTokenSeq = 0;
+  private activeSectionWaves = new Map<SectionWaveKind, SectionWaveState>();
 
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
-    this.cookieStorageInterceptor.registerInterceptor();
+    this.requestManager.resetRateLimitState();
+    this.requestManager.setCookieHeaderProvider((url) =>
+      this.getCookieHeaderForUrl(url),
+    );
     this.globalRateLimiter.registerInterceptor();
     this.imageRateLimiter.registerInterceptor();
     // Register global callback for related pool invalidation
@@ -687,6 +1621,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       this.invalidateRelatedPool();
     // Ensure install date is set for statistics
     ensureInstallDate();
+    this.restoreCookieJar();
+    this.restoreGalleryCache();
+    this.restoreSearchCache();
 
     try {
       const savedImageServers = Application.getState(
@@ -719,6 +1656,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       !this.cdnConfigTs ||
       Date.now() - this.cdnConfigTs >= CDN_CACHE_TTL_MS ||
       !hasServers;
+    void this.getApiRoot().catch((error) =>
+      logDebug("API v2 connectivity check failed", error),
+    );
     if (needsRefresh) {
       this.cdnConfigFetch = this.refreshCdnConfig().finally(() => {
         this.cdnConfigFetch = undefined;
@@ -762,319 +1702,536 @@ export class NHentaiExtension implements NHentaiImplementation {
     return sections;
   }
 
+  private beginSectionWave(
+    kind: SectionWaveKind,
+    label: string,
+  ): SectionWaveHandle {
+    const now = Date.now();
+    let wave = this.activeSectionWaves.get(kind);
+    const canJoin =
+      !!wave && now - wave.lastJoinAt <= SECTION_WAVE_JOIN_WINDOW_MS;
+    if (!canJoin || !wave) {
+      wave = {
+        id: ++this.sectionWaveSeq,
+        kind,
+        startedAt: now,
+        lastJoinAt: now,
+        pending: new Set<string>(),
+        entries: [],
+      };
+      this.activeSectionWaves.set(kind, wave);
+    }
+
+    const token = `${kind}-${wave.id}-${++this.sectionWaveTokenSeq}`;
+    wave.pending.add(token);
+    wave.lastJoinAt = now;
+
+    return {
+      kind,
+      waveId: wave.id,
+      token,
+      startedAt: now,
+      label,
+    };
+  }
+
+  private completeSectionWave(
+    handle: SectionWaveHandle,
+    items: number,
+    skipped: number,
+    readSkipped: number,
+    pagesScanned: number,
+    labelOverride?: string,
+  ): void {
+    const wave = this.activeSectionWaves.get(handle.kind);
+    if (!wave || wave.id !== handle.waveId) return;
+
+    wave.pending.delete(handle.token);
+    wave.entries.push({
+      label: labelOverride ?? handle.label,
+      items,
+      skipped: Math.max(0, skipped),
+      readSkipped: Math.max(0, readSkipped),
+      pagesScanned: Math.max(0, pagesScanned),
+      elapsedMs: Date.now() - handle.startedAt,
+      completedAt: Date.now(),
+    });
+
+    if (wave.pending.size > 0) return;
+
+    const ordered = [...wave.entries].sort(
+      (a, b) => a.completedAt - b.completedAt,
+    );
+    const totalMs = Math.max(0, Date.now() - wave.startedAt);
+    const totalPagesScanned = ordered.reduce(
+      (sum, entry) => sum + entry.pagesScanned,
+      0,
+    );
+    const logLines: string[] = [];
+    for (const entry of ordered) {
+      const logParts: string[] = [`${entry.items} items`];
+      if (entry.readSkipped > 0) logParts.push(`${entry.readSkipped} read`);
+      if (entry.pagesScanned > 0) {
+        const pageLabel = entry.pagesScanned === 1 ? "page" : "pages";
+        logParts.push(`${entry.pagesScanned} ${pageLabel}`);
+      }
+      logLines.push(
+        `  - ${entry.label}: ${logParts.join(", ")}, ${entry.elapsedMs}ms`,
+      );
+    }
+
+    if (String(wave.kind).toLowerCase() !== "search") {
+      if (ordered.length > 1) {
+        console.log(
+          `[NHentai] ${wave.kind} Wave Total Time: ${totalMs}ms, ${totalPagesScanned} pages searched\n${logLines.join("\n")}`,
+        );
+      } else if (ordered.length === 1) {
+        console.log(
+          `[NHentai] ${wave.kind} Wave: ${logLines[0]?.replace("  - ", "")}`,
+        );
+      }
+    }
+
+    this.activeSectionWaves.delete(handle.kind);
+  }
+
   async getDiscoverSectionItems(
     section: DiscoverSection,
-    metadata: PaginationMetadata | undefined,
+    metadata: JSONValue | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    // Stagger section requests to prevent burst on app launch
-    // Only stagger initial page loads (metadata.page === undefined or 1)
-    if (!metadata?.page || metadata.page === 1) {
-      await staggeredSectionDelay();
-    }
-
-    // Handle Related section separately
-    if (section.id === "related") {
-      return this.getRelatedSection(metadata);
-    }
-
-    // Handle Last Read section
-    if (section.id === "last_read") {
-      return this.getLastReadSection(metadata);
-    }
-
-    // Handle Top Reread section
-    if (section.id === "top_reread") {
-      return this.getTopRereadSection(metadata);
-    }
-
-    const initialPage = metadata?.page ?? 1;
+    const pagination = metadata as PaginationMetadata | undefined;
+    const isFirstPage = !pagination?.page || pagination.page === 1;
     const sectionStart = Date.now();
-    const sortKey =
-      section.id === "new_uploads"
-        ? "date"
-        : (POPULAR_SECTIONS.find((entry) => entry.id === section.id)?.sort ??
-          "popular");
+    const sectionTileLimit =
+      (pagination?.page ?? 1) > 1 ? getDiscoverPageSize() : getCarouselTiles();
+    const waveHandle = isFirstPage
+      ? this.beginSectionWave("Home", section.title ?? section.id)
+      : undefined;
 
-    const {
-      tokens: discoverTokens,
-      pagesConstraint: discoverPagesConstraint,
-      dateConstraint: discoverDateConstraint,
-      favoritesConstraint: discoverFavoritesConstraint,
-    } = this.buildFilterTokens(undefined);
+    const finalizeSection = (
+      result: PagedResults<DiscoverSectionItem>,
+      options?: {
+        pagesScanned?: number;
+        readSkipped?: number;
+        filteredSkipped?: number;
+      },
+    ): PagedResults<DiscoverSectionItem> => {
+      const pagesScanned = options?.pagesScanned ?? 0;
+      const readSkipped = Math.max(0, options?.readSkipped ?? 0);
+      const filteredSkipped = Math.max(0, options?.filteredSkipped ?? 0);
+      const skippedTotal =
+        Math.max(0, sectionTileLimit - result.items.length) + filteredSkipped;
 
-    const query = this.buildQueryString(undefined, discoverTokens);
-    const hideRead = getHideReadSetting();
-    const readCache = hideRead ? getReadCache() : null;
+      if (waveHandle) {
+        this.completeSectionWave(
+          waveHandle,
+          result.items.length,
+          skippedTotal,
+          readSkipped,
+          pagesScanned,
+        );
+      }
 
-    const MAX_CAROUSEL_TILES = 6;
-    let currentPage = initialPage;
-    let response: QueryResponse | undefined;
-    let items: DiscoverSectionItem[] = [];
-    let bufferedGalleries = [
-      ...((
-        metadata as (PaginationMetadata & { buffer?: Gallery[] }) | undefined
-      )?.buffer ?? []),
-    ];
+      // Per-pagination discover log: list items returned and counts, include pages scanned when a new page was requested
+      try {
+        const elapsedMs = Math.max(0, Date.now() - sectionStart);
+        const pagesScannedLog = options?.pagesScanned ?? 0;
+        console.log(
+          `[NHentai] Discover ${section.title ?? section.id}, ${result.items.length} items` +
+            (skippedTotal > 0 ? `, filtered ${skippedTotal}` : "") +
+            (readSkipped > 0 ? `, ${readSkipped} read` : "") +
+            (pagesScannedLog > 0 ? `, ${pagesScannedLog} pages scanned` : "") +
+            `, ${elapsedMs}ms`,
+        );
+      } catch {
+        /* ignore logging errors */
+      }
 
-    if (bufferedGalleries.length > 0) {
-      const initialBufferTake = bufferedGalleries.slice(0, MAX_CAROUSEL_TILES);
-      bufferedGalleries = bufferedGalleries.slice(MAX_CAROUSEL_TILES);
-      const hydratedFromBuffer = await this.hydrateLiteGalleries(
-        initialBufferTake,
-        initialBufferTake.length,
+      // Build description showing filtered and read item counts
+      const descriptionParts: string[] = [];
+      if (skippedTotal > 0) descriptionParts.push(`${skippedTotal} filtered`);
+      if (readSkipped > 0) descriptionParts.push(`${readSkipped} read`);
+      const description =
+        descriptionParts.length > 0 ? descriptionParts.join(", ") : undefined;
+
+      return {
+        ...result,
+        description,
+      } as PagedResults<DiscoverSectionItem> & { description?: string };
+    };
+
+    try {
+      // Stagger section requests to prevent burst on app launch
+      // Only stagger initial page loads (metadata.page === undefined or 1)
+      if (isFirstPage) {
+        await staggeredSectionDelay();
+      }
+
+      // Handle Related section separately
+      if (section.id === "related") {
+        return finalizeSection(await this.getRelatedSection(pagination));
+      }
+
+      // Handle Last Read section
+      if (section.id === "last_read") {
+        return finalizeSection(await this.getLastReadSection(pagination));
+      }
+
+      // Handle Top Reread section
+      if (section.id === "top_reread") {
+        return finalizeSection(await this.getTopRereadSection(pagination));
+      }
+
+      const initialPage = pagination?.page ?? 1;
+      const sortKey =
+        section.id === "new_uploads"
+          ? "date"
+          : (POPULAR_SECTIONS.find((entry) => entry.id === section.id)?.sort ??
+            "popular");
+
+      const {
+        tokens: discoverTokens,
+        pagesConstraint: discoverPagesConstraint,
+        dateConstraint: discoverDateConstraint,
+        favoritesConstraint: discoverFavoritesConstraint,
+      } = this.buildFilterTokens(undefined);
+
+      const query = this.buildQueryString(undefined, discoverTokens);
+      const queryHasFavoritesToken = queryContainsFavoritesToken(query);
+      const hideRead = getHideReadSetting();
+      const readCache = hideRead ? getReadCache() : null;
+
+      if (sectionTileLimit <= 0) {
+        return finalizeSection({ items: [], metadata: undefined });
+      }
+      let currentPage = initialPage;
+      let response: QueryResponse | undefined;
+      let items: DiscoverSectionItem[] = [];
+      let bufferedGalleries = [
+        ...((pagination?.buffer as Gallery[] | undefined) ?? []),
+      ];
+
+      if (bufferedGalleries.length > 0) {
+        const initialBufferTake = bufferedGalleries.slice(0, sectionTileLimit);
+        bufferedGalleries = bufferedGalleries.slice(sectionTileLimit);
+        const hydratedFromBuffer = await this.hydrateLiteGalleries(
+          initialBufferTake,
+          initialBufferTake.length,
+        );
+        items.push(
+          ...hydratedFromBuffer.map((gallery) =>
+            this.mapGalleryToDiscoverItem(gallery),
+          ),
+        );
+      }
+
+      // Popular all-time and monthly need to scan deeper since heavy readers
+      // have read most of the top results.  Other sections have smaller pools.
+      const isDeepScan =
+        section.id === "popular_all" || section.id === "popular_month";
+      const hasHeavyConstraint =
+        hasFavoritesConstraint(discoverFavoritesConstraint) ||
+        discoverPagesConstraint !== undefined ||
+        discoverDateConstraint !== undefined;
+      const approxResultsPerPage = 25;
+      const basePagesNeeded = Math.max(
+        1,
+        Math.ceil(sectionTileLimit / approxResultsPerPage),
       );
-      items.push(
-        ...hydratedFromBuffer.map((gallery) =>
-          this.mapGalleryToDiscoverItem(gallery),
+      const MAX_PAGES = Math.max(
+        2,
+        Math.min(
+          8,
+          basePagesNeeded +
+            (hideRead ? 1 : 0) +
+            (hasHeavyConstraint ? 2 : 1) +
+            (isDeepScan ? 1 : 0),
         ),
       );
-    }
+      let pagesScanned = 0;
+      let reachedEnd = false;
+      let rateLimitedEarlyReturn = false;
+      let readSkippedTotal = 0;
+      let filteredSkippedTotal = 0;
 
-    // Popular all-time and monthly need to scan deeper since heavy readers
-    // have read most of the top results.  Other sections have smaller pools.
-    const isDeepScan =
-      section.id === "popular_all" || section.id === "popular_month";
-    const MAX_PAGES = isDeepScan ? 15 : 10;
-    let pagesScanned = 0;
-    let reachedEnd = false;
-
-    // Deep-scan sections fire a larger initial batch to find unread items faster
-    const DEEP_SCAN_INITIAL_BATCH = 2;
-    // Heavy filtering (page count, date, favorites) may discard many results,
-    // requiring more API pages.  hideRead alone is cheap — start with smaller
-    // batches to avoid saturating the rate limiter when one page suffices.
-    const heavyFiltering =
-      discoverPagesConstraint !== undefined ||
-      discoverDateConstraint !== undefined ||
-      discoverFavoritesConstraint !== undefined;
-    let attemptedPages = 0;
-    let consecutiveFailures = 0;
-    while (pagesScanned < MAX_PAGES && items.length < MAX_CAROUSEL_TILES) {
-      const batchSize =
-        pagesScanned === 0 && isDeepScan
-          ? DEEP_SCAN_INITIAL_BATCH
-          : pagesScanned === 0 && !heavyFiltering
-            ? 1
+      let attemptedPages = 0;
+      let consecutiveFailures = 0;
+      while (pagesScanned < MAX_PAGES && items.length < sectionTileLimit) {
+        // Batch immediately from the first wave rather than waiting for later scans.
+        const batchSize =
+          pagesScanned === 0
+            ? DISCOVER_FETCH_INITIAL_BATCH_SIZE
             : DISCOVER_FETCH_BATCH_SIZE;
-      const remainingBatch = Math.min(batchSize, MAX_PAGES - attemptedPages);
-      if (remainingBatch <= 0) break;
-      const batchPages = Array.from(
-        { length: remainingBatch },
-        (_, index) => currentPage + index,
-      );
-      const batchResults = await Promise.all(
-        batchPages.map(async (page) => {
-          try {
-            return {
-              page,
-              result: await this.fetchSearchWithOrExpansion(
-                query,
+        const remainingBatch = Math.min(batchSize, MAX_PAGES - pagesScanned);
+        if (remainingBatch <= 0) break;
+        const batchPages = Array.from(
+          { length: remainingBatch },
+          (_, index) => currentPage + index,
+        );
+        const batchResults = await Promise.all(
+          batchPages.map(async (page) => {
+            try {
+              return {
                 page,
-                sortKey,
-              ),
-            };
-          } catch (e) {
-            if (e instanceof CloudflareError) throw e;
-            const msg = getErrorMessage(e);
-            if (
-              msg.includes("429") ||
-              msg.includes("Cloudflare") ||
-              msg.includes("Non-JSON")
-            ) {
-              await this.pause(150);
+                result: await this.fetchSearchWithOrExpansion(
+                  query,
+                  page,
+                  sortKey,
+                ),
+                rateLimited: false,
+              };
+            } catch (e) {
+              if (e instanceof CloudflareError) throw e;
+              const msg = getErrorMessage(e);
+              const isRateLimited =
+                msg.includes("429") ||
+                msg.includes("Cloudflare") ||
+                msg.includes("Non-JSON");
+              if (isRateLimited) {
+                await this.pause(20);
+              }
+              return { page, result: null, rateLimited: isRateLimited };
             }
-            return { page, result: null };
-          }
-        }),
-      );
+          }),
+        );
 
-      for (const { page, result } of batchResults) {
-        attemptedPages++;
-        currentPage = page + 1;
-        if (!result) {
-          consecutiveFailures++;
-          await this.pause(Math.min(2500, 300 * consecutiveFailures));
-          if (consecutiveFailures >= 4) {
+        for (const { page, result, rateLimited } of batchResults) {
+          attemptedPages++;
+          if (!result) {
+            if (rateLimited) {
+              rateLimitedEarlyReturn = true;
+              continue;
+            }
+            consecutiveFailures++;
+            await this.pause(Math.min(300, 60 * consecutiveFailures));
+            if (consecutiveFailures >= 8) {
+              // Keep continuation metadata available instead of forcing an end;
+              // transient API failures should not permanently cut off sections.
+              rateLimitedEarlyReturn = true;
+              continue;
+            }
+            continue;
+          }
+
+          consecutiveFailures = 0;
+          pagesScanned++;
+          currentPage = page + 1;
+
+          response = result;
+          const galleries = result.result ?? [];
+          const filtered =
+            hideRead && readCache
+              ? galleries.filter((g) => !readCache.has(g.id.toString()))
+              : galleries;
+          readSkippedTotal += Math.max(0, galleries.length - filtered.length);
+
+          const pagesExact = discoverPagesConstraint?.exact;
+          const pagesMin = discoverPagesConstraint?.min;
+          const pagesMax = discoverPagesConstraint?.max;
+
+          const strictFavoritesEnabled =
+            (getStrictFavoritesFilterSetting() ||
+              discoverFavoritesConstraint?.max !== undefined) &&
+            hasFavoritesConstraint(discoverFavoritesConstraint) &&
+            !queryHasFavoritesToken;
+          const favoritesSource = strictFavoritesEnabled
+            ? await this.hydrateLiteGalleries(filtered, filtered.length, {
+                force: true,
+              })
+            : filtered;
+
+          const filteredForFavorites = hasFavoritesConstraint(
+            discoverFavoritesConstraint,
+          )
+            ? favoritesSource.filter((g) => {
+                if (!strictFavoritesEnabled && g.isLite) return true;
+                return matchesFavoritesConstraint(
+                  g,
+                  discoverFavoritesConstraint,
+                );
+              })
+            : favoritesSource;
+
+          const filteredForPages =
+            pagesExact !== undefined ||
+            pagesMin !== undefined ||
+            pagesMax !== undefined
+              ? filteredForFavorites.filter((g) => {
+                  if (g.isLite) return true;
+                  if (pagesExact !== undefined)
+                    return g.num_pages === pagesExact;
+                  if (pagesMin !== undefined && g.num_pages < pagesMin)
+                    return false;
+                  if (pagesMax !== undefined && g.num_pages > pagesMax)
+                    return false;
+                  return true;
+                })
+              : filteredForFavorites;
+
+          const filteredForDate = discoverDateConstraint
+            ? filteredForPages.filter((g) => {
+                if (g.isLite) return true;
+                const uploadedMs = g.upload_date * 1000;
+                if (discoverDateConstraint.newerThanDays !== undefined) {
+                  const cutoff =
+                    Date.now() -
+                    discoverDateConstraint.newerThanDays * 24 * 60 * 60 * 1000;
+                  if (uploadedMs < cutoff) return false;
+                }
+                if (discoverDateConstraint.olderThanDays !== undefined) {
+                  const olderThan =
+                    Date.now() -
+                    discoverDateConstraint.olderThanDays * 24 * 60 * 60 * 1000;
+                  if (uploadedMs > olderThan) return false;
+                }
+                return true;
+              })
+            : filteredForPages;
+          filteredSkippedTotal += Math.max(
+            0,
+            filtered.length - filteredForDate.length,
+          );
+
+          const remainingSlots = sectionTileLimit - items.length;
+          if (remainingSlots > 0) {
+            const pageCandidates = filteredForDate.slice(0, remainingSlots);
+            const pageRemainder = filteredForDate.slice(remainingSlots);
+            if (pageRemainder.length > 0) {
+              bufferedGalleries.push(...pageRemainder);
+            }
+            for (const candidate of pageCandidates) {
+              this.prefetchThumbnailUrl(this.buildCoverUrl(candidate));
+            }
+            const hydratedCandidates = await this.hydrateLiteGalleries(
+              pageCandidates,
+              pageCandidates.length,
+            );
+            items.push(
+              ...hydratedCandidates.map((gallery) =>
+                this.mapGalleryToDiscoverItem(gallery),
+              ),
+            );
+          }
+
+          if (page >= result.num_pages) {
             reachedEnd = true;
             break;
           }
-          continue;
-        }
-
-        consecutiveFailures = 0;
-        pagesScanned++;
-
-        response = result;
-        const galleries = result.result ?? [];
-        const filtered =
-          hideRead && readCache
-            ? galleries.filter((g) => !readCache.has(g.id.toString()))
-            : galleries;
-
-        const pagesExact = discoverPagesConstraint?.exact;
-        const pagesMin = discoverPagesConstraint?.min;
-        const pagesMax = discoverPagesConstraint?.max;
-
-        const strictFavoritesEnabled =
-          getStrictFavoritesFilterSetting() &&
-          hasFavoritesConstraint(discoverFavoritesConstraint);
-        const favoritesSource = strictFavoritesEnabled
-          ? await this.hydrateLiteGalleries(filtered, filtered.length, {
-              force: true,
-            })
-          : filtered;
-
-        const filteredForFavorites = hasFavoritesConstraint(
-          discoverFavoritesConstraint,
-        )
-          ? favoritesSource.filter((g) => {
-              if (!strictFavoritesEnabled && g.isLite) return true;
-              return matchesFavoritesConstraint(g, discoverFavoritesConstraint);
-            })
-          : favoritesSource;
-
-        const filteredForPages =
-          pagesExact !== undefined ||
-          pagesMin !== undefined ||
-          pagesMax !== undefined
-            ? filteredForFavorites.filter((g) => {
-                if (g.isLite) return true;
-                if (pagesExact !== undefined) return g.num_pages === pagesExact;
-                if (pagesMin !== undefined && g.num_pages < pagesMin)
-                  return false;
-                if (pagesMax !== undefined && g.num_pages > pagesMax)
-                  return false;
-                return true;
-              })
-            : filteredForFavorites;
-
-        const filteredForDate = discoverDateConstraint
-          ? filteredForPages.filter((g) => {
-              if (g.isLite) return true;
-              const uploadedMs = g.upload_date * 1000;
-              if (discoverDateConstraint.newerThanDays !== undefined) {
-                const cutoff =
-                  Date.now() -
-                  discoverDateConstraint.newerThanDays * 24 * 60 * 60 * 1000;
-                if (uploadedMs < cutoff) return false;
-              }
-              if (discoverDateConstraint.olderThanDays !== undefined) {
-                const olderThan =
-                  Date.now() -
-                  discoverDateConstraint.olderThanDays * 24 * 60 * 60 * 1000;
-                if (uploadedMs > olderThan) return false;
-              }
-              return true;
-            })
-          : filteredForPages;
-
-        const remainingSlots = MAX_CAROUSEL_TILES - items.length;
-        if (remainingSlots > 0) {
-          const pageCandidates = filteredForDate.slice(0, remainingSlots);
-          const pageRemainder = filteredForDate.slice(remainingSlots);
-          if (pageRemainder.length > 0) {
-            bufferedGalleries.push(...pageRemainder);
+          if (items.length >= sectionTileLimit) {
+            break;
           }
-          const hydratedCandidates = await this.hydrateLiteGalleries(
-            pageCandidates,
-            pageCandidates.length,
+        }
+        if (rateLimitedEarlyReturn) break;
+        if (reachedEnd) break;
+      }
+
+      // Fallback: if hide-read is enabled and every scanned page is filtered out,
+      // show a small non-hidden baseline instead of returning an empty section.
+      if (items.length === 0 && hideRead) {
+        try {
+          const fallback = await this.fetchSearchWithOrExpansion(
+            query,
+            1,
+            sortKey,
+          );
+          const fallbackCandidates = (fallback.result ?? []).slice(
+            0,
+            Math.min(sectionTileLimit, 6),
+          );
+          const hydratedFallback = await this.hydrateLiteGalleries(
+            fallbackCandidates,
+            fallbackCandidates.length,
           );
           items.push(
-            ...hydratedCandidates.map((gallery) =>
+            ...hydratedFallback.map((gallery) =>
               this.mapGalleryToDiscoverItem(gallery),
             ),
           );
-        }
-
-        if (page >= result.num_pages) {
-          reachedEnd = true;
-          break;
-        }
-        if (items.length >= MAX_CAROUSEL_TILES) {
-          break;
+        } catch {
+          // Keep empty if fallback fails.
         }
       }
-      if (reachedEnd) break;
-    }
 
-    // Fallback: if hide-read is enabled and every scanned page is filtered out,
-    // show a small non-hidden baseline instead of returning an empty section.
-    if (items.length === 0 && hideRead) {
-      try {
-        const fallback = await this.fetchSearchWithOrExpansion(
-          query,
-          1,
-          sortKey,
-        );
-        const fallbackCandidates = (fallback.result ?? []).slice(
+      // Last-resort fallback: if every section request failed and produced no
+      // response object, run one plain v2 search for this sort to avoid empty
+      // carousels caused by malformed/corrupted filter state.
+      if (items.length === 0 && response === undefined) {
+        try {
+          const fallback = await this.fetchSearch(EMPTY_QUERY, 1, sortKey);
+          const fallbackCandidates = (fallback.result ?? []).slice(
+            0,
+            Math.min(sectionTileLimit, 6),
+          );
+          const hydratedFallback = await this.hydrateLiteGalleries(
+            fallbackCandidates,
+            fallbackCandidates.length,
+          );
+          items.push(
+            ...hydratedFallback.map((gallery) =>
+              this.mapGalleryToDiscoverItem(gallery),
+            ),
+          );
+        } catch {
+          // Keep empty if fallback fails.
+        }
+      }
+
+      // Cap items
+      items = items.slice(0, sectionTileLimit);
+
+      // Return metadata when more pages may still exist.
+      // Preserve the upstream cursor when this call only consumed buffered items
+      // so pagination does not stop prematurely.
+      const continuationFromTransientFailures =
+        response === undefined &&
+        attemptedPages > 0 &&
+        currentPage > initialPage;
+      const continuationFromUnscannedCursor =
+        response === undefined &&
+        attemptedPages === 0 &&
+        typeof pagination?.page === "number" &&
+        pagination.page > 0;
+      const hasMore =
+        bufferedGalleries.length > 0 ||
+        rateLimitedEarlyReturn ||
+        continuationFromTransientFailures ||
+        continuationFromUnscannedCursor ||
+        (!reachedEnd &&
+          response !== undefined &&
+          currentPage <= response.num_pages);
+
+      recordDisplayedTiles(items);
+      return finalizeSection(
+        {
+          items,
+          metadata: hasMore
+            ? {
+                page: currentPage,
+                ...(bufferedGalleries.length > 0
+                  ? { buffer: bufferedGalleries as unknown as JSONValue[] }
+                  : {}),
+              }
+            : undefined,
+        },
+        {
+          pagesScanned,
+          readSkipped: readSkippedTotal,
+          filteredSkipped: filteredSkippedTotal,
+        },
+      );
+    } catch (e) {
+      if (waveHandle) {
+        this.completeSectionWave(
+          waveHandle,
           0,
-          MIN_CAROUSEL_TILES,
-        );
-        const hydratedFallback = await this.hydrateLiteGalleries(
-          fallbackCandidates,
-          fallbackCandidates.length,
-        );
-        items.push(
-          ...hydratedFallback.map((gallery) =>
-            this.mapGalleryToDiscoverItem(gallery),
-          ),
-        );
-      } catch {
-        // Keep empty if fallback fails.
-      }
-    }
-
-    // Last-resort fallback: if every section request failed and produced no
-    // response object, run one plain v2 search for this sort to avoid empty
-    // carousels caused by malformed/corrupted filter state.
-    if (items.length === 0 && response === undefined) {
-      try {
-        const fallback = await this.fetchSearch(EMPTY_QUERY, 1, sortKey);
-        const fallbackCandidates = (fallback.result ?? []).slice(
+          Math.max(0, sectionTileLimit),
           0,
-          MIN_CAROUSEL_TILES,
+          0,
+          section.title ?? section.id,
         );
-        const hydratedFallback = await this.hydrateLiteGalleries(
-          fallbackCandidates,
-          fallbackCandidates.length,
-        );
-        items.push(
-          ...hydratedFallback.map((gallery) =>
-            this.mapGalleryToDiscoverItem(gallery),
-          ),
-        );
-      } catch {
-        // Keep empty if fallback fails.
       }
+      throw e;
     }
-
-    // Cap items
-    items = items.slice(0, MAX_CAROUSEL_TILES);
-
-    // Return metadata: undefined when no items found so framework won't retry
-    // Return metadata when items found and more pages exist
-    const hasMore =
-      bufferedGalleries.length > 0 ||
-      (!reachedEnd &&
-        response !== undefined &&
-        currentPage < response.num_pages);
-
-    recordDisplayedTiles(items);
-    console.log(
-      `[NHentai] Section "${section.id}" done: ${items.length} items, ${pagesScanned} pages scanned, ${Date.now() - sectionStart}ms`,
-    );
-    return {
-      items,
-      metadata:
-        items.length > 0 && hasMore
-          ? {
-              page: currentPage,
-              ...(bufferedGalleries.length > 0
-                ? { buffer: bufferedGalleries }
-                : {}),
-            }
-          : undefined,
-    };
   }
 
   /**
@@ -1082,36 +2239,154 @@ export class NHentaiExtension implements NHentaiImplementation {
    * Coalesces rapid-fire calls within the current event loop tick.
    */
   private debouncedInvalidateSearchFilters(): void {
-    this.searchFiltersDirty = true;
     try {
-      Application.invalidateSearchFilters();
+      // Application.invalidateSearchFilters() - API removed
     } catch {
       /* ignore */
     }
   }
 
-  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
-    // Filter out expired cookies before storing
-    const now = Date.now();
-    const validCookies = cookies.filter((cookie) => {
-      if (cookie.expires && cookie.expires.getTime() <= now) {
-        return false;
-      }
-      return true;
-    });
+  private getCookieStorageKey(cookie: Cookie): string {
+    const path = cookie.path && cookie.path.length > 0 ? cookie.path : "/";
+    return `${cookie.name}|${cookie.domain.toLowerCase()}|${path}`;
+  }
 
-    for (const cookie of validCookies) {
-      this.cookieStorageInterceptor.deleteCookie(cookie);
+  private parseCookieExpires(value: unknown): Date | undefined {
+    if (!value) return undefined;
+    const parsed =
+      value instanceof Date ? value : new Date(value as string | number);
+    return Number.isFinite(parsed.getTime()) ? parsed : undefined;
+  }
+
+  private normalizeCookie(cookie: Cookie): Cookie | undefined {
+    const name = typeof cookie.name === "string" ? cookie.name.trim() : "";
+    const value = typeof cookie.value === "string" ? cookie.value : "";
+    const domain =
+      typeof cookie.domain === "string"
+        ? cookie.domain.trim().toLowerCase()
+        : "";
+    if (!name || !domain) return undefined;
+    const path = cookie.path && cookie.path.length > 0 ? cookie.path : "/";
+    const expires = this.parseCookieExpires(cookie.expires);
+    const created = this.parseCookieExpires(cookie.created);
+    return { name, value, domain, path, expires, created };
+  }
+
+  private isCookieExpired(cookie: Cookie, now = Date.now()): boolean {
+    return !!cookie.expires && cookie.expires.getTime() <= now;
+  }
+
+  private doesCookieMatchRequestUrl(
+    cookie: Cookie,
+    requestUrl: string,
+  ): boolean {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(requestUrl);
+    } catch {
+      return false;
     }
 
-    for (const cookie of validCookies) {
-      this.cookieStorageInterceptor.setCookie(cookie);
+    const host = parsedUrl.hostname.toLowerCase();
+    const domain = cookie.domain.replace(/^\./, "").toLowerCase();
+    if (!domain) return false;
+    if (host !== domain && !host.endsWith(`.${domain}`)) {
+      return false;
+    }
+
+    const cookiePath =
+      cookie.path && cookie.path.length > 0 ? cookie.path : "/";
+    return parsedUrl.pathname.startsWith(cookiePath);
+  }
+
+  private persistCookieJar(): void {
+    try {
+      Application.setState(
+        Array.from(this.cookieJar.values()),
+        COOKIE_JAR_STATE_KEY,
+      );
+    } catch {
+      // Ignore persistence failures
+    }
+  }
+
+  private restoreCookieJar(): void {
+    try {
+      const stored = Application.getState(COOKIE_JAR_STATE_KEY) as
+        | Cookie[]
+        | undefined;
+      if (!Array.isArray(stored)) {
+        this.cookieJar.clear();
+        return;
+      }
+
+      const now = Date.now();
+      this.cookieJar.clear();
+      for (const rawCookie of stored) {
+        const cookie = this.normalizeCookie(rawCookie);
+        if (!cookie || this.isCookieExpired(cookie, now)) continue;
+        this.cookieJar.set(this.getCookieStorageKey(cookie), cookie);
+      }
+      this.persistCookieJar();
+    } catch {
+      this.cookieJar.clear();
+    }
+  }
+
+  private getCookieHeaderForUrl(url: string): string | undefined {
+    const now = Date.now();
+    let expiredRemoved = false;
+    const matchingCookies: Cookie[] = [];
+
+    for (const [key, cookie] of this.cookieJar.entries()) {
+      if (this.isCookieExpired(cookie, now)) {
+        this.cookieJar.delete(key);
+        expiredRemoved = true;
+        continue;
+      }
+      if (this.doesCookieMatchRequestUrl(cookie, url)) {
+        matchingCookies.push(cookie);
+      }
+    }
+
+    if (expiredRemoved) {
+      this.persistCookieJar();
+    }
+
+    if (matchingCookies.length === 0) return undefined;
+
+    matchingCookies.sort((a, b) => {
+      const aPath = a.path ?? "/";
+      const bPath = b.path ?? "/";
+      return bPath.length - aPath.length;
+    });
+
+    return matchingCookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join("; ");
+  }
+
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    const now = Date.now();
+    let changed = false;
+    for (const cookie of cookies) {
+      const normalized = this.normalizeCookie(cookie);
+      if (!normalized) continue;
+      const key = this.getCookieStorageKey(normalized);
+      if (this.isCookieExpired(normalized, now)) {
+        changed = this.cookieJar.delete(key) || changed;
+        continue;
+      }
+      this.cookieJar.set(key, normalized);
+      changed = true;
+    }
+
+    if (changed) {
+      this.persistCookieJar();
     }
   }
 
   async getSearchFilters(): Promise<SearchFilter[]> {
-    this.searchFiltersDirty = false;
-
     const filters: SearchFilter[] = [];
 
     // Length
@@ -1199,9 +2474,14 @@ export class NHentaiExtension implements NHentaiImplementation {
         const showTagCounts =
           getDisplayOptionsSetting().includes("show_tag_counts");
         const cleanedLabel = tag.label.replace(/\s*-\s*\([^)]*\)\s*$/, "");
+        const countLabel = this.formatTagCount(
+          this.parseTagCountValue(tag.count),
+        );
         return {
           id: tag.id,
-          value: showTagCounts ? tag.label : cleanedLabel,
+          value: showTagCounts
+            ? `${cleanedLabel} - (${countLabel})`
+            : cleanedLabel,
         };
       }),
       allowExclusion: true,
@@ -1210,6 +2490,12 @@ export class NHentaiExtension implements NHentaiImplementation {
     });
 
     return filters;
+  }
+
+  async getAdvancedSearchForm(
+    query: SearchQuery<SearchFilterValue[]>,
+  ): Promise<SearchFilterForm> {
+    return new InlineSearchFilterForm(query.metadata, this.getSearchFilters());
   }
 
   async getSortingOptions(): Promise<SortingOption[]> {
@@ -1239,13 +2525,73 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getSearchResults(
-    query: SearchQuery,
-    metadata: PaginationMetadata | undefined,
+    query: SearchQuery<SearchFilterValue[]>,
+    metadata: JSONValue | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
     const searchStart = Date.now();
     try {
-      let currentPage = metadata?.page ?? 1;
+      const pagination = metadata as PaginationMetadata | undefined;
+
+      const submittedFilters = cleanSearchFilterValues(query.metadata);
+      const storedFilters: SearchFilterValue[] = [];
+
+      const searchFilterLength = getSearchFilterLength();
+      if (searchFilterLength && searchFilterLength !== "all") {
+        storedFilters.push({
+          id: "length",
+          value: searchFilterLength,
+        });
+      }
+
+      const searchFilterFavorites = getSearchFilterFavorites();
+      if (searchFilterFavorites && searchFilterFavorites !== "all") {
+        storedFilters.push({
+          id: "favorites",
+          value: searchFilterFavorites,
+        });
+      }
+
+      const searchFilterDate = getSearchFilterDate();
+      if (searchFilterDate && searchFilterDate !== "all") {
+        storedFilters.push({
+          id: "daysOld",
+          value: searchFilterDate,
+        });
+      }
+
+      const searchFilterTags = submittedFilters
+        ? ((submittedFilters.find((filter) => filter.id === "tags")?.value as
+            | Record<string, "included" | "excluded">
+            | undefined) ?? {})
+        : getSearchFilterTags();
+
+      // getSearchFilterTags() already merges synced manga filter tags,
+      // so we do not need to manually merge getIncludeTagsSetting() or getExcludeTagsSetting().
+      const mergedTags = { ...searchFilterTags };
+
+      const submittedActiveFilters = submittedFilters
+        ? getActiveSearchFilterValues(submittedFilters).filter(
+            (filter) => filter.id !== "tags",
+          )
+        : undefined;
+
+      if (Object.keys(mergedTags).length > 0) {
+        const tagsFilter: SearchFilterValue = {
+          id: "tags",
+          value: mergedTags,
+        };
+        if (submittedActiveFilters) {
+          submittedActiveFilters.push(tagsFilter);
+        } else {
+          storedFilters.push(tagsFilter);
+        }
+      }
+
+      const queryFilters = submittedActiveFilters ?? storedFilters;
+      const filtersToPersist = submittedFilters ?? queryFilters;
+
+      let currentPage = pagination?.page ?? 1;
       let effectiveSort = this.resolveSortOrder(query, sortingOption);
       if (effectiveSort === "related" && !getEnableRelatedSetting())
         effectiveSort = "date";
@@ -1316,12 +2662,12 @@ export class NHentaiExtension implements NHentaiImplementation {
         favoritesConstraint,
         pagesConstraint,
         dateConstraint,
-      } = this.buildFilterTokens(query.filters);
+      } = this.buildFilterTokens(queryFilters);
       let sawTagsFilter = false;
 
       // Always persist search filter values to state (even on first search)
-      if (query.filters) {
-        for (const filter of query.filters) {
+      if (filtersToPersist.length > 0) {
+        for (const filter of filtersToPersist) {
           if (filter.id === "length" && typeof filter.value === "string") {
             setSearchFilterLength(filter.value);
           } else if (
@@ -1354,16 +2700,14 @@ export class NHentaiExtension implements NHentaiImplementation {
         if (!sawTagsFilter) {
           setSearchFilterTags({});
         }
-        // Force the app to re-read filter defaults on next getSearchFilters call
-        this.searchFiltersDirty = true;
-        this.debouncedInvalidateSearchFilters();
+        // Invalidate search filters (API method no longer available)
       } else {
         setSearchFilterTags({});
       }
 
       // If user selected 'Related' sort, return related section items instead
       if (effectiveSort === "related") {
-        const relatedSection = await this.getRelatedSection(metadata);
+        const relatedSection = await this.getRelatedSection(pagination);
         return {
           items: this.discoverItemsToSearchResults(relatedSection.items),
           metadata: relatedSection.metadata,
@@ -1372,7 +2716,7 @@ export class NHentaiExtension implements NHentaiImplementation {
 
       // If user selected 'Last Read' sort, return last read section items
       if (effectiveSort === "last_read") {
-        const lastReadSection = await this.getLastReadSection(metadata);
+        const lastReadSection = await this.getLastReadSection(pagination);
         return {
           items: this.discoverItemsToSearchResults(lastReadSection.items),
           metadata: lastReadSection.metadata,
@@ -1381,7 +2725,7 @@ export class NHentaiExtension implements NHentaiImplementation {
 
       // If user selected 'Top Reread' sort, return top reread section items
       if (effectiveSort === "top_reread") {
-        const topRereadSection = await this.getTopRereadSection(metadata);
+        const topRereadSection = await this.getTopRereadSection(pagination);
         return {
           items: this.discoverItemsToSearchResults(topRereadSection.items),
           metadata: topRereadSection.metadata,
@@ -1405,7 +2749,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       }
 
       // Get tags from filter
-      const tagsFilter = query.filters?.find((f) => f.id === "tags");
+      const tagsFilter = queryFilters.find((filter) => filter.id === "tags");
       const tagsValueRaw: TagsFilterValue = isTagsFilterValue(tagsFilter?.value)
         ? tagsFilter.value
         : {};
@@ -1444,8 +2788,10 @@ export class NHentaiExtension implements NHentaiImplementation {
       const hideRead = getHideReadSetting();
       const readCache = hideRead ? getReadCache() : null;
       const strictFavoritesEnabled =
-        getStrictFavoritesFilterSetting() &&
-        hasFavoritesConstraint(favoritesConstraint);
+        (getStrictFavoritesFilterSetting() ||
+          favoritesConstraint?.max !== undefined) &&
+        hasFavoritesConstraint(favoritesConstraint) &&
+        !queryContainsFavoritesToken(searchQuery);
 
       const pagesExact = pagesConstraint?.exact;
       const pagesMin = pagesConstraint?.min;
@@ -1453,31 +2799,62 @@ export class NHentaiExtension implements NHentaiImplementation {
 
       if (
         this.searchBufferSessionKey !== searchSessionKey ||
-        (metadata?.page ?? 1) <= 1
+        (pagination?.page ?? 1) <= 1
       ) {
         this.searchBufferSessionKey = searchSessionKey;
         this.searchBufferGalleries = [];
-        this.searchBufferNextPage = metadata?.page ?? 1;
-        this.searchBufferNumPages = metadata?.numPages;
+        this.searchBufferNextPage = pagination?.page ?? 1;
+        this.searchBufferNumPages = pagination?.numPages;
         this.searchConsecutiveEmpty = 0;
       }
 
-      currentPage = metadata?.page ?? this.searchBufferNextPage;
+      currentPage = pagination?.page ?? this.searchBufferNextPage;
 
       let response: QueryResponse | undefined;
       let items: SearchResultItem[] = [];
       let safetyCounter = 0;
-      let bufferedGalleries = [...this.searchBufferGalleries];
-      let knownNumPages = this.searchBufferNumPages ?? metadata?.numPages;
+      const searchPageSize = getSearchPageSize();
+      // Only use buffered galleries if this is the expected next page
+      // If user explicitly navigated to a different page, discard the buffer
+      let bufferedGalleries =
+        currentPage === this.searchBufferNextPage
+          ? [...this.searchBufferGalleries]
+          : [];
+      let knownNumPages = this.searchBufferNumPages ?? pagination?.numPages;
       let nextPage = currentPage;
+      const strictPaginationFilters =
+        hasFavoritesConstraint(favoritesConstraint) ||
+        dateConstraint !== undefined ||
+        pagesExact !== undefined ||
+        pagesMin !== undefined ||
+        pagesMax !== undefined;
+      const emptyFilteredLimit = strictPaginationFilters ? 36 : 18;
+      const continuationEmptyLimit = strictPaginationFilters ? 36 : 24;
+      const approxResultsPerPage = 25;
+      const maxPagesThisCall = Math.max(
+        2,
+        Math.min(
+          8,
+          Math.ceil(searchPageSize / approxResultsPerPage) +
+            (strictPaginationFilters ? 3 : 1) +
+            (hideRead ? 1 : 0),
+        ),
+      );
 
       let consecutiveEmptyFiltered = 0;
+      let rateLimitedEarlyReturn = false;
+      let pagesScannedThisCall = 0;
+      let readSkippedTotal = 0;
+      let filteredSkippedTotal = 0;
       const appendSearchCandidates = async (
         pageCandidates: Gallery[],
         source: string,
         pageLabel: number | string,
       ) => {
         if (pageCandidates.length === 0) return;
+        for (const candidate of pageCandidates) {
+          this.prefetchThumbnailUrl(this.buildCoverUrl(candidate));
+        }
         const hydratedCandidates = await this.hydrateLiteGalleries(
           pageCandidates,
           pageCandidates.length,
@@ -1515,14 +2892,15 @@ export class NHentaiExtension implements NHentaiImplementation {
         );
         const bufferedCandidates = bufferedGalleries.slice(
           0,
-          SEARCH_PAGE_SIZE - items.length,
+          searchPageSize - items.length,
         );
         bufferedGalleries = bufferedGalleries.slice(bufferedCandidates.length);
         await appendSearchCandidates(bufferedCandidates, "buffer", currentPage);
       }
       while (
-        items.length < SEARCH_PAGE_SIZE &&
-        safetyCounter < MAX_SEARCH_PAGES
+        items.length < searchPageSize &&
+        safetyCounter < MAX_SEARCH_PAGES &&
+        pagesScannedThisCall < maxPagesThisCall
       ) {
         try {
           response = await this.fetchSearchWithOrExpansion(
@@ -1543,10 +2921,8 @@ export class NHentaiExtension implements NHentaiImplementation {
               e.message.includes("Cloudflare") ||
               e.message.includes("Non-JSON")
             ) {
-              await this.pause(150);
-              currentPage += 1;
-              safetyCounter++;
-              continue;
+              rateLimitedEarlyReturn = true;
+              break;
             }
           } else {
             console.error("Search fetch failed:", e);
@@ -1563,13 +2939,27 @@ export class NHentaiExtension implements NHentaiImplementation {
         nextPage = currentPage + 1;
 
         const galleries = response.result;
+        pagesScannedThisCall++;
         const itemCountBefore = items.length;
 
+        const preFilteredForRead =
+          hideRead && readCache
+            ? galleries.filter((g) => !readCache.has(g.id.toString()))
+            : galleries;
+        readSkippedTotal += Math.max(
+          0,
+          galleries.length - preFilteredForRead.length,
+        );
+
         const favoritesSource = strictFavoritesEnabled
-          ? await this.hydrateLiteGalleries(galleries, galleries.length, {
-              force: true,
-            })
-          : galleries;
+          ? await this.hydrateLiteGalleries(
+              preFilteredForRead,
+              preFilteredForRead.length,
+              {
+                force: true,
+              },
+            )
+          : preFilteredForRead;
 
         const filteredForFavorites = hasFavoritesConstraint(favoritesConstraint)
           ? favoritesSource.filter((g) => {
@@ -1592,12 +2982,7 @@ export class NHentaiExtension implements NHentaiImplementation {
           `activeRange=${favoritesConstraint?.min ?? "-"}:${favoritesConstraint?.max ?? "-"}`,
         );
 
-        const filteredForRead =
-          hideRead && readCache
-            ? filteredForFavorites.filter(
-                (g) => !readCache.has(g.id.toString()),
-              )
-            : filteredForFavorites;
+        const filteredForRead = filteredForFavorites;
 
         const filteredForPages =
           pagesExact !== undefined ||
@@ -1639,14 +3024,18 @@ export class NHentaiExtension implements NHentaiImplementation {
               return true;
             })
           : filteredForPages;
+        filteredSkippedTotal += Math.max(
+          0,
+          preFilteredForRead.length - filteredForDate.length,
+        );
         logDebug(
           "search:date",
           `page=${currentPage}`,
           `afterDate=${filteredForDate.length}`,
-          `remainingSlots=${SEARCH_PAGE_SIZE - items.length}`,
+          `remainingSlots=${searchPageSize - items.length}`,
         );
 
-        const remainingSlots = SEARCH_PAGE_SIZE - items.length;
+        const remainingSlots = searchPageSize - items.length;
         if (remainingSlots > 0) {
           const pageCandidates = filteredForDate.slice(0, remainingSlots);
           const leftoverCandidates = filteredForDate.slice(remainingSlots);
@@ -1666,10 +3055,10 @@ export class NHentaiExtension implements NHentaiImplementation {
         const reachedEnd = currentPage >= response.num_pages;
         const rawResultsEmpty = galleries.length === 0;
         if (
-          items.length >= SEARCH_PAGE_SIZE ||
+          items.length >= searchPageSize ||
           reachedEnd ||
           rawResultsEmpty ||
-          consecutiveEmptyFiltered >= 15
+          consecutiveEmptyFiltered >= emptyFilteredLimit
         ) {
           break;
         }
@@ -1678,9 +3067,10 @@ export class NHentaiExtension implements NHentaiImplementation {
         safetyCounter += 1;
       }
 
-      items = items.slice(0, SEARCH_PAGE_SIZE);
+      items = items.slice(0, searchPageSize);
       const hasNextPage =
         bufferedGalleries.length > 0 ||
+        rateLimitedEarlyReturn ||
         (typeof knownNumPages === "number" && nextPage <= knownNumPages);
 
       // Track consecutive empty pages to prevent infinite loops
@@ -1693,7 +3083,8 @@ export class NHentaiExtension implements NHentaiImplementation {
       // Continue pagination when filters remove all items but more pages exist.
       // Strict favorites/date filters can legitimately burn through several
       // pages before finding enough hydrated matches, so use a wider cap.
-      const continueOffset = hasNextPage && this.searchConsecutiveEmpty < 6;
+      const continueOffset =
+        hasNextPage && this.searchConsecutiveEmpty < continuationEmptyLimit;
 
       this.searchBufferSessionKey = searchSessionKey;
       this.searchBufferGalleries = bufferedGalleries;
@@ -1714,18 +3105,35 @@ export class NHentaiExtension implements NHentaiImplementation {
       );
 
       recordDisplayedTiles(items);
-      console.log(
-        `[NHentai] Search done: ${items.length} items, sort=${sortingOption?.id ?? "default"}, ${Date.now() - searchStart}ms`,
+      const sortLabel = this.formatSearchSortLabel(effectiveSort);
+      const filterSummary = formatSearchFilterSummary(
+        filteredSkippedTotal,
+        readSkippedTotal,
+        true,
       );
+      console.log(
+        `[NHentai] ${sortLabel} search: ${items.length} items${filterSummary}, ${Date.now() - searchStart}ms`,
+      );
+      // Build description showing filtered and read item counts
+      const descriptionParts: string[] = [];
+      if (filteredSkippedTotal > 0)
+        descriptionParts.push(`${filteredSkippedTotal} filtered`);
+      if (readSkippedTotal > 0)
+        descriptionParts.push(`${readSkippedTotal} read`);
+      const description =
+        descriptionParts.length > 0 ? descriptionParts.join(", ") : undefined;
+
       return {
         items,
         metadata: continueOffset
           ? {
               page: nextPage,
+              nextPage,
               numPages: knownNumPages,
             }
           : undefined,
-      };
+        description,
+      } as PagedResults<SearchResultItem> & { description?: string };
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
       console.error("[NHentai Search] Unexpected error", e, {
@@ -1738,20 +3146,32 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
+    // If we already have a cached gallery (even lite), we know the correct cover URL —
+    // prefetch it immediately. Otherwise fall back to guessing CDN paths in parallel.
+    const cachedForPrefetch = this.getCachedGallery(mangaId);
+    if (cachedForPrefetch) {
+      this.prefetchThumbnailUrl(this.buildCoverUrl(cachedForPrefetch));
+    } else {
+      this.eagerPrefetchCoverPaths(mangaId);
+    }
+
     const gallery = await this.fetchGallery(mangaId);
 
     // Mark as read when viewing details if setting is enabled
-    if (getMarkReadOnViewSetting()) {
+    if (getHideReadSetting() && getMarkReadOnViewSetting()) {
       const readTags = gallery.tags
         .filter((t) => t.type === "tag")
         .map((t) => t.name)
         .slice(0, 12);
-      markMangaAsRead(
+      const { isFirstRead } = markMangaAsRead(
         gallery.id.toString(),
         gallery.title.pretty || gallery.title.english || gallery.title.japanese,
         readTags,
+        { trackStats: false },
       );
-      incrementMarkReadOnDescCount();
+      if (isFirstRead && !getDescMarkedReadIds().has(gallery.id.toString())) {
+        incrementMarkReadOnDescCount();
+      }
       addDescMarkedReadId(gallery.id.toString());
     }
 
@@ -1759,137 +3179,32 @@ export class NHentaiExtension implements NHentaiImplementation {
     try {
       ensureInstallDate();
       incrementDisplayedManga(mangaId);
-      recordReadingSession();
-      recordPageCount(gallery.num_pages);
-      const tagNames = gallery.tags
-        .filter(
-          (t) => t.type === "tag" || t.type === "male" || t.type === "female",
-        )
-        .map((t) => t.name);
-      if (tagNames.length > 0) recordTagCounts(tagNames);
     } catch {
       /* stats tracking should never break main flow */
     }
+    this.debouncedInvalidateSearchFilters();
 
     const secondaryTitles = [
       gallery.title.english,
       gallery.title.japanese,
       gallery.title.pretty,
     ].filter((title): title is string => !!title);
-
-    const displayOptions = getDisplayOptionsSetting();
-    const dateFmt = getDateFormatSetting();
-    const uploadDate = new Date(gallery.upload_date * 1000);
-    const languageSlug = this.extractLanguageSlug(gallery.tags);
-    const languageAbbrev = getLanguageAbbreviationFromSlug(languageSlug);
-    const parts: string[] = [];
-    // Include two-letter language code in description if enabled (or by default if no setting)
-    if (displayOptions.includes("show_lang_desc")) {
-      parts.push(languageAbbrev);
-    }
-
-    const isRead = isMangaRead(gallery.id.toString());
-    const showReadLetter = displayOptions.includes("hide_read_letter"); // Note: Despite the name, this now means "show" when present
-    const readPrefix = isRead && showReadLetter ? "r" : "";
-    if (
-      displayOptions.length === 0 ||
-      displayOptions.includes("show_page_count")
-    ) {
-      parts.push(`${readPrefix}${gallery.num_pages}p`);
-    }
-
-    // Only show favorites if > 0
-    if (gallery.num_favorites > 0) {
-      let favs = gallery.num_favorites.toString();
-      if (gallery.num_favorites >= 1_000_000) {
-        favs = `${Math.round(gallery.num_favorites / 1_000_000)}M`;
-      } else if (gallery.num_favorites >= 1000) {
-        favs = `${Math.round(gallery.num_favorites / 1000)}k`;
-      }
-      parts.push(favs);
-    }
-
-    const uploadHours = uploadDate.getHours();
-    const uploadMins = uploadDate.getMinutes();
-    const uploadSuffix = uploadHours >= 12 ? "PM" : "AM";
-    const uploadH12 = ((uploadHours + 11) % 12) + 1;
-    const uploadMinsStr = uploadMins.toString().padStart(2, "0");
-    const uploadTimeStr = `${uploadH12}:${uploadMinsStr}${uploadSuffix}`;
-
-    let dateAbsolute = "";
-    if (displayOptions.includes("desc_show_date")) {
-      dateAbsolute = `${formatDateByPattern(uploadDate, dateFmt)} @ ${uploadTimeStr}`;
-    }
-    const dateRelative = displayOptions.includes("desc_relative_date")
-      ? this.relativeTime(uploadDate)
-      : "";
-
-    // Ensure relative appears before absolute in description top line
-    if (dateRelative) parts.push(dateRelative);
-    if (dateAbsolute) parts.push(dateAbsolute);
-
-    // Add gallery ID to end of first line if enabled
-    if (displayOptions.includes("show_id")) {
-      parts.push(gallery.id.toString());
-    }
-
-    const removeSpaces = getRemoveSeparatorSpacesSetting();
-    const separator = removeSpaces ? "|" : " | ";
-    const infoLine = parts.join(separator);
-    const topTags = this.getTopTags(gallery);
-    let tagsLine = "";
-    if (topTags.length > 0) {
-      tagsLine = topTags.join(", ");
-    }
-
-    const parodies = gallery.tags
-      .filter((t) => t.type === "parody")
-      .map((t) => t.name.replace(/_/g, " ").trim())
-      .filter((name) => name.length > 0);
-    const characters = gallery.tags
-      .filter((t) => t.type === "character")
-      .map((t) => t.name.replace(/_/g, " ").trim())
-      .filter((name) => name.length > 0);
-
-    const extraLines: string[] = [];
-    if (displayOptions.includes("parodies_bottom")) {
-      // Hide "Parodies: original" when "original" is the only parody
-      const nonOriginalParodies = parodies.filter(
-        (p) => p.toLowerCase() !== "original",
-      );
-      if (nonOriginalParodies.length > 0)
-        extraLines.push(`Parodies: ${parodies.join(", ")}`);
-      if (characters.length > 0)
-        extraLines.push(`Characters: ${characters.join(", ")}`);
-    }
-
-    let synopsis = infoLine;
-    // Tags should appear immediately after the info line
-    if (tagsLine) {
-      synopsis += `\n${tagsLine}`;
-    }
-    // Parodies/Characters immediately after tags (no extra blank line)
-    if (extraLines.length > 0) {
-      synopsis += `\n${extraLines.join("\n")}`;
-    }
-
-    const excludedTags = new Set(topTags);
-    // When parodies/characters are shown in description, exclude them from scroller
-    if (displayOptions.includes("parodies_bottom")) {
-      for (const p of parodies) excludedTags.add(p.toLowerCase());
-      for (const c of characters) excludedTags.add(c.toLowerCase());
-    }
+    const { synopsis, excludedTags } = this.createSynopsis(gallery);
     const tagSections = this.createTagSections(gallery, excludedTags);
+    const thumbnailUrl = this.buildCoverUrl(gallery);
+    const creators = getCreatorFieldsFromTags(gallery.tags);
+    this.prefetchThumbnailUrl(thumbnailUrl);
 
     return {
       mangaId: gallery.id.toString(),
       mangaInfo: {
         primaryTitle: gallery.title.pretty,
         secondaryTitles: Array.from(new Set(secondaryTitles)),
-        thumbnailUrl: this.buildCoverUrl(gallery),
+        thumbnailUrl,
         synopsis,
         rating: 0,
         status: "COMPLETED",
+        author: creators.author,
         contentRating: ContentRating.ADULT,
         tagGroups: tagSections,
         shareUrl: `${DOMAIN}/g/${gallery.id}`,
@@ -1899,11 +3214,9 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   // State keys for related caching/persistence and counters
   private readonly RELATED_POOL_STATE_KEY = "nhentai.relatedPool";
-  private readonly RELATED_POOL_HISTORY_KEY = "nhentai.relatedPoolHistory";
   private readonly RELATED_POOL_HISTORY_INDEX_KEY =
     "nhentai.relatedPoolHistoryIndex";
   private readonly RELATED_POOL_SEEN_IDS_KEY = "nhentai.relatedPoolSeenIds";
-  private readonly PRESERVED_RELATED_STATE_KEY = "nhentai.relatedPreserved";
   private readonly NONCAROUSEL_PAGE_COUNT_KEY = "nhentai.nonCarouselPageCount";
 
   // Lazy loading configuration
@@ -1911,7 +3224,7 @@ export class NHentaiExtension implements NHentaiImplementation {
   private readonly RELATED_PER_HISTORY = 5; // Max related per history item
 
   // Gallery cache with persistence
-  private galleryCache = new Map<string, { gallery: Gallery; ts: number }>();
+  private galleryCache = new MemoryCache<NHentaiGalleryCacheItem>();
   private galleryCacheDirty = false;
   private galleryPending = new Map<string, Promise<Gallery>>();
   private relatedPoolCache:
@@ -1922,17 +3235,78 @@ export class NHentaiExtension implements NHentaiImplementation {
   private relatedPoolHistoryIds = new Set<number>(); // Track history IDs to exclude from relatedIds
   // Session-based page tracking: maps item ID → page number when first displayed
   // Used to hide items after the configured related age window.
-  private relatedFirstSeenPage = new Map<number, number>();
-
-  // Failure-based error recovery
-  private consecutiveFailures = 0;
-  private lastFailureTime = 0;
-  private readonly MAX_CONSECUTIVE_FAILURES = 3;
   private searchConsecutiveEmpty = 0; // Track consecutive empty pages to prevent infinite loops
   private searchBufferSessionKey = "";
   private searchBufferGalleries: Gallery[] = [];
   private searchBufferNextPage = 1;
   private searchBufferNumPages: number | undefined;
+  private galleryDetailRateLimited = false;
+  private galleryDetailProbeAfter = 0;
+  private readonly GALLERY_DETAIL_PROBE_INTERVAL_MS = 900;
+  private prefetchedThumbnails = new Set<string>();
+
+  constructor() {
+    this.galleryCache.maxCount = 500;
+  }
+
+  private restoreSearchCache(): void {
+    try {
+      const saved = Application.getState(SEARCH_CACHE_STATE_KEY) as
+        | { entries: [string, { response: QueryResponse; ts: number }][] }
+        | undefined;
+      if (!saved?.entries) return;
+
+      const now = Date.now();
+      let restoredCount = 0;
+      for (const [key, entry] of saved.entries) {
+        if (!entry?.response || now - entry.ts > this.getSearchCacheTtl(key)) {
+          continue;
+        }
+        this.searchCache.set(key, {
+          response: this.cloneQueryResponse(entry.response),
+          ts: entry.ts,
+        });
+        restoredCount++;
+      }
+      if (restoredCount > 0) {
+        console.log(`[NHentai] Restored ${restoredCount} cached search pages`);
+      }
+    } catch {
+      // Ignore restore failures
+    }
+  }
+
+  private saveSearchCache(): void {
+    try {
+      const now = Date.now();
+      const entries = [...this.searchCache.entries()]
+        .filter(([key, entry]) => now - entry.ts < this.getSearchCacheTtl(key))
+        .sort((a, b) => b[1].ts - a[1].ts)
+        .slice(0, 120)
+        .map(
+          ([key, entry]) =>
+            [
+              key,
+              {
+                response: this.cloneQueryResponse(entry.response),
+                ts: entry.ts,
+              },
+            ] as [string, { response: QueryResponse; ts: number }],
+        );
+      Application.setState({ entries }, SEARCH_CACHE_STATE_KEY);
+    } catch {
+      // Ignore save failures
+    }
+  }
+
+  private getSearchCacheTtl(cacheKey: string): number {
+    const [sortPart, pagePart] = cacheKey.split("|");
+    const page = Number.parseInt(pagePart ?? "", 10);
+    const isNewestFeed = sortPart === "date" || sortPart === "";
+    return page === 1 && isNewestFeed
+      ? GALLERY_CACHE_PAGE1_TTL_MS
+      : SEARCH_CACHE_TTL_MS;
+  }
 
   private restoreGalleryCache(): void {
     try {
@@ -1946,7 +3320,12 @@ export class NHentaiExtension implements NHentaiImplementation {
       for (const [id, entry] of saved.entries) {
         // Skip expired entries
         if (now - entry.ts > GALLERY_CACHE_TTL_MS) continue;
-        this.galleryCache.set(id, entry);
+        const entryDate = new Date(entry.ts);
+        this.galleryCache.setEntry(
+          { id, gallery: entry.gallery },
+          entryDate,
+          entryDate,
+        );
         restoredCount++;
       }
       if (restoredCount > 0) {
@@ -1958,7 +3337,7 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   private scheduleGalleryCacheSave(): void {
-    // Note: setTimeout is not available in Paperback's sandbox
+    // Paperback's sandbox doesn't provide setTimeout. Use Application.sleep() instead.
     // Just save immediately since we're already batching by dirty flag
     this.galleryCacheDirty = true;
     this.saveGalleryCache();
@@ -1968,7 +3347,15 @@ export class NHentaiExtension implements NHentaiImplementation {
     if (!this.galleryCacheDirty) return;
     try {
       // Convert map to array, sorted by timestamp (newest first), limited to max size
-      const entries = Array.from(this.galleryCache.entries())
+      const entries = this.galleryCache
+        .entries()
+        .map(
+          ([id, entry]) =>
+            [
+              id,
+              { gallery: entry.item.gallery, ts: entry.createdDate.getTime() },
+            ] as [string, { gallery: Gallery; ts: number }],
+        )
         .sort((a, b) => b[1].ts - a[1].ts)
         .slice(0, GALLERY_CACHE_MAX_SIZE);
       Application.setState({ entries }, GALLERY_CACHE_STATE_KEY);
@@ -1978,27 +3365,47 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
   }
 
+  private getNextGalleryDetailProbeAt(now: number = Date.now()): number {
+    const WINDOW_MS = 60_000;
+    const detailQueue = burstQueues.galleryDetail;
+    detailQueue.timestamps = detailQueue.timestamps.filter(
+      (t) => t > now - WINDOW_MS,
+    );
+
+    if (detailQueue.timestamps.length < getEndpointRateLimit("galleryDetail")) {
+      return now + this.GALLERY_DETAIL_PROBE_INTERVAL_MS;
+    }
+
+    const oldestTimestamp = detailQueue.timestamps[0] ?? now;
+    return Math.max(
+      now + this.GALLERY_DETAIL_PROBE_INTERVAL_MS,
+      oldestTimestamp + WINDOW_MS + 20,
+    );
+  }
+
+  private markGalleryDetailRateLimited(): void {
+    this.galleryDetailRateLimited = true;
+    this.galleryDetailProbeAfter = this.getNextGalleryDetailProbeAt();
+  }
+
+  private clearGalleryDetailRateLimited(): void {
+    this.galleryDetailRateLimited = false;
+    this.galleryDetailProbeAfter = 0;
+  }
+
   private getCachedGallery(id: string): Gallery | undefined {
-    const entry = this.galleryCache.get(id);
+    const entry = this.galleryCache.getEntry(id);
     if (!entry) return undefined;
     // Check if expired
-    if (Date.now() - entry.ts > GALLERY_CACHE_TTL_MS) {
-      this.galleryCache.delete(id);
+    if (Date.now() - entry.createdDate.getTime() > GALLERY_CACHE_TTL_MS) {
+      this.galleryCache.removeItem(id);
       return undefined;
     }
-    // Move to end (LRU refresh)
-    this.galleryCache.delete(id);
-    this.galleryCache.set(id, entry);
-    return entry.gallery;
+    return entry.item.gallery;
   }
 
   private setCachedGallery(id: string, gallery: Gallery): void {
-    this.galleryCache.set(id, { gallery, ts: Date.now() });
-    // Prune if over size limit
-    if (this.galleryCache.size > 500) {
-      const oldestKey = this.galleryCache.keys().next().value;
-      if (oldestKey) this.galleryCache.delete(oldestKey);
-    }
+    this.galleryCache.addItem({ id, gallery });
     this.scheduleGalleryCacheSave();
   }
 
@@ -2206,7 +3613,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       const hadRateLimit = chunkResults.some((r) => r.hitRateLimit);
       if (hadRateLimit) {
         concurrency = 1; // Fall back to sequential for remaining items
-        await this.pause(150);
+        await this.pause(30);
       }
       relatedResults.push(
         ...chunkResults.map((entry) => ({
@@ -2296,7 +3703,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     this.relatedPoolLastHistoryIndex = 0;
     this.relatedPoolSeenIds = new Set<number>();
     this.relatedPoolHistoryIds = new Set<number>();
-    this.relatedFirstSeenPage = new Map<number, number>();
 
     try {
       Application.setState(undefined, this.RELATED_POOL_STATE_KEY);
@@ -2354,15 +3760,18 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getRelatedSection(
-    metadata: { page?: number; offset?: number } | undefined,
+    metadata: PaginationMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     if (!getEnableRelatedSetting()) return { items: [], metadata: undefined };
 
-    const offset = metadata?.offset ?? 0;
-    const relatedCarouselTiles = this.RELATED_PER_HISTORY + 1;
-    const limit =
-      offset === 0 ? relatedCarouselTiles : STANDARD_SECTION_PAGE_SIZE;
-    const minItems = MIN_CAROUSEL_TILES;
+    const offset = getEffectiveOffset(metadata);
+    const relatedCarouselTiles = getCarouselTiles();
+    const discoverPageSize = getDiscoverPageSize();
+    const limit = offset === 0 ? relatedCarouselTiles : discoverPageSize;
+    const minItems = offset === 0 ? relatedCarouselTiles : discoverPageSize;
+    if (limit <= 0) {
+      return { items: [], metadata: undefined };
+    }
 
     try {
       const history = getReadCache().ordered;
@@ -2383,9 +3792,10 @@ export class NHentaiExtension implements NHentaiImplementation {
       const hideReadInRelated = getHideReadInRelatedSetting();
       const readCache = hideReadInRelated ? getReadCache() : null;
       // When mark-read-on-desc is ON, exclude those manga from Related (they go to Last Read only)
-      const descMarkedIds = getMarkReadOnViewSetting()
-        ? getDescMarkedReadIds()
-        : null;
+      const descMarkedIds =
+        getHideReadSetting() && getMarkReadOnViewSetting()
+          ? getDescMarkedReadIds()
+          : null;
 
       const filterPool = (p: typeof pool) => {
         let filteredByRead = 0;
@@ -2396,7 +3806,9 @@ export class NHentaiExtension implements NHentaiImplementation {
           cycleLastIndex.set(p[index].cycleIndex, index);
         }
         const nextPool = p.filter((item) => {
+          const isBaseCycle = item.tag.startsWith("[r");
           if (
+            !isBaseCycle &&
             hideReadInRelated &&
             readCache &&
             readCache.has(item.id.toString())
@@ -2404,7 +3816,11 @@ export class NHentaiExtension implements NHentaiImplementation {
             filteredByRead++;
             return false;
           }
-          if (descMarkedIds && descMarkedIds.has(item.id.toString())) {
+          if (
+            !isBaseCycle &&
+            descMarkedIds &&
+            descMarkedIds.has(item.id.toString())
+          ) {
             filteredByDesc++;
             return false;
           }
@@ -2431,6 +3847,12 @@ export class NHentaiExtension implements NHentaiImplementation {
       pool = filterPool(pool);
 
       // Re-index [rN] tags sequentially after filtering so they start from [r1]
+      const alignPoolStart = () => {
+        const firstCycleStart = pool.findIndex((item) => item.tag === "[r1]");
+        if (firstCycleStart > 0) {
+          pool = pool.slice(firstCycleStart);
+        }
+      };
       let rCounter = 0;
       for (const item of pool) {
         if (item.tag.startsWith("[r")) {
@@ -2438,6 +3860,7 @@ export class NHentaiExtension implements NHentaiImplementation {
           item.tag = `[r${rCounter}]`;
         }
       }
+      alignPoolStart();
 
       for (
         let tries = 0;
@@ -2456,6 +3879,7 @@ export class NHentaiExtension implements NHentaiImplementation {
             item.tag = `[r${rCounter}]`;
           }
         }
+        alignPoolStart();
       }
 
       logDebug(
@@ -2486,6 +3910,7 @@ export class NHentaiExtension implements NHentaiImplementation {
             item.tag = `[r${rCounter}]`;
           }
         }
+        alignPoolStart();
 
         if (pool.length <= offset) {
           return { items: [], metadata: undefined };
@@ -2519,6 +3944,7 @@ export class NHentaiExtension implements NHentaiImplementation {
               item.tag = `[r${rCounter}]`;
             }
           }
+          alignPoolStart();
           expansions++;
 
           if (cursor >= pool.length) {
@@ -2556,7 +3982,13 @@ export class NHentaiExtension implements NHentaiImplementation {
           seenIds.add(item.id);
 
           const languageSlug = this.extractLanguageSlug(gallery.tags);
-          if (relatedLang !== "all" && languageSlug !== relatedLang) continue;
+          const isBaseCycle = item.tag.startsWith("[r");
+          if (
+            !isBaseCycle &&
+            relatedLang !== "all" &&
+            languageSlug !== relatedLang
+          )
+            continue;
 
           const title =
             gallery.title.pretty ??
@@ -2567,8 +3999,9 @@ export class NHentaiExtension implements NHentaiImplementation {
             forceShowNonPreferredLanguage: true,
             rereadCount: getRereadCount(gallery.id.toString()),
           });
+          const orderPrefix = item.tag;
           const subtitle = showRelatedOrder
-            ? `${item.tag} ${baseSubtitle}`
+            ? `${orderPrefix} ${baseSubtitle}`
             : baseSubtitle;
 
           items.push({
@@ -2619,7 +4052,9 @@ export class NHentaiExtension implements NHentaiImplementation {
 
       return {
         items,
-        metadata: items.length > 0 && hasMore ? { offset: cursor } : undefined,
+        metadata: hasMore
+          ? buildOffsetMetadata(offset + items.length, cursor)
+          : undefined,
       };
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
@@ -2629,13 +4064,15 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getLastReadSection(
-    metadata: { page?: number; offset?: number } | undefined,
+    metadata: PaginationMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     try {
-      const offset = metadata?.offset ?? 0;
+      const offset = getEffectiveOffset(metadata);
       // For carousel (offset = 0), show fewer tiles; for expanded view, show more
-      const limit =
-        offset === 0 ? SPECIAL_SECTION_CAROUSEL_TILES : LAST_READ_PAGE_SIZE;
+      const limit = offset === 0 ? getCarouselTiles() : getDiscoverPageSize();
+      if (limit <= 0) {
+        return { items: [], metadata: undefined };
+      }
 
       // Get ordered read history (newest first)
       const history = getReadCache().ordered;
@@ -2671,8 +4108,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       recordDisplayedTiles(items);
       return {
         items,
-        metadata:
-          items.length > 0 && hasMore ? { offset: offset + limit } : undefined,
+        metadata: hasMore
+          ? buildOffsetMetadata(offset + items.length, offset + limit)
+          : undefined,
       };
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
@@ -2682,15 +4120,15 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getTopRereadSection(
-    metadata: { page?: number; offset?: number } | undefined,
+    metadata: PaginationMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     try {
-      const offset = metadata?.offset ?? 0;
+      const offset = getEffectiveOffset(metadata);
       // For carousel (offset = 0), show fewer tiles; for expanded view, show more
-      const limit =
-        offset === 0
-          ? SPECIAL_SECTION_CAROUSEL_TILES
-          : STANDARD_SECTION_PAGE_SIZE;
+      const limit = offset === 0 ? getCarouselTiles() : getDiscoverPageSize();
+      if (limit <= 0) {
+        return { items: [], metadata: undefined };
+      }
 
       const allReread = getAllRereadManga();
       if (allReread.length === 0) {
@@ -2719,10 +4157,10 @@ export class NHentaiExtension implements NHentaiImplementation {
               imageUrl: normalizeBridgeString(this.buildCoverUrl(gallery)),
               title: normalizeBridgeString(title, `Gallery ${entry.mangaId}`),
               subtitle: normalizeBridgeString(
-                this.createSubtitle(gallery, {
+                this.createTileSubtitle(gallery, {
                   rereadCount: entry.count,
                   isTopReread: true,
-                }),
+                }).trim(),
               ),
               contentRating: ContentRating.ADULT,
               metadata: undefined,
@@ -2745,8 +4183,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       recordDisplayedTiles(items);
       return {
         items,
-        metadata:
-          items.length > 0 && hasMore ? { offset: offset + limit } : undefined,
+        metadata: hasMore
+          ? buildOffsetMetadata(offset + items.length, offset + limit)
+          : undefined,
       };
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
@@ -2756,21 +4195,39 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const gallery = await this.fetchGallery(sourceManga.mangaId);
-    const languageSlug = this.extractLanguageSlug(gallery.tags);
+    const existingInfo = sourceManga.mangaInfo;
+    const bestEffortTitle =
+      existingInfo?.primaryTitle ||
+      existingInfo?.secondaryTitles?.[0] ||
+      sourceManga.mangaId;
+    const chapterTitle = bestEffortTitle;
+    const sourceMangaWithMetadata = sourceManga as SourceManga & {
+      metadata?: Record<string, unknown>;
+    };
+    sourceMangaWithMetadata.metadata = {
+      ...(sourceMangaWithMetadata.metadata ?? {}),
+      chapterTitle,
+      chapterId: sourceManga.mangaId,
+      subtitle: existingInfo?.author ?? "",
+    };
 
+    if (!this.getCachedGallery(sourceManga.mangaId)) {
+      void this.fetchGallery(sourceManga.mangaId).catch((error) => {
+        logDebug("Background gallery fetch failed", error);
+      });
+    }
+
+    const cachedGallery = this.getCachedGallery(sourceManga.mangaId);
     const chapter: Chapter = {
-      chapterId: gallery.id.toString(),
+      chapterId: sourceManga.mangaId,
       sourceManga,
-      title:
-        gallery.title?.pretty ||
-        gallery.title?.english ||
-        gallery.title?.japanese ||
-        "",
+      title: chapterTitle,
       volume: 1,
       chapNum: 1,
-      langCode: this.mapLanguageToChapterCode(languageSlug),
-      publishDate: new Date(gallery.upload_date * 1000),
+      langCode: cachedGallery
+        ? this.getChapterLanguageCode(cachedGallery)
+        : "unk",
+      publishDate: new Date(),
     };
 
     return [chapter];
@@ -2778,6 +4235,7 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     const gallery = await this.fetchGallery(chapter.chapterId);
+    this.requestManager.resetImageFastWindowForGallery(gallery.media_id);
     const pages = gallery.images.pages.map((image, index) =>
       this.buildPageUrl(gallery, index + 1, image),
     );
@@ -2787,14 +4245,31 @@ export class NHentaiExtension implements NHentaiImplementation {
       .filter((t) => t.type === "tag")
       .map((t) => t.name)
       .slice(0, 12);
+    const wasDescMarked = getDescMarkedReadIds().has(
+      chapter.sourceManga.mangaId,
+    );
     markMangaAsRead(
       chapter.sourceManga.mangaId,
       gallery.title.pretty || gallery.title.english || gallery.title.japanese,
       readTags,
+      { forceFirstStatRead: wasDescMarked },
     );
     // If this manga was previously only desc-marked-read, it's now actually read
     // so remove it from the exclusion list so it appears in Related section
     removeDescMarkedReadId(chapter.sourceManga.mangaId);
+    try {
+      recordReadingSession(chapter.chapterId);
+      recordPageCount(gallery.num_pages);
+      const tagNames = gallery.tags
+        .filter(
+          (t) => t.type === "tag" || t.type === "male" || t.type === "female",
+        )
+        .map((t) => t.name);
+      if (tagNames.length > 0) recordTagCounts(tagNames);
+    } catch {
+      /* stats tracking should never break chapter loading */
+    }
+    this.debouncedInvalidateSearchFilters();
 
     const details: ChapterDetails = {
       id: chapter.chapterId,
@@ -2838,18 +4313,24 @@ export class NHentaiExtension implements NHentaiImplementation {
     attempt: number,
     status: number,
     headers: Record<string, string>,
+    endpointClass: EndpointClass,
   ): number {
+    const isGalleryDetail = endpointClass === "galleryDetail";
     const retryAfterMs = this.parseRetryAfterMs(headers);
     if (retryAfterMs !== undefined) {
-      const cap = status === 429 ? 4_000 : 10_000;
+      const cap = status === 429 ? (isGalleryDetail ? 2_200 : 900) : 3_000;
       return Math.min(cap, Math.max(300, retryAfterMs));
     }
 
     const baseMs =
-      status === 403 || status === 429 || status === 503 ? 600 : 300;
+      status === 403 || status === 429 || status === 503
+        ? isGalleryDetail
+          ? 900
+          : 100
+        : 120;
     const expMs = baseMs * Math.pow(2, attempt);
-    const jitterMs = Math.floor(Math.random() * 250);
-    const maxMs = status === 429 ? 4_000 : 10_000;
+    const jitterMs = Math.floor(Math.random() * (isGalleryDetail ? 250 : 120));
+    const maxMs = status === 429 ? (isGalleryDetail ? 2_200 : 900) : 3_000;
     return Math.min(maxMs, expMs + jitterMs);
   }
 
@@ -2861,7 +4342,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     const normalizedQuery = this.normalizeQueryString(query);
     const cacheKey = `${sort}|${page}|${normalizedQuery}`;
     const cached = this.searchCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SEARCH_CACHE_TTL_MS) {
+    if (cached && Date.now() - cached.ts < this.getSearchCacheTtl(cacheKey)) {
       return this.cloneQueryResponse(cached.response);
     }
 
@@ -2882,6 +4363,7 @@ export class NHentaiExtension implements NHentaiImplementation {
           response: this.cloneQueryResponse(hydrated),
           ts: Date.now(),
         });
+        this.saveSearchCache();
         return hydrated;
       },
     );
@@ -2910,8 +4392,8 @@ export class NHentaiExtension implements NHentaiImplementation {
       media_id: item.media_id,
       isLite: true,
       title: {
-        english: item.english_title ?? null,
-        japanese: item.japanese_title ?? null,
+        ...(item.english_title ? { english: item.english_title } : {}),
+        ...(item.japanese_title ? { japanese: item.japanese_title } : {}),
         pretty:
           item.english_title ?? item.japanese_title ?? `Gallery ${item.id}`,
       },
@@ -2928,7 +4410,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       },
       tags: [],
       num_pages: item.num_pages ?? 0, // Use page count from search API
-      num_favorites: 0, // Only available from gallery detail API
+      num_favorites: item.num_favorites ?? 0,
       upload_date: 0, // Only available from gallery detail API
     };
   }
@@ -2942,18 +4424,33 @@ export class NHentaiExtension implements NHentaiImplementation {
       return galleries;
     }
 
-    // Check if hydration is needed based on display settings
-    // Hydration fetches full gallery data (num_favorites, upload_date) which has lower rate limit (45/min)
-    // Skip if we don't need favorites in subtitle AND don't need upload_date for subtitle
+    // Check if hydration is needed based on display settings.
+    // Hydration fetches full gallery data, but the search payload now carries
+    // favorites, so only subtitle date options still require it.
     const displayOptions = getDisplayOptionsSetting();
-    const needsFavorites = displayOptions.includes("show_favorite_count");
     const needsUploadDate =
       displayOptions.includes("subtitle_date") ||
       displayOptions.includes("subtitle_relative");
 
-    if (!options?.force && !needsFavorites && !needsUploadDate) {
+    if (!options?.force && !needsUploadDate) {
       // Skip hydration - search API provides enough data (num_pages) for basic subtitles
       return galleries;
+    }
+    const allowLiteFallback = getRateLimitLiteFallbackSetting();
+
+    // If the lower 45/min gallery-detail budget is already consumed, switch to
+    // lite tiles immediately when fallback mode is enabled.
+    if (allowLiteFallback) {
+      const windowStart = Date.now() - 60_000;
+      const detailQueue = burstQueues.galleryDetail;
+      detailQueue.timestamps = detailQueue.timestamps.filter(
+        (t) => t > windowStart,
+      );
+      if (
+        detailQueue.timestamps.length >= getEndpointRateLimit("galleryDetail")
+      ) {
+        this.markGalleryDetailRateLimited();
+      }
     }
 
     const result = [...galleries];
@@ -2976,28 +4473,63 @@ export class NHentaiExtension implements NHentaiImplementation {
       return result;
     }
 
+    // While rate-limited, allow at most one probe request every 7 seconds.
+    if (allowLiteFallback && this.galleryDetailRateLimited) {
+      const now = Date.now();
+      if (now < this.galleryDetailProbeAfter) {
+        return result;
+      }
+
+      this.galleryDetailProbeAfter = this.getNextGalleryDetailProbeAt(now);
+      const probeIndex = liteIndexes.shift();
+      if (probeIndex === undefined) {
+        return result;
+      }
+
+      try {
+        const probeHydrated = await this.fetchGallery(
+          result[probeIndex].id.toString(),
+          { priority: "background", liteHydration: true },
+        );
+        if (probeHydrated) {
+          result[probeIndex] = probeHydrated;
+          this.clearGalleryDetailRateLimited();
+        }
+      } catch {
+        this.markGalleryDetailRateLimited();
+      }
+
+      if (this.galleryDetailRateLimited) {
+        return result;
+      }
+    }
+
     // Early return tracking for repeated 429 errors
     let consecutive429s = 0;
-    let successfulHydrations = 0;
-    const MAX_CONSECUTIVE_429S = 3; // Stop retrying after 3 consecutive 429s with no success
+    const MAX_CONSECUTIVE_429S = 1; // Return earlier once the detail endpoint is clearly throttled
 
-    const CONCURRENCY = 5;
+    const CONCURRENCY = 2;
     for (let i = 0; i < liteIndexes.length; i += CONCURRENCY) {
       const batchIndexes = liteIndexes.slice(i, i + CONCURRENCY);
       const hydratedBatch = await Promise.all(
         batchIndexes.map(async (index) => {
           const gallery = result[index];
           try {
-            const hydrated = await this.fetchGallery(gallery.id.toString());
+            const hydrated = await this.fetchGallery(gallery.id.toString(), {
+              priority: "background",
+              liteHydration: true,
+            });
             if (hydrated) {
               consecutive429s = 0; // Reset on success
-              successfulHydrations++;
             }
             return hydrated;
           } catch (e) {
             const msg = getErrorMessage(e);
             if (msg.includes("429")) {
               consecutive429s++;
+              if (allowLiteFallback) {
+                this.markGalleryDetailRateLimited();
+              }
             }
             return null;
           }
@@ -3011,15 +4543,21 @@ export class NHentaiExtension implements NHentaiImplementation {
         }
       }
 
-      // Early return if we're hitting rate limits repeatedly with no success
-      if (
-        consecutive429s >= MAX_CONSECUTIVE_429S &&
-        successfulHydrations === 0
-      ) {
+      // When repeated 429s happen, either fall back immediately (fast mode)
+      // or pause/retry (full subtitle mode).
+      if (consecutive429s >= MAX_CONSECUTIVE_429S) {
         console.log(
-          `[NHentai] Hydration stopped early: ${consecutive429s} consecutive 429 errors with no successful fetches. ` +
+          `[NHentai] Hydration throttled: ${consecutive429s} consecutive 429 errors. ` +
             `Returning ${result.filter((g) => !g.isLite).length} hydrated + ${result.filter((g) => g.isLite).length} lite galleries.`,
         );
+        if (allowLiteFallback) {
+          break;
+        }
+        await this.pause(200);
+        consecutive429s = 0;
+      }
+
+      if (allowLiteFallback && this.galleryDetailRateLimited) {
         break;
       }
     }
@@ -3101,7 +4639,7 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   /**
    * Fetch all alternatives in a single OR group and union results.
-   * Runs in batches of 2 to stay under NHentai rate limits.
+   * Runs in batches of 3 for faster OR expansion while keeping requests bounded.
    */
   private async fetchOrGroupUnion(
     baseQuery: string,
@@ -3112,7 +4650,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     logDebug(
       `[NHentai OR] Fetching OR group union: ${alternatives.length} alternatives`,
     );
-    const BATCH_SIZE = 2;
+    const BATCH_SIZE = 3;
     const results: Array<QueryResponse | null> = [];
     for (let i = 0; i < alternatives.length; i += BATCH_SIZE) {
       const batch = alternatives.slice(i, i + BATCH_SIZE);
@@ -3157,7 +4695,10 @@ export class NHentaiExtension implements NHentaiImplementation {
     return { result: merged, num_pages: maxPages, per_page: perPage };
   }
 
-  private async fetchGallery(mangaId: string): Promise<Gallery> {
+  private async fetchGallery(
+    mangaId: string,
+    options?: { priority?: RequestPriority; liteHydration?: boolean },
+  ): Promise<Gallery> {
     // Check persistent cache first
     const cached = this.getCachedGallery(mangaId);
     if (cached) {
@@ -3175,7 +4716,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       method: "GET",
     };
 
-    const fetchPromise = this.fetchJson<V2GalleryDetailResponse>(request)
+    const fetchPromise = this.fetchJson<V2GalleryDetailResponse>(request, {
+      priority: options?.priority ?? "foreground",
+    })
       .then((detail) => this.mapV2GalleryDetailToGallery(detail))
       .then((gallery) => {
         this.setCachedGallery(mangaId, gallery);
@@ -3214,8 +4757,8 @@ export class NHentaiExtension implements NHentaiImplementation {
       media_id: detail.media_id,
       isLite: false,
       title: {
-        english: detail.title?.english ?? null,
-        japanese: detail.title?.japanese ?? null,
+        ...(detail.title?.english ? { english: detail.title.english } : {}),
+        ...(detail.title?.japanese ? { japanese: detail.title.japanese } : {}),
         pretty:
           detail.title?.pretty ??
           detail.title?.english ??
@@ -3272,88 +4815,260 @@ export class NHentaiExtension implements NHentaiImplementation {
     await Application.sleep(ms / 1000);
   }
 
-  private async fetchJson<T>(request: Request): Promise<T> {
-    const endpointClass = classifyEndpoint(request.url);
+  private async getApiRoot(): Promise<V2RootResponse> {
+    if (
+      this.apiRootCache &&
+      Date.now() - this.apiRootCache.ts < 5 * 60 * 1000
+    ) {
+      return this.apiRootCache.response;
+    }
+    const response = await this.fetchJson<V2RootResponse>(
+      {
+        url: API_V2_URL,
+        method: "GET",
+      },
+      { priority: "foreground", skipPow: true },
+    );
+    this.apiRootCache = { response, ts: Date.now() };
+    return response;
+  }
+
+  private async getPowToken(
+    action: string,
+  ): Promise<PowTokenCacheEntry | undefined> {
+    const normalizedAction = action.trim() || "default";
+    const cached = this.powCache.get(normalizedAction);
+    if (cached && Date.now() - cached.ts < 90_000) {
+      return cached;
+    }
+
+    const pending = this.powPending.get(normalizedAction);
+    if (pending) return pending;
+
+    const pendingFetch = (async () => {
+      const challengeUrl =
+        normalizedAction === "default"
+          ? `${API_V2_URL}/pow`
+          : `${API_V2_URL}/pow?action=${encodeURIComponent(normalizedAction)}`;
+      const challenge = await this.fetchJson<V2PowResponse>(
+        {
+          url: challengeUrl,
+          method: "GET",
+        },
+        { priority: "foreground", skipPow: true },
+      );
+      if (!challenge.challenge) return undefined;
+      const difficulty = Math.max(0, Math.floor(challenge.difficulty ?? 0));
+      const token = this.solvePowChallenge(challenge.challenge, difficulty);
+      const entry = {
+        token,
+        challenge: challenge.challenge,
+        difficulty,
+        ts: Date.now(),
+      };
+      this.powCache.set(normalizedAction, entry);
+      return entry;
+    })().catch((error) => {
+      logDebug("PoW challenge unavailable", error);
+      return undefined;
+    });
+
+    this.powPending.set(normalizedAction, pendingFetch);
+    return pendingFetch.finally(() => {
+      this.powPending.delete(normalizedAction);
+    });
+  }
+
+  private solvePowChallenge(challenge: string, difficulty: number): string {
+    if (difficulty <= 0) {
+      return `${challenge}:0`;
+    }
+    const maxIterations = 2_000_000;
+    for (let nonce = 0; nonce < maxIterations; nonce++) {
+      const candidate = `${challenge}:${nonce}`;
+      const hash = sha256Bytes(utf8Bytes(candidate));
+      if (hasLeadingZeroBits(hash, difficulty)) {
+        return candidate;
+      }
+    }
+    throw new Error(`[NHentai] Unable to solve PoW challenge (${difficulty})`);
+  }
+
+  private requestNeedsPow(endpointClass: EndpointClass): boolean {
+    // PoW challenges are only required for authenticated (API-key-bearing)
+    // requests.  Anonymous traffic is rate-limited differently and never needs
+    // to solve a PoW puzzle — skip the /api/v2/pow round-trip entirely.
+    const apiKey = getApiKeyAuthorizedSetting()
+      ? getNHentaiApiKey()
+      : undefined;
+    if (!apiKey) {
+      return false;
+    }
+    switch (endpointClass) {
+      case "search":
+      case "galleryDetail":
+      case "galleries":
+      case "random":
+      case "related":
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private appendPowToRequest(request: Request, token: string): Request {
+    const separator = request.url.includes("?") ? "&" : "?";
+    return {
+      ...request,
+      url: `${request.url}${separator}pow=${encodeURIComponent(token)}`,
+      headers: {
+        ...(request.headers ?? {}),
+        "X-PoW-Token": token,
+      },
+    };
+  }
+
+  private async fetchJson<T>(
+    request: Request,
+    options?: {
+      priority?: RequestPriority;
+      skipPow?: boolean;
+      rateLimitEndpoint?: EndpointClass;
+    },
+  ): Promise<T> {
+    const preparedRequest = withNhentaiApiAuth(request);
+    const actualEndpointClass = classifyEndpoint(preparedRequest.url);
+    const endpointClass = options?.rateLimitEndpoint ?? actualEndpointClass;
+    const authenticated = hasAuthorizationHeader(preparedRequest);
+    let effectiveRequest = preparedRequest;
+    if (!options?.skipPow && this.requestNeedsPow(actualEndpointClass)) {
+      const pow = await this.getPowToken(actualEndpointClass);
+      if (pow) {
+        effectiveRequest = this.appendPowToRequest(preparedRequest, pow.token);
+      }
+    }
 
     // Use withRateLimit to serialize requests and enforce spacing
-    return withRateLimit(endpointClass, async () => {
-      const maxAttempts = 3;
-      let lastError: unknown;
+    return withRateLimit(
+      endpointClass,
+      async () => {
+        const maxAttempts = 2;
+        let lastError: unknown;
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-          const { response, text } = await this.fetchText(request);
-          const trimmed = text.trim();
-          const status = response.status;
-          const isHtml = trimmed.startsWith("<");
-          const isRateLimited =
-            status === 429 || status === 403 || status === 503;
-          const isRetryableServerError = status >= 500;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          try {
+            const { response, text } = await this.fetchText(effectiveRequest);
+            const trimmed = text.trim();
+            const status = response.status;
+            const isHtml = trimmed.startsWith("<");
+            const isRateLimited =
+              status === 429 || status === 403 || status === 503;
+            const isRetryableServerError = status >= 500;
 
-          if (isRateLimited || isRetryableServerError || isHtml) {
+            if (isRateLimited || isRetryableServerError || isHtml) {
+              if (actualEndpointClass === "galleryDetail" && status === 429) {
+                this.markGalleryDetailRateLimited();
+              }
+              if (status === 429) {
+                const retryAfterMs = this.parseRetryAfterMs(response.headers);
+                const queue = burstQueues[endpointClass];
+                const cooldown = Math.min(retryAfterMs ?? 60_000, 60_000);
+                queue.rateLimitedUntil = Math.max(
+                  queue.rateLimitedUntil,
+                  Date.now() + Math.max(1000, cooldown),
+                );
+              }
+              if (attempt < maxAttempts - 1) {
+                // On 429, use backoff delay
+                const waitMs = this.computeBackoffDelayMs(
+                  attempt,
+                  status,
+                  response.headers,
+                  endpointClass,
+                );
+                console.log(
+                  `[NHentai] HTTP ${status} for ${effectiveRequest.url} (attempt ${attempt + 1}/${maxAttempts}), waiting ${waitMs}ms before retry`,
+                );
+                await this.pause(waitMs);
+                continue;
+              }
+
+              if (status === 403 || status === 503) {
+                this.checkCloudflareStatus(status);
+              }
+
+              throw new Error(
+                `[NHentai] HTTP ${status} for ${effectiveRequest.url} after ${maxAttempts} attempts`,
+              );
+            }
+
+            if (status < 200 || status >= 300) {
+              throw new Error(
+                `[NHentai] HTTP ${status} for ${effectiveRequest.url}`,
+              );
+            }
+
+            if (actualEndpointClass === "galleryDetail") {
+              this.clearGalleryDetailRateLimited();
+            }
+
+            const parsed = JSON.parse(text) as T & { error?: string };
+
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              "error" in parsed &&
+              parsed.error
+            ) {
+              throw new Error(parsed.error);
+            }
+
+            return parsed;
+          } catch (error) {
+            // CloudflareError must bubble up immediately so the framework
+            // can present the Cloudflare challenge to the user.
+            if (error instanceof CloudflareError) throw error;
+            if (
+              actualEndpointClass === "galleryDetail" &&
+              getErrorMessage(error).includes("429")
+            ) {
+              this.markGalleryDetailRateLimited();
+            }
+            lastError = error;
             if (attempt < maxAttempts - 1) {
-              // On 429, use backoff delay
-              const waitMs = this.computeBackoffDelayMs(
-                attempt,
-                status,
-                response.headers,
-              );
-              console.log(
-                `[NHentai] HTTP ${status} for ${request.url} (attempt ${attempt + 1}/${maxAttempts}), waiting ${waitMs}ms before retry`,
-              );
-              await this.pause(waitMs);
+              await this.pause((attempt + 1) * 75);
               continue;
             }
-
-            if (status === 403 || status === 503) {
-              this.checkCloudflareStatus(status);
-            }
-
-            throw new Error(
-              `[NHentai] HTTP ${status} for ${request.url} after ${maxAttempts} attempts`,
-            );
-          }
-
-          if (status < 200 || status >= 300) {
-            throw new Error(`[NHentai] HTTP ${status} for ${request.url}`);
-          }
-
-          const parsed = JSON.parse(text) as T & { error?: string };
-
-          if (
-            parsed &&
-            typeof parsed === "object" &&
-            "error" in parsed &&
-            parsed.error
-          ) {
-            throw new Error(parsed.error);
-          }
-
-          return parsed;
-        } catch (error) {
-          // CloudflareError must bubble up immediately so the framework
-          // can present the Cloudflare challenge to the user.
-          if (error instanceof CloudflareError) throw error;
-          lastError = error;
-          if (attempt < maxAttempts - 1) {
-            await this.pause((attempt + 1) * 250);
-            continue;
           }
         }
-      }
 
-      throw lastError instanceof Error
-        ? lastError
-        : new Error(`[NHentai] Failed to fetch JSON from ${request.url}`);
-    });
+        throw lastError instanceof Error
+          ? lastError
+          : new Error(
+              `[NHentai] Failed to fetch JSON from ${effectiveRequest.url}`,
+            );
+      },
+      { authenticated, priority: options?.priority ?? "foreground" },
+    );
   }
 
   private async refreshCdnConfig(): Promise<void> {
     try {
-      const response = await this.fetchJson<V2CdnResponse>({
-        url: `${API_V2_URL}/cdn`,
-        method: "GET",
-      });
+      const response = await this.fetchJson<V2ConfigResponse>(
+        {
+          url: `${API_V2_URL}/config`,
+          method: "GET",
+        },
+        { skipPow: true, priority: "foreground" },
+      ).catch(() =>
+        this.fetchJson<V2CdnResponse>(
+          {
+            url: `${API_V2_URL}/cdn`,
+            method: "GET",
+          },
+          { skipPow: true, priority: "foreground" },
+        ),
+      );
 
       const imageServers = (response.image_servers ?? [])
         .map((server) => server?.trim())
@@ -3549,7 +5264,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     return this.normalizeQueryString(tokens.join(" "));
   }
 
-  private buildFilterTokens(filters: SearchQuery["filters"] | undefined): {
+  private buildFilterTokens(filters: SearchFilterValue[] | undefined): {
     tokens: string[];
     favoritesConstraint?: { min?: number; max?: number };
     pagesConstraint?: { exact?: number; min?: number; max?: number };
@@ -3599,7 +5314,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
 
     if (favoritesOptionToken) {
-      tokens.push(`favorites:${favoritesOptionToken}`);
       const favoritesMatch = favoritesOptionToken.match(/^(>=|<=|>|<)?(\d+)$/);
       if (favoritesMatch) {
         const operator = favoritesMatch[1];
@@ -3608,13 +5322,17 @@ export class NHentaiExtension implements NHentaiImplementation {
           if (operator === ">=" || operator === ">") {
             favoritesConstraint = {
               ...(favoritesConstraint ?? {}),
-              min: operator === ">" ? value + 1 : value,
+              min: value,
             };
           } else if (operator === "<=" || operator === "<") {
             favoritesConstraint = {
               ...(favoritesConstraint ?? {}),
-              max: operator === "<" ? value - 1 : value,
+              max: value,
             };
+          }
+
+          if (operator !== "<=" && operator !== "<") {
+            tokens.push(`favorites:${favoritesOptionToken}`);
           }
         }
       }
@@ -3632,15 +5350,15 @@ export class NHentaiExtension implements NHentaiImplementation {
         if (favoritesThreshold !== undefined) {
           tokens.push(`favorites:>=${favoritesThreshold}`);
         }
-        if (favoritesThresholdMax !== undefined) {
-          tokens.push(`favorites:<=${favoritesThresholdMax}`);
-        }
+        // Keep max filtering client-side; API-side upper bounds are inconsistent.
       }
     }
 
     // Date filters (search dropdown overrides settings)
     // NHentai API: uploaded:<Xd = newer than X days, uploaded:>Xd = older than X days
-    const hasDateFilter = filters?.some((f) => f.id === "daysOld");
+    const hasDateFilter = filters?.some(
+      (f: SearchFilterValue) => f.id === "daysOld",
+    );
     if (dateToken && dateToken !== "all") {
       const preset = DATE_FILTER_PRESETS.find((p) => p.id === dateToken);
       if (preset?.days !== undefined) {
@@ -3685,24 +5403,37 @@ export class NHentaiExtension implements NHentaiImplementation {
         tokens.push(`pages:<=${pagesConstraint.max}`);
     }
 
+    // Tags tokens (selected in search UI)
+    const tagsFilter = filters?.find((f) => f.id === "tags")?.value as
+      | Record<string, "included" | "excluded">
+      | undefined;
+    if (tagsFilter) {
+      for (const [tagId, state] of Object.entries(tagsFilter)) {
+        if (state === "included") tokens.push(tagId);
+        else if (state === "excluded") tokens.push(`-${tagId}`);
+      }
+    }
+
     return { tokens, favoritesConstraint, pagesConstraint, dateConstraint };
   }
 
   private getDropdownValue(
-    filters: SearchQuery["filters"] | undefined,
+    filters: SearchFilterValue[] | undefined,
     id: string,
   ): string | undefined {
     if (!filters) return undefined;
-    const filter = filters.find((entry) => entry.id === id);
+    const filter = filters.find((entry: SearchFilterValue) => entry.id === id);
     return typeof filter?.value === "string" ? filter.value : undefined;
   }
 
   private mapGalleryToDiscoverItem(gallery: Gallery): DiscoverSectionItem {
     const subtitle = this.createTileSubtitle(gallery).trim();
+    const imageUrl = normalizeBridgeString(this.buildCoverUrl(gallery));
+    this.prefetchThumbnailUrl(imageUrl);
     return {
       type: "simpleCarouselItem",
       mangaId: normalizeBridgeString(gallery.id, "0"),
-      imageUrl: normalizeBridgeString(this.buildCoverUrl(gallery)),
+      imageUrl,
       title: normalizeBridgeString(
         gallery.title?.pretty ||
           gallery.title?.english ||
@@ -3711,15 +5442,16 @@ export class NHentaiExtension implements NHentaiImplementation {
       ),
       subtitle: subtitle.length > 0 ? subtitle : undefined,
       contentRating: ContentRating.ADULT,
-      metadata: undefined,
     };
   }
 
   private mapGalleryToSearchResult(gallery: Gallery): SearchResultItem {
     const subtitle = this.createTileSubtitle(gallery).trim();
+    const imageUrl = normalizeBridgeString(this.buildCoverUrl(gallery));
+    this.prefetchThumbnailUrl(imageUrl);
     return {
       mangaId: normalizeBridgeString(gallery.id, "0"),
-      imageUrl: normalizeBridgeString(this.buildCoverUrl(gallery)),
+      imageUrl,
       title: normalizeBridgeString(
         gallery.title?.pretty ||
           gallery.title?.english ||
@@ -3728,13 +5460,17 @@ export class NHentaiExtension implements NHentaiImplementation {
       ),
       subtitle: subtitle.length > 0 ? subtitle : undefined,
       contentRating: ContentRating.ADULT,
-      metadata: undefined,
     };
   }
 
-  private createTileSubtitle(gallery: Gallery): string {
+  private createTileSubtitle(
+    gallery: Gallery,
+    options?: { rereadCount?: number; isTopReread?: boolean },
+  ): string {
     return this.createSubtitle(gallery, {
-      rereadCount: getRereadCount(gallery.id.toString()),
+      rereadCount:
+        options?.rereadCount ?? getRereadCount(gallery.id.toString()),
+      isTopReread: options?.isTopReread,
     });
   }
 
@@ -3791,6 +5527,57 @@ export class NHentaiExtension implements NHentaiImplementation {
     return `${host}/${normalizedPath}`;
   }
 
+  private prefetchThumbnailUrl(url: string): void {
+    if (!url || this.prefetchedThumbnails.has(url)) return;
+    this.prefetchedThumbnails.add(url);
+    if (this.prefetchedThumbnails.size > 2000) {
+      const oldest = this.prefetchedThumbnails.values().next().value;
+      if (typeof oldest === "string") {
+        this.prefetchedThumbnails.delete(oldest);
+      }
+    }
+    void Application.scheduleRequest({
+      url,
+      method: "GET",
+      headers: {
+        Referer: DOMAIN,
+      },
+    }).catch((error) => {
+      logDebug("Thumbnail prefetch failed", error);
+    });
+  }
+
+  private eagerPrefetchCoverPaths(mangaId: string): void {
+    // Eagerly prefetch cover paths while gallery API call is in-flight.
+    // Uses actual CDN servers from /api/v2/cdn config. If config not yet loaded,
+    // schedules a refresh and tries again. This reduces thumbnail latency by
+    // parallelizing with the API fetch (~500ms).
+    const quality = getThumbnailQualitySetting();
+    if (quality === "high") return; // High quality needs actual first page path from API
+
+    // Ensure CDN config is loaded
+    if (!this.cdnThumbServers || this.cdnThumbServers.length === 0) {
+      // Config not ready yet, trigger refresh and exit (will be prefetched after API call)
+      void this.refreshCdnConfig().catch((error) =>
+        logDebug("CDN config refresh for eager prefetch failed", error),
+      );
+      return;
+    }
+
+    // We don't know media_id yet (only available after API responds), so prefetch
+    // all CDN servers — one of them will be correct and the others are cheap misses.
+    for (const server of this.cdnThumbServers) {
+      if (!server) continue;
+      const normalizedServer = server.replace(/\/+$/, "");
+      const coverUrl = `${normalizedServer}/galleries/${mangaId}/cover.webp`;
+      this.prefetchThumbnailUrl(coverUrl);
+      if (quality === "low") {
+        const thumbUrl = `${normalizedServer}/galleries/${mangaId}/thumb.webp`;
+        this.prefetchThumbnailUrl(thumbUrl);
+      }
+    }
+  }
+
   private buildCoverUrl(gallery: Gallery): string {
     const quality = getThumbnailQualitySetting();
     const mediaId = gallery.media_id;
@@ -3805,8 +5592,8 @@ export class NHentaiExtension implements NHentaiImplementation {
     );
 
     if (quality === "high") {
-      // High: use full first page image from i{N}.nhentai.net
-      // Example: //i2.nhentai.net/galleries/3744798/1.webp
+      // High: use the first page path returned by the API. Do not synthesize
+      // CDN media paths; invalid patterns can trigger server-side bans.
       const firstPage = gallery.images.pages[0];
       if (firstPage?.path) {
         const url = this.buildAbsoluteMediaUrl(
@@ -3815,14 +5602,6 @@ export class NHentaiExtension implements NHentaiImplementation {
           "image",
         );
         logDebug("High quality URL:", url);
-        return url;
-      }
-
-      if (firstPage) {
-        const extension = this.getImageExtension(firstPage);
-        const host = this.pickMediaServer(this.cdnImageServers, mediaId, "i");
-        const url = `${host}/galleries/${mediaId}/1.${extension}`;
-        logDebug("High quality fallback URL:", url);
         return url;
       }
     }
@@ -3839,11 +5618,6 @@ export class NHentaiExtension implements NHentaiImplementation {
         logDebug("Low quality (thumb path) URL:", url);
         return url;
       }
-
-      const host = this.pickMediaServer(this.cdnThumbServers, mediaId, "t");
-      const url = `${host}/galleries/${mediaId}/thumb.webp`;
-      logDebug("Low quality (thumb) URL:", url);
-      return url;
     }
 
     // Normal (default): cover.webp (medium quality cover)
@@ -3857,11 +5631,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       logDebug("Normal quality (cover path) URL:", url);
       return url;
     }
-
-    const host = this.pickMediaServer(this.cdnThumbServers, mediaId, "t");
-    const url = `${host}/galleries/${mediaId}/cover.webp`;
-    logDebug("Normal quality (cover) URL:", url);
-    return url;
+    return `${DOMAIN}/favicon.ico`;
   }
 
   private buildPageUrl(
@@ -3878,28 +5648,117 @@ export class NHentaiExtension implements NHentaiImplementation {
       logDebug("Page URL for index", index, ":", url, "from path");
       return url;
     }
-
-    const extension = this.getImageExtension(image);
-    const mediaId = gallery.media_id;
-    const host = this.pickMediaServer(this.cdnImageServers, mediaId, "i");
-
-    const url = `${host}/galleries/${mediaId}/${index}.${extension}`;
-    logDebug("Page URL for index", index, ":", url, "extension:", extension);
-    return url;
+    throw new Error(
+      `[NHentai] Missing API-provided page path for gallery ${gallery.id} page ${index}`,
+    );
   }
 
-  private getImageExtension(image: GalleryImage): string {
-    if (image.path) {
-      const dot = image.path.lastIndexOf(".");
-      const slash = image.path.lastIndexOf("/");
-      if (dot > slash && dot >= 0) {
-        return image.path.slice(dot + 1).toLowerCase();
+  private createSynopsis(gallery: Gallery): {
+    synopsis: string;
+    excludedTags: Set<string>;
+  } {
+    const displayOptions = getDisplayOptionsSetting();
+    const excludedTags = new Set<string>();
+    const dateFmt = getDateFormatSetting();
+    const uploadDate = new Date(gallery.upload_date * 1000);
+    const pageCount = Number.isFinite(Number(gallery.num_pages))
+      ? Math.max(0, Math.floor(Number(gallery.num_pages)))
+      : 0;
+    const favoriteCount = Number.isFinite(Number(gallery.num_favorites))
+      ? Math.max(0, Math.floor(Number(gallery.num_favorites)))
+      : 0;
+    const rereadCount = getRereadCount(gallery.id.toString());
+    const showReread = rereadCount > 1;
+    const languageSlug = this.extractLanguageSlug(gallery.tags);
+    const languageAbbrev = getLanguageAbbreviationFromSlug(languageSlug);
+    const parts: string[] = [];
+    if (displayOptions.includes("show_lang_desc")) {
+      parts.push(languageAbbrev);
+    }
+
+    const isRead = isMangaRead(gallery.id.toString());
+    const showReadLetter = displayOptions.includes("hide_read_letter");
+    const readPrefix = isRead && showReadLetter ? "r" : "";
+    if (
+      displayOptions.length === 0 ||
+      displayOptions.includes("show_page_count")
+    ) {
+      parts.push(
+        showReread
+          ? `${rereadCount}r${pageCount}p`
+          : `${readPrefix}${pageCount}p`,
+      );
+    }
+
+    if (favoriteCount > 0) {
+      let favs = favoriteCount.toString();
+      if (favoriteCount >= 1_000_000) {
+        favs = `${Math.round(favoriteCount / 1_000_000)}M`;
+      } else if (favoriteCount >= 1000) {
+        favs = `${Math.round(favoriteCount / 1000)}k`;
+      }
+      parts.push(favs);
+    }
+
+    const uploadHours = uploadDate.getHours();
+    const uploadMins = uploadDate.getMinutes();
+    const uploadMinsStr = uploadMins.toString().padStart(2, "0");
+    const useMilitaryTime = NHentaiSettings.getMilitaryTimeSetting();
+    const uploadTimeStr = useMilitaryTime
+      ? `${uploadHours.toString().padStart(2, "0")}:${uploadMinsStr}`
+      : `${((uploadHours + 11) % 12) + 1}:${uploadMinsStr}${uploadHours >= 12 ? "PM" : "AM"}`;
+
+    let dateAbsolute = "";
+    if (displayOptions.includes("desc_show_date")) {
+      dateAbsolute = `${formatDateByPattern(uploadDate, dateFmt)} @ ${uploadTimeStr}`;
+    }
+    const dateRelative = displayOptions.includes("desc_relative_date")
+      ? this.relativeTime(uploadDate)
+      : "";
+    if (dateRelative) parts.push(dateRelative);
+    if (dateAbsolute) parts.push(dateAbsolute);
+    if (displayOptions.includes("show_id")) {
+      parts.push(gallery.id.toString());
+    }
+
+    const removeSpaces = getRemoveSeparatorSpacesSetting();
+    const separator = removeSpaces ? "|" : " | ";
+    const infoLine = parts.join(separator);
+    const topTags = this.getTopTags(gallery);
+    const tagsLine = topTags.length > 0 ? topTags.join(", ") : "";
+    for (const tag of topTags) excludedTags.add(tag);
+
+    const parodies = gallery.tags
+      .filter((t) => t.type === "parody")
+      .map((t) => t.name.replace(/_/g, " ").trim())
+      .filter((name) => name.length > 0);
+    const characters = gallery.tags
+      .filter((t) => t.type === "character")
+      .map((t) => t.name.replace(/_/g, " ").trim())
+      .filter((name) => name.length > 0);
+    const extraLines: string[] = [];
+
+    if (displayOptions.includes("parodies_bottom")) {
+      const nonOriginalParodies = parodies.filter(
+        (p) => p.toLowerCase() !== "original",
+      );
+      if (nonOriginalParodies.length > 0) {
+        extraLines.push(`Parodies: ${parodies.join(", ")}`);
+      }
+      if (characters.length > 0) {
+        extraLines.push(`Characters: ${characters.join(", ")}`);
+      }
+      for (const parody of parodies) excludedTags.add(parody.toLowerCase());
+      for (const character of characters) {
+        excludedTags.add(character.toLowerCase());
       }
     }
-    if (image.t) {
-      return IMAGE_TYPE_MAP[image.t] ?? "jpg";
-    }
-    return "jpg";
+
+    let synopsis = infoLine;
+    if (tagsLine) synopsis += `\n${tagsLine}`;
+    if (extraLines.length > 0) synopsis += `\n${extraLines.join("\n")}`;
+
+    return { synopsis, excludedTags };
   }
 
   private createSubtitle(
@@ -3912,8 +5771,14 @@ export class NHentaiExtension implements NHentaiImplementation {
   ): string {
     const isRead = isMangaRead(gallery.id.toString());
     const displayOptions = getDisplayOptionsSetting();
-    const showReadLetter = displayOptions.includes("hide_read_letter"); // Note: Despite the name, this now means "show" when present
+    const showReadLetter = displayOptions.includes("hide_read_letter");
     const readPrefix = isRead && showReadLetter ? "r" : "";
+    const pageCount = Number.isFinite(Number(gallery.num_pages))
+      ? Math.max(0, Math.floor(Number(gallery.num_pages)))
+      : 0;
+    const favoriteCount = Number.isFinite(Number(gallery.num_favorites))
+      ? Math.max(0, Math.floor(Number(gallery.num_favorites)))
+      : 0;
     const languageSlug = this.extractLanguageSlug(gallery.tags);
     const showRereadEverywhere = displayOptions.includes("show_reread_count");
     const rereadCount = options?.rereadCount;
@@ -3921,27 +5786,34 @@ export class NHentaiExtension implements NHentaiImplementation {
       rereadCount !== undefined &&
       rereadCount > 1 &&
       (options?.isTopReread || showRereadEverywhere);
+    const safeRereadCount = showReread ? rereadCount : 0;
+    const showPageCount = displayOptions.includes("show_page_count");
+    const showFavoriteCount = displayOptions.includes("show_favorite_count");
 
     // Format as "7r55p" when reread count is shown alongside pages.
-    const hasPageCount = gallery.num_pages > 0;
+    const hasPageCount = pageCount > 0;
     const pagesStr = hasPageCount
-      ? showReread
-        ? `${rereadCount}${readPrefix}${gallery.num_pages}p`
-        : `${readPrefix}${gallery.num_pages}p`
+      ? showReread && showPageCount
+        ? `${safeRereadCount}r${pageCount}p`
+        : showReread
+          ? `${safeRereadCount}r`
+          : showPageCount
+            ? `${readPrefix}${pageCount}p`
+            : ""
       : "";
 
     let favStr = "";
-    if (gallery.num_favorites > 0) {
+    if (showFavoriteCount && favoriteCount > 0) {
       if (
         displayOptions.includes("abbreviate_favorites") &&
-        gallery.num_favorites >= 1000
+        favoriteCount >= 1000
       ) {
         favStr =
-          gallery.num_favorites >= 1_000_000
-            ? `${Math.round(gallery.num_favorites / 1_000_000)}M`
-            : `${Math.round(gallery.num_favorites / 1000)}k`;
+          favoriteCount >= 1_000_000
+            ? `${Math.round(favoriteCount / 1_000_000)}M`
+            : `${Math.round(favoriteCount / 1000)}k`;
       } else {
-        favStr = gallery.num_favorites.toString();
+        favStr = favoriteCount.toString();
       }
     }
 
@@ -3992,15 +5864,21 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     // Keep subtitles visible for lightweight search/discover payloads
     // which may not include page/favorite/date details.
-    if (subtitleParts.length === 0 && gallery.num_pages > 0) {
-      subtitleParts.push(`${readPrefix}${gallery.num_pages}p`);
+    if (subtitleParts.length === 0 && showPageCount && pageCount > 0) {
+      subtitleParts.push(`${readPrefix}${pageCount}p`);
     }
 
     if (subtitleParts.length === 0) {
-      if (gallery.isLite) {
+      if (readPrefix) {
+        subtitleParts.push(readPrefix);
+      } else if (gallery.isLite) {
         return "";
       }
-      subtitleParts.push(readPrefix ? `${readPrefix}0p` : "0p");
+      if (!readPrefix && showPageCount) {
+        subtitleParts.push("0p");
+      } else if (!readPrefix) {
+        return "";
+      }
     }
 
     // Get remove spaces setting
@@ -4067,21 +5945,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
 
     return order;
-  }
-
-  private mapLanguageToChapterCode(slug: string | undefined): string {
-    switch (slug) {
-      case "english":
-        return "EN";
-      case "japanese":
-        return "JP";
-      case "chinese":
-        return "ZH";
-      case "korean":
-        return "KO";
-      default:
-        return "EN";
-    }
   }
 
   private buildTagTokens(tags: Tag[] | undefined, excluded: boolean): string[] {
@@ -4349,7 +6212,9 @@ export class NHentaiExtension implements NHentaiImplementation {
       const hours = uploadDate.getHours();
       const mins = uploadDate.getMinutes().toString().padStart(2, "0");
       const period = hours >= 12 ? "PM" : "AM";
-      const hour12 = ((hours + 11) % 12) + 1;
+      const formattedTime = NHentaiSettings.getMilitaryTimeSetting()
+        ? `${hours.toString().padStart(2, "0")}:${mins}`
+        : `${((hours + 11) % 12) + 1}:${mins}${period}`;
       const formattedDate = formatDateByPattern(
         uploadDate,
         getDateFormatSetting(),
@@ -4360,7 +6225,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         tags: [
           {
             id: `date_${gallery.id}`,
-            title: `${formattedDate} @ ${hour12}:${mins}${period}`,
+            title: `${formattedDate} @ ${formattedTime}`,
           },
         ],
       });
@@ -4373,6 +6238,24 @@ export class NHentaiExtension implements NHentaiImplementation {
         title: "ID",
         tags: [{ id: `id_${gallery.id}`, title: gallery.id.toString() }],
       });
+    }
+
+    const artistSections = sections.filter(
+      (section) => section.id === "artists" || section.id === "groups",
+    );
+    if (artistSections.length > 0) {
+      const withoutArtists = sections.filter(
+        (section) => section.id !== "artists" && section.id !== "groups",
+      );
+      const idIndex = withoutArtists.findIndex(
+        (section) => section.id === "gallery_id",
+      );
+      if (idIndex >= 0) {
+        withoutArtists.splice(idIndex, 0, ...artistSections);
+      } else {
+        withoutArtists.push(...artistSections);
+      }
+      return withoutArtists;
     }
 
     return sections;
@@ -4429,12 +6312,12 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   private relativeTime(date: Date): string {
-    const now = Date.now();
-    const diffMs = now - date.getTime();
+    const now = new Date();
+    const diffMs = Math.max(0, now.getTime() - date.getTime());
     const sec = Math.floor(diffMs / 1000);
     const min = Math.floor(sec / 60);
     const hr = Math.floor(min / 60);
-    const day = Math.floor(hr / 24);
+    const day = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const years = day / 365;
     // Format as years if over 999 days or 1+ year
     if (day > 999 || years >= 1) return `${years.toFixed(1)}y`;
@@ -4445,17 +6328,20 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   private resolveSortOrder(
-    query: SearchQuery,
+    _query: SearchQuery<SearchFilterValue[]>,
     sortingOption?: SortingOption,
   ): string {
     if (sortingOption?.id) {
       return sortingOption.id;
     }
 
-    const sortFilter = query.filters?.find((filter) => filter.id === "sort");
+    const queryFilters: SearchFilterValue[] = []; // Compat API removed
+    const sortFilter = queryFilters.find(
+      (filter: SearchFilterValue) => filter.id === "sort",
+    );
     if (sortFilter && typeof sortFilter.value === "string") {
       const match = SORT_OPTIONS.find(
-        (option) => option.id === sortFilter.value,
+        (option) => option.id === (sortFilter.value as string),
       );
       if (match) {
         return match.id;
@@ -4463,6 +6349,24 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
 
     return getDefaultSearchSortSetting();
+  }
+
+  private formatSearchSortLabel(sortBy: string): string {
+    return SORT_OPTIONS.find((option) => option.id === sortBy)?.label ?? sortBy;
+  }
+
+  private getChapterLanguageCode(gallery: Gallery): string {
+    const languageSlug = this.extractLanguageSlug(gallery.tags);
+    switch (languageSlug) {
+      case "japanese":
+        return "jp";
+      case "chinese":
+        return "cn";
+      case "english":
+        return "en";
+      default:
+        return "unk";
+    }
   }
 
   private getOptionToken(
@@ -4519,12 +6423,21 @@ function persistReadCache(): void {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function recordDisplayedTiles(items: readonly any[]): void {
+function recordDisplayedTiles(items: readonly unknown[]): void {
   for (const item of items) {
     try {
-      const id = (item as { mangaId?: string }).mangaId;
-      if (typeof id === "string") incrementDisplayedManga(id);
+      const candidate =
+        item && typeof item === "object"
+          ? (item as {
+              mangaId?: unknown;
+              id?: unknown;
+              galleryId?: unknown;
+            })
+          : undefined;
+      const id = candidate?.mangaId ?? candidate?.id ?? candidate?.galleryId;
+      if (typeof id === "string" || typeof id === "number") {
+        incrementDisplayedManga(id);
+      }
     } catch {
       /* non-critical stats */
     }
@@ -4539,15 +6452,17 @@ function markMangaAsRead(
   mangaId: string,
   title?: string | null,
   tags?: string[],
-): void {
+  options?: { trackStats?: boolean; forceFirstStatRead?: boolean },
+): { isFirstRead: boolean } {
   // Don't mark as read if incognito/pause mode is enabled
   if (getIncognitoModeSetting()) {
-    return;
+    return { isFirstRead: false };
   }
 
   const history = getReadCache();
+  const wasRead = history.has(mangaId);
   const isFirstRead = history.markRead(mangaId);
-  if (isFirstRead) {
+  if (isFirstRead || wasRead) {
     persistReadCache();
     // Invalidate related pool so it rebuilds with new history
     try {
@@ -4555,133 +6470,23 @@ function markMangaAsRead(
     } catch {
       /* ignore */
     }
+    // Notify framework that filters/search results may need updating so
+    // description and lists that rely on read-state refresh promptly.
+    try {
+      // Application.invalidateSearchFilters() - API removed
+    } catch {
+      /* ignore */
+    }
   }
-  recordMangaReadCount(mangaId, title, isFirstRead, tags);
-}
 
-export function exportReadHistoryDebug(): void {
-  try {
-    const timestamp = Date.now();
-    const legacyKeys = [
-      "nhentai.viewedHistory",
-      "nhentai.viewHistory",
-      "nhentai.readCache",
-      "nhentai.read",
-      "nhentai.read_history",
-    ];
-
-    const canonical =
-      (Application.getState(READ_STATE_KEY) as string[] | undefined) ?? [];
-    const legacyFound: Record<string, { count: number; sample: string[] }> = {};
-
-    for (const k of legacyKeys) {
-      const v = (Application.getState(k) as string[] | undefined) ?? [];
-      if (Array.isArray(v) && v.length > 0) {
-        legacyFound[k] = { count: v.length, sample: v.slice(0, 10) };
-      }
-    }
-
-    const migratedFrom: string[] = [];
-    for (const k of legacyKeys) {
-      const flag = Application.getState(
-        `${READ_STATE_KEY}.migratedFrom.${k}`,
-      ) as boolean | undefined;
-      if (flag) migratedFrom.push(k);
-    }
-
-    const snapshot = {
-      timestamp: new Date(timestamp).toISOString(),
-      canonical: {
-        key: READ_STATE_KEY,
-        count: canonical.length,
-        sample: canonical.slice(0, 20),
-      },
-      legacy: legacyFound,
-      migratedFrom: migratedFrom,
-      note: "Oldest read date cannot be determined because timestamps are not stored with read-history entries.",
-    };
-
-    Application.setState(snapshot, `${READ_STATE_KEY}.export.${timestamp}`);
-
-    console.log(
-      "[NHentai ReadHistory Export] Snapshot saved at:",
-      `${READ_STATE_KEY}.export.${timestamp}`,
-    );
-    console.log(
-      "[NHentai ReadHistory Export] Summary:",
-      JSON.stringify(snapshot, null, 2),
-    );
-  } catch (e) {
-    console.error("[NHentai ReadHistory Export] Failed", e);
+  const shouldTrackStats = options?.trackStats ?? true;
+  // Stats can be disabled independently from read-history.
+  if (shouldTrackStats && getStatsTrackingEnabledSetting()) {
+    const statsFirstRead = options?.forceFirstStatRead ? true : isFirstRead;
+    recordMangaReadCount(mangaId, title, statsFirstRead, tags);
   }
-}
 
-export function consolidateLegacyReadHistory(performCleanup = false): void {
-  try {
-    const legacyKeys = [
-      "nhentai.viewedHistory",
-      "nhentai.viewHistory",
-      "nhentai.readCache",
-      "nhentai.read",
-      "nhentai.read_history",
-    ];
-
-    const ctx: Record<string, string[]> = {};
-    for (const k of legacyKeys) {
-      const v = (Application.getState(k) as string[] | undefined) ?? [];
-      if (Array.isArray(v) && v.length > 0) ctx[k] = v;
-    }
-
-    if (Object.keys(ctx).length === 0) {
-      console.log(
-        "[NHentai ReadHistory Consolidate] No legacy read-history data found.",
-      );
-      return;
-    }
-
-    const canonical =
-      (Application.getState(READ_STATE_KEY) as string[] | undefined) ?? [];
-    const merged: string[] = [];
-    const seen = new Set<string>();
-
-    // Keep canonical items first (preserve order)
-    for (const id of canonical) {
-      if (!seen.has(id)) {
-        merged.push(id);
-        seen.add(id);
-      }
-    }
-
-    // Append legacy items (preserve their order) if not seen
-    for (const k of Object.keys(ctx)) {
-      for (const id of ctx[k]) {
-        if (!seen.has(id)) {
-          merged.push(id);
-          seen.add(id);
-        }
-      }
-    }
-
-    const timestamp = Date.now();
-    Application.setState(merged, READ_STATE_KEY);
-    Application.setState(
-      { backedUp: ctx, timestamp: new Date(timestamp).toISOString() },
-      `${READ_STATE_KEY}.legacyBackup.${timestamp}`,
-    );
-
-    console.log(
-      `[NHentai ReadHistory Consolidate] Merged ${merged.length} entries and backed up legacy keys to ${READ_STATE_KEY}.legacyBackup.${timestamp}`,
-    );
-
-    if (performCleanup) {
-      for (const k of Object.keys(ctx)) {
-        Application.setState(undefined, k);
-      }
-      console.log("[NHentai ReadHistory Consolidate] Legacy keys cleared.");
-    }
-  } catch (e) {
-    console.error("[NHentai ReadHistory Consolidate] Failed", e);
-  }
+  return { isFirstRead };
 }
 
 export const NHentai = new NHentaiExtension();
