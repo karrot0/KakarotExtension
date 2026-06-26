@@ -19,6 +19,7 @@ const HIDE_READ_STATE_KEY = "nhentai.settings.hideRead";
 const DATE_FORMAT_STATE_KEY = "nhentai.settings.dateFormat";
 const DATE_SEPARATOR_STATE_KEY = "nhentai.settings.dateSeparator";
 const DISPLAY_OPTIONS_STATE_KEY = "nhentai.settings.displayOptions";
+const MILITARY_TIME_STATE_KEY = "nhentai.settings.militaryTime";
 const ENABLE_RELATED_STATE_KEY = "nhentai.settings.enableRelated";
 const RELATED_LANGUAGE_STATE_KEY = "nhentai.settings.relatedLanguage";
 const PAGES_EXPR_STATE_KEY = "nhentai.settings.pagesExpr";
@@ -38,8 +39,18 @@ const DESC_MARKED_READ_IDS_KEY = "nhentai.descMarkedReadIds";
 const HIDE_READ_IN_RELATED_STATE_KEY = "nhentai.settings.hideReadInRelated";
 const ENABLE_REREAD_SECTION_KEY = "nhentai.settings.enableRereadSection";
 const STRICT_FAVORITES_FILTER_KEY = "nhentai.settings.strictFavoritesFilter";
-const DISCOVER_SECTION_ORDER_KEY = "nhentai.settings.discoverSectionOrder";
-const DISCOVER_SECTION_HIDDEN_KEY = "nhentai.settings.discoverSectionHidden";
+const DISCOVER_SECTION_ORDER_KEY = "nhentai.settings.discoverSectionOrder.v2";
+const DISCOVER_SECTION_HIDDEN_KEY = "nhentai.settings.discoverSectionHidden.v2";
+const DISCOVER_SECTION_ORDER_RESET_FLAG_KEY =
+  "nhentai.settings.discoverSectionOrder.reset.v2";
+const LEGACY_DISCOVER_SECTION_ORDER_KEYS = [
+  "nhentai.settings.discoverSectionOrder",
+  "nhentai.settings.discoverSectionOrder.v1",
+];
+const LEGACY_DISCOVER_SECTION_HIDDEN_KEYS = [
+  "nhentai.settings.discoverSectionHidden",
+  "nhentai.settings.discoverSectionHidden.v1",
+];
 
 // Search filter persistence keys
 const SEARCH_FILTER_LENGTH_KEY = "nhentai.searchFilter.length";
@@ -52,27 +63,42 @@ const SEARCH_FILTER_RELATED_LANGUAGE_KEY =
 const SEARCH_FILTER_MANGA_SYNCED_TAGS_KEY =
   "nhentai.searchFilter.mangaSyncedTags";
 const SEARCH_FILTER_TAG_CLEANUP_KEY = "nhentai.searchFilter.tagCleanupVersion";
-const SEARCH_FILTER_TAG_CLEANUP_VERSION = 1; // Bump to force orphan cleanup
+const SEARCH_FILTER_TAG_CLEANUP_VERSION = 2; // Bump to force orphan cleanup
 
 // Statistics keys
 const STATS_INSTALL_DATE_KEY = "nhentai.stats.installDate";
 const STATS_DISPLAYED_MANGA_KEY = "nhentai.stats.displayedManga";
 const STATS_DISPLAYED_DISTINCT_KEY = "nhentai.stats.displayedDistinct";
+const STATS_DISPLAYED_TOTAL_DISTINCT_KEY =
+  "nhentai.stats.displayedTotalDistinct";
 const STATS_DISPLAYED_IDS_KEY = "nhentai.stats.displayedIds";
 const STATS_SESSIONS_KEY = "nhentai.stats.sessions";
 const STATS_PAGE_COUNTS_KEY = "nhentai.stats.pageCounts";
 const STATS_TAG_COUNTS_KEY = "nhentai.stats.tagCounts";
 const STATS_TOTAL_READ_KEY = "nhentai.stats.totalRead";
 const STATS_DATA_RECEIVED_KEY = "nhentai.stats.dataReceived";
+const STATS_DATA_RECEIVED_DAILY_KEY = "nhentai.stats.dataReceivedDaily";
 const STATS_READ_COUNT_MAP_KEY = "nhentai.stats.readCounts";
 const STATS_SCREEN_TIME_KEY = "nhentai.stats.screenTime";
 const STATS_SCREEN_TIME_ENABLED_KEY = "nhentai.stats.screenTimeEnabled";
+const STATS_TRACKING_ENABLED_KEY = "nhentai.stats.trackingEnabled";
 const STATS_STREAK_GRACE_KEY = "nhentai.stats.streakGrace";
 const STATS_MARK_READ_ON_DESC_COUNT_KEY = "nhentai.stats.markReadOnDescCount";
+const STATS_REREAD_TIMESTAMPS_KEY = "nhentai.stats.rereadTimestamps";
+const STATS_SCREEN_TIME_SESSION_TIMESTAMPS_KEY =
+  "nhentai.stats.screenTimeSessionTimestamps";
+const SCREEN_TIME_SESSION_COOLDOWN_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_LITE_FALLBACK_KEY = "nhentai.settings.rateLimitLiteFallback";
+const DISCOVER_CAROUSEL_TILES_KEY = "nhentai.settings.discoverCarouselTiles";
+const DISCOVER_PAGE_TILES_KEY = "nhentai.settings.discoverPageTiles";
+const SEARCH_PAGE_TILES_KEY = "nhentai.settings.searchPageTiles";
+const NHENTAI_API_KEY_STATE_KEY = "nhentai.settings.apiKey";
+const API_KEY_AUTHORIZED_STATE_KEY = "nhentai.settings.apiKeyAuthorized";
 
 type ReadCountEntry = { count: number; title?: string; tags?: string[] };
 type ReadCountMap = Record<string, ReadCountEntry>;
 type ScreenTimeMap = Record<string, number>; // YYYY-MM-DD -> minutes
+type DataReceivedMap = Record<string, number>; // YYYY-MM-DD -> bytes
 
 export const DEFAULT_LANGUAGE = "english";
 export const DEFAULT_EXTRA_ARGUMENTS = "";
@@ -80,11 +106,42 @@ export const DEFAULT_INCLUDE_TAGS = "";
 export const DEFAULT_EXCLUDE_TAGS = "";
 export const DEFAULT_HIDE_READ = true;
 export const DEFAULT_PAGES_EXPR = "";
+export const DEFAULT_DISCOVER_CAROUSEL_TILES = 4;
+
+export function buildMangaSyncedSearchFilterTags(): Record<
+  string,
+  "included" | "excluded"
+> {
+  const include = sanitizeTagList(getIncludeTagsSetting(), {
+    exclude: false,
+  }).tokens;
+  const exclude = sanitizeTagList(getExcludeTagsSetting(), {
+    exclude: false,
+  }).tokens;
+  const tags: Record<string, "included" | "excluded"> = {};
+
+  for (const token of include) {
+    const tagId = convertMangaFilterTokenToSearchFilterId(token);
+    if (!tagId) continue;
+    tags[tagId] = "included";
+  }
+
+  for (const token of exclude) {
+    const tagId = convertMangaFilterTokenToSearchFilterId(token);
+    if (!tagId) continue;
+    tags[tagId] = "excluded";
+  }
+
+  return tags;
+}
+export const DEFAULT_DISCOVER_PAGE_TILES = 9;
+export const DEFAULT_SEARCH_PAGE_TILES = 9;
 
 export const DEFAULT_MARK_READ_ON_VIEW = false;
 export const DEFAULT_DATE_FORMAT = "m_d_yy" as const;
+
 export const DEFAULT_DISPLAY_OPTIONS: DisplayOptionId[] = [
-  "hide_read_letter", // Now means "Show Read Indicator" when present - ON by default
+  "hide_read_letter", // Presence enables read indicator 'r' display
   "show_page_count",
   "abbreviate_favorites", // Show favorites as 1.5k format (when shown)
   // "show_favorite_count" - OFF by default to reduce API calls (skips hydration)
@@ -100,7 +157,7 @@ export const DEFAULT_DISPLAY_OPTIONS: DisplayOptionId[] = [
 
 export const SORT_PREFERRED_ORDER: SortOption[] = [
   { id: "date", label: "Date Added" },
-  { id: "popular-today", label: "Popular This Day" },
+  { id: "popular-today", label: "Popular Today" },
   { id: "popular-week", label: "Popular This Week" },
   { id: "popular-month", label: "Popular This Month" },
   { id: "popular", label: "Popular All-Time" },
@@ -282,7 +339,7 @@ export const DATE_SEPARATOR_OPTIONS: {
 ];
 
 export const DISPLAY_OPTION_VALUES: { id: DisplayOptionId; label: string }[] = [
-  { id: "hide_read_letter", label: "Hide 'r' Read Indicator" },
+  { id: "hide_read_letter", label: "Show 'r' Read Indicator" },
   { id: "show_lang_tip", label: "Show Language in Subtitle" },
   { id: "show_lang_desc", label: "Show Language in Description" },
   { id: "show_page_count", label: "Show Page Count" },
@@ -588,14 +645,8 @@ export function setSearchFilterDate(value: string): void {
 }
 
 export function getSearchFilterTags(): Record<string, "included" | "excluded"> {
-  const userTags = getUserSearchFilterTags();
-  const syncedTags = buildMangaSyncedSearchFilterTags();
-  const merged = {
-    ...userTags,
-    ...syncedTags,
-  };
-  persistMergedSearchFilterTags(userTags, syncedTags);
-  return merged;
+  cleanupLeakedSearchFilterTags();
+  return getUserSearchFilterTags();
 }
 
 export function setSearchFilterTags(
@@ -616,6 +667,7 @@ export function resetNHentaiSettings(): void {
   Application.setState(DEFAULT_HIDE_READ, HIDE_READ_STATE_KEY);
   Application.setState(DEFAULT_DATE_FORMAT, DATE_FORMAT_STATE_KEY);
   Application.setState(DEFAULT_DATE_SEPARATOR, DATE_SEPARATOR_STATE_KEY);
+  Application.setState(false, MILITARY_TIME_STATE_KEY);
   Application.setState([...DEFAULT_DISPLAY_OPTIONS], DISPLAY_OPTIONS_STATE_KEY);
   Application.setState(DEFAULT_ENABLE_RELATED, ENABLE_RELATED_STATE_KEY);
   Application.setState(DEFAULT_RELATED_LANGUAGE, RELATED_LANGUAGE_STATE_KEY);
@@ -641,6 +693,14 @@ export function resetNHentaiSettings(): void {
   );
   Application.setState(true, ENABLE_REREAD_SECTION_KEY);
   Application.setState(false, STRICT_FAVORITES_FILTER_KEY);
+  Application.setState(false, RATE_LIMIT_LITE_FALLBACK_KEY);
+  Application.setState(
+    DEFAULT_DISCOVER_CAROUSEL_TILES,
+    DISCOVER_CAROUSEL_TILES_KEY,
+  );
+  Application.setState(DEFAULT_DISCOVER_PAGE_TILES, DISCOVER_PAGE_TILES_KEY);
+  Application.setState(DEFAULT_SEARCH_PAGE_TILES, SEARCH_PAGE_TILES_KEY);
+  Application.setState(null, NHENTAI_API_KEY_STATE_KEY);
   // Discover section order & visibility
   Application.setState([...DEFAULT_SECTION_ORDER], DISCOVER_SECTION_ORDER_KEY);
   Application.setState(
@@ -663,7 +723,7 @@ export function resetNHentaiSettings(): void {
 
 export const SORT_OPTIONS: SortOption[] = [
   { id: "date", label: "Date Added" },
-  { id: "popular-today", label: "Popular This Day" },
+  { id: "popular-today", label: "Popular Today" },
   { id: "popular-week", label: "Popular This Week" },
   { id: "popular-month", label: "Popular This Month" },
   { id: "popular", label: "Popular All-Time" },
@@ -718,6 +778,15 @@ export function getDateFormatSetting(): DateFormatId {
 
 export function setDateFormatSetting(value: DateFormatId): void {
   Application.setState(value, DATE_FORMAT_STATE_KEY);
+}
+
+export function getMilitaryTimeSetting(): boolean {
+  const stored = Application.getState(MILITARY_TIME_STATE_KEY);
+  return typeof stored === "boolean" ? stored : false;
+}
+
+export function setMilitaryTimeSetting(value: boolean): void {
+  Application.setState(value, MILITARY_TIME_STATE_KEY);
 }
 
 export function getDateSeparatorSetting(): DateSeparatorId {
@@ -835,7 +904,7 @@ export function getThumbnailQualitySetting(): ThumbnailQuality {
 
   // Validate stored value
   if (stored === "low" || stored === "normal" || stored === "high") {
-    return stored as ThumbnailQuality;
+    return stored;
   }
 
   return DEFAULT_THUMB_QUALITY;
@@ -853,10 +922,41 @@ export function getPagesExpressionSetting(): string {
 }
 
 export function sanitizePagesExpressionInput(value: string): string {
+  return canonicalizePagesExpressionInput(value);
+}
+
+function canonicalizePagesExpressionInput(value: string): string {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return DEFAULT_PAGES_EXPR;
+
+  const compact = trimmed.replace(/\s+/g, "");
+  const prefixCmp = compact.match(/^(>=|>|<=|<)(\d+)$/);
+  if (prefixCmp) {
+    const op = prefixCmp[1];
+    const n = Number(prefixCmp[2]);
+    if (!Number.isNaN(n)) {
+      return `${n}${op.startsWith(">") ? "+" : "-"}`;
+    }
+  }
+
+  const postfixCmp = compact.match(/^(\d+)(>=|>|<=|<)$/);
+  if (postfixCmp) {
+    const n = Number(postfixCmp[1]);
+    const op = postfixCmp[2];
+    if (!Number.isNaN(n)) {
+      return `${n}${op.startsWith(">") ? "+" : "-"}`;
+    }
+  }
+
   const parsed = parsePagesExpression(trimmed);
-  return Object.keys(parsed).length > 0 ? trimmed : DEFAULT_PAGES_EXPR;
+  if (Object.keys(parsed).length === 0) return DEFAULT_PAGES_EXPR;
+  if (parsed.exact !== undefined) return `${parsed.exact}`;
+  if (parsed.min !== undefined && parsed.max !== undefined) {
+    return `${parsed.min}-${parsed.max}`;
+  }
+  if (parsed.min !== undefined) return `${parsed.min}+`;
+  if (parsed.max !== undefined) return `${parsed.max}-`;
+  return DEFAULT_PAGES_EXPR;
 }
 
 export function setPagesExpressionSetting(value: string): void {
@@ -907,10 +1007,8 @@ export function getDaysOldFilterSetting(): DaysOldRange {
   const legacyOldest = Application.getState(DATE_MIN_DAYS_STATE_KEY);
   const legacyNewest = Application.getState(DATE_MAX_DAYS_STATE_KEY);
   if (typeof legacyOldest === "number" || typeof legacyNewest === "number") {
-    let oldest =
-      typeof legacyOldest === "number" ? legacyOldest : undefined;
-    let newest =
-      typeof legacyNewest === "number" ? legacyNewest : undefined;
+    let oldest = typeof legacyOldest === "number" ? legacyOldest : undefined;
+    let newest = typeof legacyNewest === "number" ? legacyNewest : undefined;
     if (oldest !== undefined && newest !== undefined && oldest > newest) {
       [oldest, newest] = [newest, oldest];
     }
@@ -996,6 +1094,132 @@ export function setStrictFavoritesFilterSetting(value: boolean): void {
   Application.setState(value, STRICT_FAVORITES_FILTER_KEY);
 }
 
+function clampStepperValue(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  const normalized: unknown =
+    Array.isArray(value) && value.length > 0 ? (value as unknown[])[0] : value;
+  let parsed = NaN;
+  if (typeof normalized === "number") {
+    parsed = normalized;
+  } else if (typeof normalized === "string") {
+    parsed = Number.parseInt(normalized, 10);
+  } else if (typeof normalized === "boolean") {
+    parsed = normalized ? 1 : 0;
+  }
+  if (!Number.isFinite(parsed)) return fallback;
+  const clamped = Math.max(min, Math.min(max, Math.floor(parsed)));
+  if (clamped !== parsed && Number.isFinite(parsed)) {
+    console.log(
+      `[NHentai Settings] Stepper value ${parsed} clamped to ${clamped}`,
+    );
+  }
+  return clamped;
+}
+
+export function getDiscoverCarouselTilesSetting(): number {
+  return clampStepperValue(
+    Application.getState(DISCOVER_CAROUSEL_TILES_KEY),
+    1,
+    6,
+    DEFAULT_DISCOVER_CAROUSEL_TILES,
+  );
+}
+
+export function setDiscoverCarouselTilesSetting(value: number): void {
+  Application.setState(
+    clampStepperValue(value, 1, 6, DEFAULT_DISCOVER_CAROUSEL_TILES),
+    DISCOVER_CAROUSEL_TILES_KEY,
+  );
+}
+
+export function getDiscoverPageTilesSetting(): number {
+  return clampStepperValue(
+    Application.getState(DISCOVER_PAGE_TILES_KEY),
+    1,
+    12,
+    DEFAULT_DISCOVER_PAGE_TILES,
+  );
+}
+
+export function setDiscoverPageTilesSetting(value: number): void {
+  Application.setState(
+    clampStepperValue(value, 1, 12, DEFAULT_DISCOVER_PAGE_TILES),
+    DISCOVER_PAGE_TILES_KEY,
+  );
+}
+
+export function getSearchPageTilesSetting(): number {
+  return clampStepperValue(
+    Application.getState(SEARCH_PAGE_TILES_KEY),
+    1,
+    16,
+    DEFAULT_SEARCH_PAGE_TILES,
+  );
+}
+
+export function setSearchPageTilesSetting(value: number): void {
+  Application.setState(
+    clampStepperValue(value, 1, 16, DEFAULT_SEARCH_PAGE_TILES),
+    SEARCH_PAGE_TILES_KEY,
+  );
+}
+
+export function isSubtitleHydrationRateLimitedMode(): boolean {
+  const options = getDisplayOptionsSetting();
+  return (
+    options.includes("subtitle_date") || options.includes("subtitle_relative")
+  );
+}
+
+export function getRateLimitLiteFallbackSetting(): boolean {
+  const value = Application.getState(RATE_LIMIT_LITE_FALLBACK_KEY);
+  return typeof value === "boolean" ? value : false;
+}
+
+export function setRateLimitLiteFallbackSetting(value: boolean): void {
+  Application.setState(value, RATE_LIMIT_LITE_FALLBACK_KEY);
+}
+
+/**
+ * Retrieve the stored NHentai API key, if any.
+ * Returns a non-empty string when an API key has been saved via `setNHentaiApiKey`,
+ * otherwise returns `undefined`.
+ *
+ * Used to gate PoW challenge requests — PoW is only required for authenticated
+ * (API-key-bearing) requests.  Anonymous traffic should never trigger PoW calls.
+ */
+export function getNHentaiApiKey(): string | undefined {
+  const stored = Application.getState(NHENTAI_API_KEY_STATE_KEY);
+  if (typeof stored === "string" && stored.trim().length > 0) {
+    return stored.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Persist a NHentai API key so it survives between app sessions.
+ * Pass `undefined` or an empty string to clear the key (anonymous mode).
+ */
+export function setNHentaiApiKey(value: string | undefined): void {
+  Application.setState(value, NHENTAI_API_KEY_STATE_KEY);
+  // Clear authorization status when key changes - will be re-validated on next use or in settings form
+  Application.setState(false, API_KEY_AUTHORIZED_STATE_KEY);
+}
+
+export function getApiKeyAuthorizedSetting(): boolean {
+  return (
+    (Application.getState(API_KEY_AUTHORIZED_STATE_KEY) as boolean) ?? false
+  );
+}
+
+export function setApiKeyAuthorizedSetting(value: boolean): void {
+  Application.setState(value, API_KEY_AUTHORIZED_STATE_KEY);
+}
+
 export function parsePagesExpression(value: string): {
   min?: number;
   max?: number;
@@ -1044,14 +1268,11 @@ export function parsePagesExpression(value: string): {
   const advRangeMatch = trimmed.match(/^(\d+)\s*(>=?)\s*x\s*(>=?)\s*(\d+)$/i);
   if (advRangeMatch) {
     const left = Number(advRangeMatch[1]);
-    const leftOp = advRangeMatch[2]; // >= or >
-    const rightOp = advRangeMatch[3]; // >= or >
     const right = Number(advRangeMatch[4]);
     if (!Number.isNaN(left) && !Number.isNaN(right)) {
-      // a >= x >= b means b <= x <= a
-      // a > x > b means b < x < a -> b+1 <= x <= a-1
-      const minVal = rightOp === ">" ? right + 1 : right;
-      const maxVal = leftOp === ">" ? left - 1 : left;
+      // Convert to inclusive ranges for the +/- filter notation.
+      const minVal = right;
+      const maxVal = left;
       return { min: Math.min(minVal, maxVal), max: Math.max(minVal, maxVal) };
     }
   }
@@ -1062,14 +1283,10 @@ export function parsePagesExpression(value: string): {
   );
   if (advRangeMatch2) {
     const left = Number(advRangeMatch2[1]);
-    const leftOp = advRangeMatch2[2]; // <= or <
-    const rightOp = advRangeMatch2[3]; // <= or <
     const right = Number(advRangeMatch2[4]);
     if (!Number.isNaN(left) && !Number.isNaN(right)) {
-      // a < x < b means a < x AND x < b -> a+1 <= x <= b-1
-      // a <= x <= b means a <= x AND x <= b
-      const minVal = leftOp === "<" ? left + 1 : left;
-      const maxVal = rightOp === "<" ? right - 1 : right;
+      const minVal = left;
+      const maxVal = right;
       return { min: Math.min(minVal, maxVal), max: Math.max(minVal, maxVal) };
     }
   }
@@ -1080,9 +1297,9 @@ export function parsePagesExpression(value: string): {
     const op = cmpMatch[1];
     const num = Number(cmpMatch[2]);
     if (Number.isNaN(num)) return {};
-    if (op === ">") return { min: num + 1 };
+    if (op === ">") return { min: num };
     if (op === ">=") return { min: num };
-    if (op === "<") return { max: num - 1 };
+    if (op === "<") return { max: num };
     if (op === "<=") return { max: num };
   }
 
@@ -1092,13 +1309,9 @@ export function parsePagesExpression(value: string): {
     const num = Number(postfixCmpMatch[1]);
     const op = postfixCmpMatch[2];
     if (Number.isNaN(num)) return {};
-    // 5000> means "greater than 5000" -> min: 5001
-    // 5000>= means "greater than or equal to 5000" -> min: 5000
-    // 5000< means "less than 5000" -> max: 4999
-    // 5000<= means "less than or equal to 5000" -> max: 5000
-    if (op === ">") return { min: num + 1 };
+    if (op === ">") return { min: num };
     if (op === ">=") return { min: num };
-    if (op === "<") return { max: num - 1 };
+    if (op === "<") return { max: num };
     if (op === "<=") return { max: num };
   }
 
@@ -1166,7 +1379,23 @@ function sanitizeTagList(
   const parts: string[] = [];
   const seen = new Set<string>();
 
-  for (const clause of cleaned.split(/[,\n]/)) {
+  // Split by comma/newline while respecting quoted strings
+  const clauses: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    if (char === '"') inQuotes = !inQuotes;
+    if ((char === "," || char === "\n") && !inQuotes) {
+      clauses.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  clauses.push(current);
+
+  for (const clause of clauses) {
     const trimmed = clause.trim();
     if (!trimmed) continue;
 
@@ -1222,6 +1451,7 @@ function buildTagArguments(include: string, exclude: string): string {
   });
 
   return dedupeQueryTokens([...requiredIncludes, ...processedExclude])
+    .filter((t) => t.length > 0)
     .join(" ")
     .trim();
 }
@@ -1301,6 +1531,10 @@ function hasLiteralOrOperator(value: string): boolean {
   return /\|\||\s+OR\s+/i.test(value);
 }
 
+function isValidSearchFilterTagId(value: string): boolean {
+  return /^[a-z0-9][a-z0-9-]*$/i.test(value);
+}
+
 function getStoredMangaSyncedTagIds(): string[] {
   const stored = Application.getState(SEARCH_FILTER_MANGA_SYNCED_TAGS_KEY) as
     | string[]
@@ -1323,7 +1557,8 @@ function sanitizeSearchFilterTags(
     if (
       !normalizedKey ||
       normalizedKey === "__apply_manga_filter_tags__" ||
-      hasLiteralOrOperator(normalizedKey)
+      hasLiteralOrOperator(normalizedKey) ||
+      !isValidSearchFilterTagId(normalizedKey)
     ) {
       continue;
     }
@@ -1354,33 +1589,6 @@ function stripSyncedSearchFilterTags(
   return sanitized;
 }
 
-function buildMangaSyncedSearchFilterTags(): Record<
-  string,
-  "included" | "excluded"
-> {
-  const include = sanitizeTagList(getIncludeTagsSetting(), {
-    exclude: false,
-  }).tokens;
-  const exclude = sanitizeTagList(getExcludeTagsSetting(), {
-    exclude: false,
-  }).tokens;
-  const tags: Record<string, "included" | "excluded"> = {};
-
-  for (const token of include) {
-    const tagId = convertMangaFilterTokenToSearchFilterId(token);
-    if (!tagId) continue;
-    tags[tagId] = "included";
-  }
-
-  for (const token of exclude) {
-    const tagId = convertMangaFilterTokenToSearchFilterId(token);
-    if (!tagId) continue;
-    tags[tagId] = "excluded";
-  }
-
-  return tags;
-}
-
 function persistMergedSearchFilterTags(
   userTags: Record<string, "included" | "excluded">,
   syncedTags: Record<string, "included" | "excluded">,
@@ -1402,6 +1610,7 @@ function persistMergedSearchFilterTags(
 }
 
 function getUserSearchFilterTags(): Record<string, "included" | "excluded"> {
+  cleanupLeakedSearchFilterTags();
   const syncedTags = buildMangaSyncedSearchFilterTags();
   const stored = Application.getState(SEARCH_FILTER_USER_TAGS_KEY) as
     | Record<string, "included" | "excluded">
@@ -1427,6 +1636,20 @@ function getUserSearchFilterTags(): Record<string, "included" | "excluded"> {
   const cleanedLegacy = stripSyncedSearchFilterTags(legacy, syncedTags);
   persistMergedSearchFilterTags(cleanedLegacy, syncedTags);
   return cleanedLegacy;
+}
+
+function cleanupLeakedSearchFilterTags(): void {
+  const cleanupVersion =
+    (Application.getState(SEARCH_FILTER_TAG_CLEANUP_KEY) as number) ?? 0;
+  if (cleanupVersion >= SEARCH_FILTER_TAG_CLEANUP_VERSION) return;
+
+  Application.setState({}, SEARCH_FILTER_USER_TAGS_KEY);
+  Application.setState({}, SEARCH_FILTER_TAGS_KEY);
+  Application.setState([], SEARCH_FILTER_MANGA_SYNCED_TAGS_KEY);
+  Application.setState(
+    SEARCH_FILTER_TAG_CLEANUP_VERSION,
+    SEARCH_FILTER_TAG_CLEANUP_KEY,
+  );
 }
 
 function convertMangaFilterTokenToSearchFilterId(
@@ -1485,6 +1708,7 @@ export function setStatsInstallDate(date: string): void {
 }
 
 export function ensureInstallDate(): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   if (!getStatsInstallDate()) {
     Application.setState(new Date().toISOString(), STATS_INSTALL_DATE_KEY);
   }
@@ -1534,16 +1758,26 @@ export function getDisplayedMangaCount(): number {
   return 0;
 }
 
-export function incrementDisplayedManga(mangaId?: string): void {
+export function incrementDisplayedManga(mangaId?: string | number): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   Application.setState(getDisplayedMangaCount() + 1, STATS_DISPLAYED_MANGA_KEY);
 
   if (!mangaId) return;
+  const normalizedId = String(mangaId);
   const ids = getDisplayedIds();
-  if (!ids.has(mangaId)) {
-    ids.add(mangaId);
+  const isNew = !ids.has(normalizedId);
+  if (isNew) {
+    ids.add(normalizedId);
     persistDisplayedIds(ids);
-    Application.setState(ids.size, STATS_DISPLAYED_DISTINCT_KEY);
+    Application.setState(
+      getDisplayedDistinctTotal() + 1,
+      STATS_DISPLAYED_TOTAL_DISTINCT_KEY,
+    );
   }
+  Application.setState(
+    getDisplayedDistinctTotal(),
+    STATS_DISPLAYED_DISTINCT_KEY,
+  );
 }
 
 function getDisplayedIds(): Set<string> {
@@ -1555,8 +1789,16 @@ function getDisplayedIds(): Set<string> {
 }
 
 function persistDisplayedIds(ids: Set<string>): void {
-  const trimmed = Array.from(ids).slice(-5000);
-  Application.setState(trimmed, STATS_DISPLAYED_IDS_KEY);
+  // Keep the full distinct history so the counter can grow beyond the old cap.
+  Application.setState(Array.from(ids), STATS_DISPLAYED_IDS_KEY);
+}
+
+function getDisplayedDistinctTotal(): number {
+  const val = Application.getState(STATS_DISPLAYED_TOTAL_DISTINCT_KEY);
+  if (typeof val === "number") return val;
+  if (typeof val === "boolean") return val ? 1 : 0;
+  if (typeof val === "string") return parseInt(val, 10) || 0;
+  return getDisplayedIds().size;
 }
 
 export function getDistinctDisplayedMangaCount(): number {
@@ -1564,7 +1806,7 @@ export function getDistinctDisplayedMangaCount(): number {
   if (typeof val === "number") return val;
   if (typeof val === "boolean") return val ? 1 : 0;
   if (typeof val === "string") return parseInt(val, 10) || 0;
-  return 0;
+  return getDisplayedIds().size;
 }
 
 export function getReadingSessions(): ReadingSession[] {
@@ -1575,9 +1817,50 @@ export function getReadingSessions(): ReadingSession[] {
   );
 }
 
-export function recordReadingSession(): void {
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+let screenTimeSessionTimestamps: Map<string, number> | undefined;
+
+function getScreenTimeSessionTimestamps(): Map<string, number> {
+  if (!screenTimeSessionTimestamps) {
+    const raw = Application.getState(
+      STATS_SCREEN_TIME_SESSION_TIMESTAMPS_KEY,
+    ) as Record<string, unknown> | undefined;
+    screenTimeSessionTimestamps = new Map<string, number>();
+    if (raw && typeof raw === "object") {
+      for (const [id, ts] of Object.entries(raw)) {
+        if (typeof ts === "number" && Number.isFinite(ts) && ts > 0) {
+          screenTimeSessionTimestamps.set(id, ts);
+        }
+      }
+    }
+  }
+  return screenTimeSessionTimestamps;
+}
+
+function persistScreenTimeSessionTimestamps(map: Map<string, number>): void {
+  const cutoff = Date.now() - SCREEN_TIME_SESSION_COOLDOWN_MS;
+  const serialized: Record<string, number> = {};
+  for (const [id, ts] of map) {
+    if (ts >= cutoff) {
+      serialized[id] = ts;
+    }
+  }
+  Application.setState(serialized, STATS_SCREEN_TIME_SESSION_TIMESTAMPS_KEY);
+}
+
+export function recordReadingSession(sessionId?: string): void {
+  if (!getStatsTrackingEnabledSetting()) return;
+  const now = Date.now();
+  if (sessionId) {
+    const timestamps = getScreenTimeSessionTimestamps();
+    const lastRecorded = timestamps.get(sessionId) ?? 0;
+    if (now - lastRecorded < SCREEN_TIME_SESSION_COOLDOWN_MS) return;
+    timestamps.set(sessionId, now);
+    persistScreenTimeSessionTimestamps(timestamps);
+  }
+
+  const today = `${new Date(now).getFullYear()}-${String(
+    new Date(now).getMonth() + 1,
+  ).padStart(2, "0")}-${String(new Date(now).getDate()).padStart(2, "0")}`;
   const sessions = getReadingSessions();
   const existing = sessions.find((s) => s.date === today);
   if (existing) {
@@ -1586,7 +1869,9 @@ export function recordReadingSession(): void {
     sessions.push({ date: today, count: 1 });
   }
   const cutoffDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-${String(cutoffDate.getDate()).padStart(2, "0")}`;
+  const cutoff = `${cutoffDate.getFullYear()}-${String(
+    cutoffDate.getMonth() + 1,
+  ).padStart(2, "0")}-${String(cutoffDate.getDate()).padStart(2, "0")}`;
   const trimmed = sessions.filter((s) => s.date >= cutoff);
   Application.setState(trimmed, STATS_SESSIONS_KEY);
   recordScreenTime(1);
@@ -1618,6 +1903,7 @@ export function getPageCounts(): Record<string, number> {
 }
 
 export function recordPageCount(pages: number): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   const counts = getPageCounts();
   const bucket =
     pages <= 20
@@ -1634,14 +1920,20 @@ export function recordPageCount(pages: number): void {
 }
 
 export function getTagCounts(): Record<string, number> {
-  return (
+  const raw =
     (Application.getState(STATS_TAG_COUNTS_KEY) as
-      | Record<string, number>
-      | undefined) ?? {}
-  );
+      | Record<string, unknown>
+      | undefined) ?? {};
+  const normalized: Record<string, number> = {};
+  for (const [tag, value] of Object.entries(raw)) {
+    const numeric = Number(value ?? 0);
+    normalized[tag] = Number.isFinite(numeric) ? numeric : 0;
+  }
+  return normalized;
 }
 
 export function recordTagCounts(tags: string[]): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   const counts = getTagCounts();
   for (const tag of tags) {
     const normalized = tag.toLowerCase().trim();
@@ -1669,6 +1961,7 @@ export function getTotalMangaRead(): number {
 }
 
 export function incrementTotalMangaRead(): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   Application.setState(getTotalMangaRead() + 1, STATS_TOTAL_READ_KEY);
 }
 
@@ -1678,6 +1971,7 @@ export function getMarkReadOnDescCount(): number {
 }
 
 export function incrementMarkReadOnDescCount(): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   Application.setState(
     getMarkReadOnDescCount() + 1,
     STATS_MARK_READ_ON_DESC_COUNT_KEY,
@@ -1686,10 +1980,25 @@ export function incrementMarkReadOnDescCount(): void {
 
 function getReadCountMap(): ReadCountMap {
   const raw = Application.getState(STATS_READ_COUNT_MAP_KEY) as
-    | ReadCountMap
+    | Record<string, unknown>
     | undefined;
-  if (raw && typeof raw === "object") return { ...raw };
-  return {};
+  const normalized: ReadCountMap = {};
+  if (raw && typeof raw === "object") {
+    for (const [id, entry] of Object.entries(raw)) {
+      if (!entry || typeof entry !== "object") continue;
+      const countValue = (entry as { count?: unknown }).count;
+      const count = Number(countValue ?? 0);
+      if (!Number.isFinite(count) || count <= 0) continue;
+      const title = (entry as { title?: unknown }).title;
+      const tags = (entry as { tags?: unknown }).tags;
+      normalized[id] = {
+        count,
+        title: typeof title === "string" ? title : undefined,
+        tags: Array.isArray(tags) ? tags.map((tag) => String(tag)) : undefined,
+      };
+    }
+  }
+  return normalized;
 }
 
 function persistReadCountMap(map: ReadCountMap): void {
@@ -1704,15 +2013,42 @@ function persistReadCountMap(map: ReadCountMap): void {
   Application.setState(trimmed, STATS_READ_COUNT_MAP_KEY);
 }
 
+function normalizeStatsMangaId(mangaId: string): string {
+  const normalized = String(mangaId ?? "").trim();
+  if (!normalized) return "";
+  if (/^\d+$/.test(normalized)) {
+    return String(parseInt(normalized, 10));
+  }
+  return normalized;
+}
+
 // Per-manga timestamp tracking for reread cooldown (5 minutes)
 const REREAD_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 let rereadTimestamps: Map<string, number> | undefined;
 
 function getRereadTimestamps(): Map<string, number> {
   if (!rereadTimestamps) {
-    rereadTimestamps = new Map();
+    const raw = Application.getState(STATS_REREAD_TIMESTAMPS_KEY) as
+      | Record<string, unknown>
+      | undefined;
+    rereadTimestamps = new Map<string, number>();
+    if (raw && typeof raw === "object") {
+      for (const [id, ts] of Object.entries(raw)) {
+        if (typeof ts === "number" && Number.isFinite(ts) && ts > 0) {
+          rereadTimestamps.set(id, ts);
+        }
+      }
+    }
   }
   return rereadTimestamps;
+}
+
+function persistRereadTimestamps(map: Map<string, number>): void {
+  const serialized: Record<string, number> = {};
+  for (const [id, ts] of map) {
+    serialized[id] = ts;
+  }
+  Application.setState(serialized, STATS_REREAD_TIMESTAMPS_KEY);
 }
 
 export function recordMangaReadCount(
@@ -1721,34 +2057,68 @@ export function recordMangaReadCount(
   isFirstRead = false,
   tags?: string[],
 ): void {
-  if (!mangaId) return;
+  if (!getStatsTrackingEnabledSetting()) return;
+  const normalizedMangaId = normalizeStatsMangaId(mangaId);
+  if (!normalizedMangaId) return;
 
-  // For rereads (not first read), enforce 5-minute cooldown per manga
+  // Enforce 5-minute cooldown per manga between counted reads.
+  // Ensure we record a timestamp even on the first read so an immediate
+  // subsequent click within the cooldown window does not count as a reread.
+  const timestamps = getRereadTimestamps();
+  if (normalizedMangaId !== mangaId && timestamps.has(mangaId)) {
+    const legacyTs = timestamps.get(mangaId) ?? 0;
+    const canonicalTs = timestamps.get(normalizedMangaId) ?? 0;
+    timestamps.set(normalizedMangaId, Math.max(legacyTs, canonicalTs));
+    timestamps.delete(mangaId);
+  }
+  const lastRead = timestamps.get(normalizedMangaId) ?? 0;
+  const now = Date.now();
   if (!isFirstRead) {
-    const timestamps = getRereadTimestamps();
-    const lastRead = timestamps.get(mangaId) ?? 0;
-    const now = Date.now();
     if (now - lastRead < REREAD_COOLDOWN_MS) {
       return; // Skip counting — too soon since last read
     }
-    timestamps.set(mangaId, now);
-    // Clean up old entries to prevent memory leak
-    if (timestamps.size > 500) {
-      const cutoff = now - REREAD_COOLDOWN_MS;
-      for (const [id, ts] of timestamps) {
-        if (ts < cutoff) timestamps.delete(id);
-      }
+  }
+  // Always update the timestamp to now so future reads respect the cooldown
+  timestamps.set(normalizedMangaId, now);
+  const cutoff = now - REREAD_COOLDOWN_MS;
+  for (const [id, ts] of timestamps) {
+    if (ts < cutoff) timestamps.delete(id);
+  }
+  if (timestamps.size > 500) {
+    const oldest = [...timestamps.entries()]
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, timestamps.size - 500);
+    for (const [id] of oldest) {
+      timestamps.delete(id);
     }
   }
+  persistRereadTimestamps(timestamps);
 
   const map = getReadCountMap();
-  const existing = map[mangaId]?.count ?? 0;
+  const baseCount = Number(map[normalizedMangaId]?.count ?? 0);
+  let existing = Number.isFinite(baseCount) ? baseCount : 0;
+  if (normalizedMangaId !== mangaId && map[mangaId]) {
+    const legacyCount = Number(map[mangaId]?.count ?? 0);
+    existing += Number.isFinite(legacyCount) ? legacyCount : 0;
+  }
+  if (existing === 0 && !isFirstRead) {
+    existing = 1;
+  }
   const newCount = existing + 1;
-  map[mangaId] = {
+  map[normalizedMangaId] = {
     count: newCount,
-    title: title ?? map[mangaId]?.title,
-    tags: tags ?? map[mangaId]?.tags,
+    title:
+      title ??
+      map[normalizedMangaId]?.title ??
+      (normalizedMangaId !== mangaId ? map[mangaId]?.title : undefined),
+    tags:
+      tags ??
+      map[normalizedMangaId]?.tags ??
+      (normalizedMangaId !== mangaId ? map[mangaId]?.tags : undefined),
   };
+  if (normalizedMangaId !== mangaId) {
+    delete map[mangaId];
+  }
   persistReadCountMap(map);
 
   if (isFirstRead) {
@@ -1811,8 +2181,14 @@ export function getAllRereadManga(): {
 }
 
 export function getRereadCount(mangaId: string): number {
+  const normalizedMangaId = normalizeStatsMangaId(mangaId);
+  if (!normalizedMangaId) return 0;
   const map = getReadCountMap();
-  return map[mangaId]?.count ?? 0;
+  return map[normalizedMangaId]?.count ?? map[mangaId]?.count ?? 0;
+}
+
+function toLocalStatsDateKey(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export function getDataReceived(): number {
@@ -1823,17 +2199,51 @@ export function getDataReceived(): number {
   return 0;
 }
 
+function getDataReceivedMap(): DataReceivedMap {
+  const raw = Application.getState(STATS_DATA_RECEIVED_DAILY_KEY) as
+    | DataReceivedMap
+    | undefined;
+  if (raw && typeof raw === "object") return { ...raw };
+  return {};
+}
+
+export function getDataReceivedToday(): number {
+  const map = getDataReceivedMap();
+  const value = map[toLocalStatsDateKey()] ?? 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function persistDataReceivedMap(map: DataReceivedMap): void {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffKey = toLocalStatsDateKey(cutoff);
+  const trimmed: DataReceivedMap = {};
+  for (const [date, bytes] of Object.entries(map).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    if (date >= cutoffKey && Number.isFinite(bytes) && bytes > 0) {
+      trimmed[date] = bytes;
+    }
+  }
+  Application.setState(trimmed, STATS_DATA_RECEIVED_DAILY_KEY);
+}
+
 export function addDataReceived(bytes: number): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   if (bytes > 0) {
     Application.setState(getDataReceived() + bytes, STATS_DATA_RECEIVED_KEY);
+    const map = getDataReceivedMap();
+    const today = toLocalStatsDateKey();
+    map[today] = (map[today] ?? 0) + bytes;
+    persistDataReceivedMap(map);
   }
 }
 
 export function recordScreenTime(minutes: number): void {
+  if (!getStatsTrackingEnabledSetting()) return;
   if (!getScreenTimeEnabledSetting()) return;
   if (minutes <= 0 || Number.isNaN(minutes)) return;
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = toLocalStatsDateKey();
   const map = getScreenTimeMap();
   map[today] = (map[today] ?? 0) + minutes;
   persistScreenTimeMap(map);
@@ -1847,14 +2257,20 @@ export function getScreenTimeMap(): ScreenTimeMap {
   return {};
 }
 
+export function getTotalScreenTimeMinutes(): number {
+  const map = getScreenTimeMap();
+  return Object.values(map).reduce((sum, value) => {
+    const n = typeof value === "number" ? value : Number(value ?? 0);
+    return Number.isFinite(n) ? sum + n : sum;
+  }, 0);
+}
+
 function persistScreenTimeMap(map: ScreenTimeMap): void {
-  const cutoffDate = new Date(Date.now() - 56 * 24 * 60 * 60 * 1000);
-  const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-${String(cutoffDate.getDate()).padStart(2, "0")}`;
-  const trimmedEntries = Object.entries(map)
-    .filter(([date]) => date >= cutoff)
+  const sortedEntries = Object.entries(map)
+    .filter(([, minutes]) => typeof minutes === "number" && minutes > 0)
     .sort(([a], [b]) => a.localeCompare(b));
   const trimmed: ScreenTimeMap = {};
-  for (const [date, minutes] of trimmedEntries) {
+  for (const [date, minutes] of sortedEntries) {
     trimmed[date] = minutes;
   }
   Application.setState(trimmed, STATS_SCREEN_TIME_KEY);
@@ -1866,10 +2282,15 @@ export function getScreenTimeLastNDays(
 ): { date: string; minutes: number }[] {
   const map = getScreenTimeMap();
   const results: { date: string; minutes: number }[] = [];
-  const baseOffset = weekOffset * 7;
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i - baseOffset);
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const startOfWeek = new Date(today);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(today.getDate() - daysSinceMonday - weekOffset * 7);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
     // Use local date components to avoid UTC offset shifting days
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     results.push({ date: key, minutes: map[key] ?? 0 });
@@ -1877,28 +2298,57 @@ export function getScreenTimeLastNDays(
   return results;
 }
 
-export function getScreenTimeLastNWeeks(
-  weeks: number,
-): { weekStart: string; minutes: number }[] {
+export function getScreenTimeLastNWeeks(): {
+  weekStart: string;
+  minutes: number;
+}[] {
   const map = getScreenTimeMap();
   const results: { weekStart: string; minutes: number }[] = [];
   const today = new Date();
   const dayOfWeek = today.getDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
   const startOfThisWeek = new Date(today);
-  startOfThisWeek.setDate(today.getDate() - dayOfWeek);
+  startOfThisWeek.setHours(0, 0, 0, 0);
+  startOfThisWeek.setDate(today.getDate() - daysSinceMonday);
 
-  for (let w = weeks - 1; w >= 0; w--) {
-    const start = new Date(startOfThisWeek);
-    start.setDate(start.getDate() - w * 7);
-    const weekStartKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+  const candidateDates: Date[] = [];
+  const installDateStr = getStatsInstallDate();
+  if (installDateStr) {
+    const [iy, im, iday] = installDateStr.split("-").map(Number);
+    candidateDates.push(new Date(iy, im - 1, iday));
+  }
+  for (const [key, minutes] of Object.entries(map)) {
+    if (!minutes || minutes <= 0) continue;
+    const [y, m, d] = key.split("-").map(Number);
+    if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+      candidateDates.push(new Date(y, m - 1, d));
+    }
+  }
+
+  let earliestMonday = new Date(startOfThisWeek);
+  for (const candidate of candidateDates) {
+    candidate.setHours(0, 0, 0, 0);
+    const dow = candidate.getDay();
+    const daysSinceCandidateMonday = (dow + 6) % 7;
+    const candidateMonday = new Date(candidate);
+    candidateMonday.setDate(candidate.getDate() - daysSinceCandidateMonday);
+    if (candidateMonday < earliestMonday) earliestMonday = candidateMonday;
+  }
+
+  // Iterate from earliestMonday to startOfThisWeek inclusive
+  let current = new Date(earliestMonday);
+  while (current <= startOfThisWeek) {
+    const weekStartKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
     let sum = 0;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
+      const d = new Date(current);
+      d.setDate(current.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       sum += map[key] ?? 0;
     }
     results.push({ weekStart: weekStartKey, minutes: sum });
+    current = new Date(current);
+    current.setDate(current.getDate() + 7);
   }
   return results;
 }
@@ -1906,6 +2356,7 @@ export function getScreenTimeLastNWeeks(
 // ── Screen Time Mode Persistence ───────────────────────────────────
 
 const SCREEN_TIME_MODE_KEY = "nhentai.stats.screenTimeMode";
+const SCREEN_TIME_WEEK_OFFSET_KEY = "nhentai.stats.screenTimeWeekOffset";
 
 export function getScreenTimeEnabledSetting(): boolean {
   const value = Application.getState(STATS_SCREEN_TIME_ENABLED_KEY) as
@@ -1918,6 +2369,17 @@ export function setScreenTimeEnabledSetting(enabled: boolean): void {
   Application.setState(enabled, STATS_SCREEN_TIME_ENABLED_KEY);
 }
 
+export function getStatsTrackingEnabledSetting(): boolean {
+  const value = Application.getState(STATS_TRACKING_ENABLED_KEY) as
+    | boolean
+    | undefined;
+  return value !== false;
+}
+
+export function setStatsTrackingEnabledSetting(enabled: boolean): void {
+  Application.setState(enabled, STATS_TRACKING_ENABLED_KEY);
+}
+
 export function getScreenTimeMode(): "week" | "day" {
   const val = Application.getState(SCREEN_TIME_MODE_KEY) as string | undefined;
   return val === "day" ? "day" : "week";
@@ -1925,6 +2387,24 @@ export function getScreenTimeMode(): "week" | "day" {
 
 export function setScreenTimeMode(mode: "week" | "day"): void {
   Application.setState(mode, SCREEN_TIME_MODE_KEY);
+}
+
+export function getScreenTimeWeekOffset(): number {
+  const v = Application.getState(SCREEN_TIME_WEEK_OFFSET_KEY);
+  if (typeof v === "number" && Number.isFinite(v))
+    return Math.max(0, Math.floor(v));
+  if (typeof v === "string") {
+    const p = Number.parseInt(v, 10);
+    if (Number.isFinite(p)) return Math.max(0, Math.floor(p));
+  }
+  return 0;
+}
+
+export function setScreenTimeWeekOffset(offset: number): void {
+  Application.setState(
+    Math.max(0, Math.floor(offset)),
+    SCREEN_TIME_WEEK_OFFSET_KEY,
+  );
 }
 
 // ── Tag Display Limit ──────────────────────────────────────────────
@@ -1942,12 +2422,12 @@ export function getTagDisplayLimit(): number {
     | boolean
     | undefined;
   const val = Number(raw);
-  if (Number.isFinite(val) && TAG_DISPLAY_STEPS.includes(val)) return val;
+  if (Number.isFinite(val) && val > 0) return Math.max(1, Math.trunc(val));
   return 75;
 }
 
 export function setTagDisplayLimit(limit: number): void {
-  Application.setState(limit, TAG_DISPLAY_LIMIT_KEY);
+  Application.setState(Math.max(1, Math.trunc(limit)), TAG_DISPLAY_LIMIT_KEY);
 }
 
 export function getTagDisplaySteps(): number[] {
@@ -1961,12 +2441,15 @@ export function getRereadDisplayLimit(): number {
     | boolean
     | undefined;
   const val = Number(raw);
-  if (Number.isFinite(val) && REREAD_DISPLAY_STEPS.includes(val)) return val;
+  if (Number.isFinite(val) && val > 0) return Math.max(1, Math.trunc(val));
   return 10;
 }
 
 export function setRereadDisplayLimit(limit: number): void {
-  Application.setState(limit, REREAD_DISPLAY_LIMIT_KEY);
+  Application.setState(
+    Math.max(1, Math.trunc(limit)),
+    REREAD_DISPLAY_LIMIT_KEY,
+  );
 }
 
 export function getRereadDisplaySteps(): number[] {
@@ -1991,7 +2474,7 @@ export function getAveragePageCount(): number {
     totalItems += count;
     weightedSum += mid * count;
   }
-  return totalItems > 0 ? Math.round(weightedSum / totalItems) : 0;
+  return totalItems > 0 ? weightedSum / totalItems : 0;
 }
 
 export function resetAllStatistics(): void {
@@ -1999,13 +2482,16 @@ export function resetAllStatistics(): void {
   // Use 0 for numeric counters so ensureInstallDate() doesn't re-seed from legacy caches
   Application.setState(0, STATS_DISPLAYED_MANGA_KEY);
   Application.setState(0, STATS_DISPLAYED_DISTINCT_KEY);
+  Application.setState(0, STATS_DISPLAYED_TOTAL_DISTINCT_KEY);
   Application.setState(undefined, STATS_DISPLAYED_IDS_KEY);
   Application.setState(undefined, STATS_SESSIONS_KEY);
   Application.setState(undefined, STATS_PAGE_COUNTS_KEY);
   Application.setState(undefined, STATS_TAG_COUNTS_KEY);
   Application.setState(0, STATS_TOTAL_READ_KEY);
   Application.setState(undefined, STATS_DATA_RECEIVED_KEY);
+  Application.setState(undefined, STATS_DATA_RECEIVED_DAILY_KEY);
   Application.setState(undefined, STATS_READ_COUNT_MAP_KEY);
+  Application.setState(undefined, STATS_REREAD_TIMESTAMPS_KEY);
   Application.setState(undefined, STATS_SCREEN_TIME_KEY);
   Application.setState(undefined, STATS_STREAK_GRACE_KEY);
   Application.setState(undefined, SCREEN_TIME_MODE_KEY);
@@ -2045,9 +2531,14 @@ export const STAT_CATEGORIES: StatCategory[] = [
   {
     id: "total_reread",
     title: "Total Manga Reread",
-    keys: [STATS_READ_COUNT_MAP_KEY],
+    keys: [STATS_READ_COUNT_MAP_KEY, STATS_REREAD_TIMESTAMPS_KEY],
   },
-  { id: "avg_per_day", title: "Average Manga Read Per Day", keys: [] },
+  {
+    id: "total_times_reread",
+    title: "Total Times You Reread",
+    keys: [STATS_REREAD_TIMESTAMPS_KEY],
+  },
+  { id: "avg_per_day", title: "Avg Manga Read Per Day", keys: [] },
   {
     id: "current_streak",
     title: "Current Streak",
@@ -2061,7 +2552,12 @@ export const STAT_CATEGORIES: StatCategory[] = [
   {
     id: "data_received",
     title: "Data Received",
-    keys: [STATS_DATA_RECEIVED_KEY],
+    keys: [STATS_DATA_RECEIVED_KEY, STATS_DATA_RECEIVED_DAILY_KEY],
+  },
+  {
+    id: "screen_time",
+    title: "Total Screen Time",
+    keys: [STATS_SCREEN_TIME_KEY, SCREEN_TIME_MODE_KEY],
   },
   {
     id: "page_distribution",
@@ -2079,9 +2575,9 @@ export const STAT_CATEGORIES: StatCategory[] = [
     keys: [STATS_READ_COUNT_MAP_KEY, REREAD_DISPLAY_LIMIT_KEY],
   },
   {
-    id: "screen_time",
-    title: "Full Screen Time",
-    keys: [STATS_SCREEN_TIME_KEY, SCREEN_TIME_MODE_KEY],
+    id: "screen_time_graphs",
+    title: "Screen Time Graphs",
+    keys: [STATS_SCREEN_TIME_KEY],
   },
 ];
 
@@ -2108,7 +2604,11 @@ export function resetSpecificStats(categoryIds: string[]): void {
 export function removeSpecificTags(tagNames: string[]): void {
   const counts = getTagCounts();
   // Normalize tag names: strip prefixes like "female:", "male:", "tag:" for matching
-  const normalizeTag = (t: string) => t.replace(/^(female|male|tag|artist|character|parody|group|language|category):/, "");
+  const normalizeTag = (t: string) =>
+    t.replace(
+      /^(female|male|tag|artist|character|parody|group|language|category):/,
+      "",
+    );
   const toRemove = new Set(tagNames.map(normalizeTag));
   for (const key of Object.keys(counts)) {
     if (toRemove.has(normalizeTag(key))) {
@@ -2139,7 +2639,6 @@ export const ALL_DISCOVER_SECTIONS: DiscoverSectionDef[] = [
   { id: "popular_today", title: "Popular Today" },
   { id: "popular_week", title: "Popular This Week" },
   { id: "popular_month", title: "Popular This Month" },
-  { id: "popular_all", title: "Popular All-Time" },
   {
     id: "last_read",
     title: "Last Read",
@@ -2155,6 +2654,7 @@ export const ALL_DISCOVER_SECTIONS: DiscoverSectionDef[] = [
     title: "Top Reread",
     subtitle: "Shows Your Top Reread Manga From Highest To Lowest",
   },
+  { id: "popular_all", title: "Popular All-Time" },
 ];
 
 export const DEFAULT_SECTION_ORDER = ALL_DISCOVER_SECTIONS.map((s) => s.id);
@@ -2162,7 +2662,23 @@ export const DEFAULT_SECTION_ORDER = ALL_DISCOVER_SECTIONS.map((s) => s.id);
 // Sections hidden by default to reduce API calls on app launch
 export const DEFAULT_HIDDEN_SECTIONS = ["related", "top_reread", "last_read"];
 
+function ensureDiscoverSectionOrderingReset(): void {
+  const hasReset = Application.getState(
+    DISCOVER_SECTION_ORDER_RESET_FLAG_KEY,
+  ) as boolean | undefined;
+  if (hasReset) return;
+
+  for (const key of LEGACY_DISCOVER_SECTION_ORDER_KEYS) {
+    Application.setState(undefined, key);
+  }
+  for (const key of LEGACY_DISCOVER_SECTION_HIDDEN_KEYS) {
+    Application.setState(undefined, key);
+  }
+  Application.setState(true, DISCOVER_SECTION_ORDER_RESET_FLAG_KEY);
+}
+
 export function getDiscoverSectionOrder(): string[] {
+  ensureDiscoverSectionOrderingReset();
   const stored = Application.getState(DISCOVER_SECTION_ORDER_KEY) as
     | string[]
     | undefined;
@@ -2181,6 +2697,7 @@ export function setDiscoverSectionOrder(order: string[]): void {
 }
 
 export function getHiddenSections(): Set<string> {
+  ensureDiscoverSectionOrderingReset();
   const stored = Application.getState(DISCOVER_SECTION_HIDDEN_KEY) as
     | string[]
     | undefined;
