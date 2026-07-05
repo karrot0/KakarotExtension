@@ -96,13 +96,11 @@ export class BatcaveExtension implements BatcaveImplementation {
     // DOES NOT WORK WITH NO TITLE: https://batcave.biz/search/
 
     if (!query.title) {
-      const catalogueResults = await this.getCatalogueSectionItems(
-        {
-          id: "catalogue_section",
-          title: "",
-          type: DiscoverSectionType.simpleCarousel,
-        },
-      );
+      const catalogueResults = await this.getCatalogueSectionItems({
+        id: "catalogue_section",
+        title: "",
+        type: DiscoverSectionType.simpleCarousel,
+      });
       return {
         items: catalogueResults.items
           .map((item) => {
@@ -123,9 +121,7 @@ export class BatcaveExtension implements BatcaveImplementation {
       };
     }
 
-    const urlBuilder = new URLBuilder(baseUrl)
-      .addPath("search")
-      .addPath(query.title);
+    const urlBuilder = new URLBuilder(baseUrl).addPath("search").addPath(query.title);
 
     if (page > 1) {
       urlBuilder.addPath("page").addPath(page.toString());
@@ -144,18 +140,13 @@ export class BatcaveExtension implements BatcaveImplementation {
       const title = infoLink.text().trim();
       const imgEl = unit.find(".readed__img img");
       const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
         ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
         .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
-      const latestChapterText = unit
-        .find(".readed__info li:last-child")
-        .text()
-        .trim();
+      const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
       const latestChapter = latestChapterText
         .replace("Last issue:", "")
         .trim()
@@ -172,8 +163,7 @@ export class BatcaveExtension implements BatcaveImplementation {
       });
     });
 
-    const currentPage =
-      parseInt($(".pagination__pages > span").first().text()) || 1;
+    const currentPage = parseInt($(".pagination__pages > span").first().text()) || 1;
     const hasNextPage =
       $(".pagination__pages > a").filter((_, el) => {
         const pageNum = parseInt($(el).text());
@@ -194,9 +184,7 @@ export class BatcaveExtension implements BatcaveImplementation {
 
     const title = $("h1").first().text().trim();
     const rawImage = $(".page__poster img").attr("src") || "";
-    const image = rawImage.startsWith("/")
-      ? `https://batcave.biz${rawImage}`
-      : rawImage;
+    const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
     const description = $(".page__text").text().trim();
 
     const ratingMatch = $(".page__rating-votes")
@@ -267,9 +255,7 @@ export class BatcaveExtension implements BatcaveImplementation {
         .first()
         .html() || "";
 
-    const jsonMatch = chapterScript.match(
-      /window\.__DATA__\s*=\s*({[\s\S]*?});/,
-    );
+    const jsonMatch = chapterScript.match(/window\.__DATA__\s*=\s*({[\s\S]*?});/);
     const jsonData = jsonMatch ? jsonMatch[1] : null;
 
     interface ChapterData {
@@ -316,57 +302,40 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
+    // The reader page ships images:[] and loads them via this AJAX call.
+    // news_id = numeric mangaId prefix, chapter_id = chapterId; both required.
+    const newsId = chapter.sourceManga.mangaId.split("-")[0];
     try {
       const request = {
-        url: `${baseUrl}/reader/${chapter.sourceManga.mangaId.split("-")[0]}/${chapter.chapterId}`,
-        method: "GET",
+        url: `${baseUrl}/engine/ajax/controller.php?mod=api&action=reader/getChapterData`,
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: `news_id=${newsId}&chapter_id=${chapter.chapterId}`,
       };
 
-      const $ = await this.fetchCheerio(request);
-
-      const pages: string[] = [];
-
-      const scriptData = $("script")
-        .filter((_, el) => $(el).html()?.includes("__DATA__") ?? false)
-        .first()
-        .html();
-
-      if (scriptData) {
-        const jsonMatch = scriptData.match(
-          /window\.__DATA__\s*=\s*({[\s\S]*?})\s*;/,
-        );
-        if (jsonMatch) {
-          try {
-            const data: { images?: string[] } = JSON.parse(jsonMatch[1]) as {
-              images?: string[];
-            };
-
-            if (data.images && Array.isArray(data.images)) {
-              data.images = data.images.map((img: string) =>
-                img.replace(/\\\//g, "/"),
-              );
-              pages.push(...data.images);
-            } else {
-              console.error("Images not found in JSON data");
-            }
-          } catch (error) {
-            console.error("Failed to parse JSON:", error);
-          }
-        }
+      const [response, data] = await Application.scheduleRequest(request);
+      if (response.status === 503 || response.status === 403) {
+        throw new CloudflareError({
+          url: baseUrl,
+          method: "GET",
+          headers: { referer: baseUrl, origin: baseUrl },
+        } as Request);
       }
+
+      const parsed = JSON.parse(Application.arrayBufferToUTF8String(data)) as {
+        success?: boolean;
+        data?: { images?: string[] };
+      };
+      const pages = (parsed.data?.images ?? []).map(normalizeImageUrl);
 
       return {
         id: chapter.chapterId,
         mangaId: chapter.sourceManga.mangaId,
-        pages: pages,
+        pages,
       };
     } catch (error) {
       console.error("Error fetching chapter details:", error);
-      return {
-        id: chapter.chapterId,
-        mangaId: chapter.sourceManga.mangaId,
-        pages: [],
-      };
+      throw error;
     }
   }
 
@@ -397,18 +366,13 @@ export class BatcaveExtension implements BatcaveImplementation {
       const title = infoLink.text().trim();
       const imgEl = unit.find(".readed__img img");
       const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
         ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
         .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
-      const latestChapterText = unit
-        .find(".readed__info li:last-child")
-        .text()
-        .trim();
+      const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
       const latestChapter = latestChapterText.replace("Last issue:", "").trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -427,9 +391,8 @@ export class BatcaveExtension implements BatcaveImplementation {
 
     const currentPage = $(".pagination__pages > span").first().text();
     const hasNextPage =
-      $(".pagination__pages > a").filter(
-        (_, el) => parseInt($(el).text()) > parseInt(currentPage),
-      ).length > 0;
+      $(".pagination__pages > a").filter((_, el) => parseInt($(el).text()) > parseInt(currentPage))
+        .length > 0;
 
     return {
       items: items,
@@ -455,12 +418,8 @@ export class BatcaveExtension implements BatcaveImplementation {
     $(".poster.grid-item").each((_, element) => {
       const unit = $(element);
       const title = unit.find(".poster__title").text().trim();
-      const rawImage = (
-        unit.find(".poster__img img").attr("data-src") || ""
-      ).trim();
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
+      const rawImage = (unit.find(".poster__img img").attr("data-src") || "").trim();
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
       const rawMangaId = unit.attr("href");
       const mangaId = rawMangaId
         ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
@@ -507,18 +466,9 @@ export class BatcaveExtension implements BatcaveImplementation {
     $("#content-load .latest.grid-item").each((_, element) => {
       const unit = $(element);
       // Target the anchor inside .latest__title to keep inner icons out of the title text
-      const title = unit
-        .find(".latest__title a")
-        .clone()
-        .children()
-        .remove()
-        .end()
-        .text()
-        .trim();
+      const title = unit.find(".latest__title a").clone().children().remove().end().text().trim();
       const rawImage = unit.find(".latest__img img").attr("src") || "";
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
       // Grab the href from the title anchor rather than using closest()
       const rawMangaId = unit.find(".latest__title a").attr("href");
       const mangaId = rawMangaId
@@ -662,18 +612,13 @@ export class BatcaveExtension implements BatcaveImplementation {
       const title = infoLink.text().trim();
       const imgEl = unit.find(".readed__img img");
       const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/")
-        ? `https://batcave.biz${rawImage}`
-        : rawImage;
+      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
       const rawMangaId = infoLink.attr("href");
       const mangaId = rawMangaId
         ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
         .replace(/\.html$/, "") // Remove the ".html" extension
         .trim();
-      const latestChapterText = unit
-        .find(".readed__info li:last-child")
-        .text()
-        .trim();
+      const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
       const latestChapter = latestChapterText
         .replace("Last issue:", "")
         .trim()
@@ -690,8 +635,7 @@ export class BatcaveExtension implements BatcaveImplementation {
       });
     });
 
-    const currentPage =
-      parseInt($(".pagination__pages > span").first().text()) || 1;
+    const currentPage = parseInt($(".pagination__pages > span").first().text()) || 1;
     const hasNextPage =
       $(".pagination__pages > a").filter((_, el) => {
         const pageNum = parseInt($(el).text());
@@ -712,7 +656,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     for (const cookie of this.cookieStorageInterceptor.cookies) {
       this.cookieStorageInterceptor.deleteCookie(cookie);
     }
-  
+
     for (const cookie of cookies) {
       if (cookie.expires && cookie.expires.getTime() <= Date.now()) {
         continue;
@@ -724,7 +668,7 @@ export class BatcaveExtension implements BatcaveImplementation {
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
     const html = Application.arrayBufferToUTF8String(data);
-    
+
     if (
       response.status === 503 ||
       response.status === 403 ||
@@ -740,9 +684,15 @@ export class BatcaveExtension implements BatcaveImplementation {
         },
       } as Request);
     }
-    
+
     return cheerio.load(html);
   }
+}
+
+function normalizeImageUrl(raw: string): string {
+  const url = raw.replace(/\\\//g, "/").trim();
+  if (url.startsWith("http")) return url;
+  return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
 }
 
 function createDiscoverSectionItem(options: {
