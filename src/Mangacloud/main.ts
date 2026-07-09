@@ -129,7 +129,7 @@ export class MangacloudExtension implements MangacloudImplementation {
     if (includes.length > 0) body.includes = includes;
     if (excludes.length > 0) body.excludes = excludes;
 
-    const apiUrl = `https://api.mangacloud.org/comic/browse`;
+    const apiUrl = `https://api.mangacloud.org/comic/library`;
     const request: Request = {
       url: apiUrl,
       method: "POST",
@@ -241,7 +241,7 @@ export class MangacloudExtension implements MangacloudImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const apiUrl = `https://api.mangacloud.org/chapter/${chapter.chapterId}`;
+    const apiUrl = `https://api.mangacloud.org/chapters/${chapter.chapterId}`;
     const request: Request = { url: apiUrl, method: "GET" };
 
     const [, data] = await Application.scheduleRequest(request);
