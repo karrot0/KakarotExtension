@@ -18,6 +18,7 @@ import {
   SearchQuery,
   SearchResultItem,
   SearchResultsProviding,
+  SortingOption,
   SourceManga,
   TagSection,
 } from "@paperback/types";
@@ -29,6 +30,25 @@ import { URLBuilder } from "../utils/url-builder/base";
 import { Hentai2readInterceptor } from "./interceptors";
 
 const baseUrl = "https://hentai2read.com";
+
+const SORT_OPTIONS: SortingOption[] = [
+  { id: "name-az", label: "Name (A-Z)" },
+  { id: "name-za", label: "Name (Z-A)" },
+  { id: "last-updated", label: "Last Updated" },
+  { id: "oldest-updated", label: "Oldest Updated" },
+  { id: "most-popular", label: "Most Popular" },
+  { id: "most-popular-daily", label: "Most Popular (Daily)" },
+  { id: "most-popular-weekly", label: "Most Popular (Weekly)" },
+  { id: "most-popular-monthly", label: "Most Popular (Monthly)" },
+  { id: "user-recommendation", label: "User Recommendation" },
+  { id: "trending", label: "Trending" },
+  { id: "staff-pick", label: "Staff Pick" },
+  { id: "least-popular", label: "Least Popular" },
+  { id: "last-added", label: "Newest" },
+  { id: "early-added", label: "Oldest" },
+  { id: "top-rating", label: "Top Rating" },
+  { id: "lowest-rating", label: "Lowest Rating" },
+];
 
 type Hentai2readImplementation = Extension &
   SearchResultsProviding &
@@ -156,9 +176,14 @@ export class Hentai2readExtension implements Hentai2readImplementation {
     return new Hentai2readSearchForm(tags, meta);
   }
 
+  async getSortingOptions(_query: SearchQuery<Metadata>): Promise<SortingOption[]> {
+    return SORT_OPTIONS;
+  }
+
   async getSearchResults(
     query: SearchQuery<Metadata>,
     metadata: Metadata | undefined,
+    sortingOption: SortingOption | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
     const paginationMeta = metadata as { page?: number; nextPageUrl?: string } | undefined;
     const page = paginationMeta?.page ?? 1;
@@ -168,23 +193,19 @@ export class Hentai2readExtension implements Hentai2readImplementation {
     const tagIncluded = searchMeta?.tagIncluded ?? [];
     const tagExcluded = searchMeta?.tagExcluded ?? [];
 
-    let request: Request;
+    let $: CheerioAPI;
 
     if (paginationMeta?.nextPageUrl) {
-      request = {
+      $ = await this.fetchCheerio({
         url: paginationMeta.nextPageUrl,
         method: "GET",
-        headers: {
-          Referer: "https://hentai2read.com/hentai-search",
-        },
-      };
+        headers: { Referer: baseUrl },
+      });
     } else {
       const formData = {
         data: {} as Record<string, string[]>,
         append(key: string, value: string): void {
-          if (!this.data[key]) {
-            this.data[key] = [];
-          }
+          if (!this.data[key]) this.data[key] = [];
           this.data[key].push(value);
         },
         toString(): string {
@@ -206,12 +227,7 @@ export class Hentai2readExtension implements Hentai2readImplementation {
       formData.append("txt_wpm_pag_mng_sch_rls_yer", "");
       formData.append("rad_wpm_pag_mng_sch_sts", "0");
       formData.append("rad_wpm_pag_mng_sch_tag_mde", "and");
-
-      if (query.title) {
-        formData.append("txt_wpm_pag_mng_sch_nme", query.title);
-      } else {
-        formData.append("txt_wpm_pag_mng_sch_nme", "");
-      }
+      formData.append("txt_wpm_pag_mng_sch_nme", query.title ?? "");
 
       for (const tagId of tagIncluded) {
         formData.append("chk_wpm_pag_mng_sch_mng_tag_inc[]", tagId);
@@ -220,67 +236,66 @@ export class Hentai2readExtension implements Hentai2readImplementation {
         formData.append("chk_wpm_pag_mng_sch_mng_tag_exc[]", tagId);
       }
 
-      request = {
+      const postRequest: Request = {
         url: new URLBuilder(baseUrl).addPath("hentai-list/advanced-search/").build(),
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Referer: "https://hentai2read.com/hentai-search",
+          Referer: baseUrl,
         },
         body: formData.toString(),
       };
+
+      const $post = await this.fetchCheerio(postRequest);
+
+      if (sortingOption) {
+        const sortHref = $post(".nav-pills .dropdown-menu a[href*='/advanced-search/']").first().attr("href") ?? "";
+        const tokenMatch = sortHref.match(/\/advanced-search\/([^/]+)\//);
+        if (tokenMatch) {
+          const sortedUrl = `${baseUrl}/hentai-list/advanced-search/${tokenMatch[1]}/all/${sortingOption.id}`;
+          $ = await this.fetchCheerio({ url: sortedUrl, method: "GET", headers: { Referer: baseUrl } });
+        } else {
+          $ = $post;
+        }
+      } else {
+        $ = $post;
+      }
     }
 
-    const $ = await this.fetchCheerio(request);
     const searchResults: SearchResultItem[] = [];
 
     $(".book-grid-item-container").each((_, element) => {
-      if ($(element).find(".book-grid-item a[href*='hive.arf.dev']").length > 0) {
-        return;
-      }
+      if ($(element).find(".book-grid-item a[href*='hive.arf.dev']").length > 0) return;
 
       const titleLink = $(element).find(".title, .overlay-title a").first();
       const href = titleLink.attr("href") || "";
-
       const mangaId = href.replace(/^https?:\/\/hentai2read\.com\//, "").replace(/\/$/, "");
-
       const title = $(element).find(".title-text, .overlay-title a").first().text().trim();
-
       const subtitle = $(element).find(".overlay-sub div").first().text().trim() || undefined;
 
       let image = "";
       const imgElement = $(element).find("img").first();
-
       if (imgElement.length > 0) {
-        image =
-          imgElement.attr("data-src") || imgElement.attr("src") || imgElement.attr("srcset") || "";
-
-        if (image && image.startsWith("//")) {
-          image = "https:" + image;
-        }
+        image = imgElement.attr("data-src") || imgElement.attr("src") || imgElement.attr("srcset") || "";
+        if (image.startsWith("//")) image = "https:" + image;
       }
 
-      if (!mangaId || !title) {
-        return;
-      }
+      if (!mangaId || !title) return;
 
       searchResults.push({
-        mangaId: mangaId,
-        imageUrl: image ?? "",
-        title: title,
+        mangaId,
+        imageUrl: image,
+        title,
         contentRating: ContentRating.ADULT,
-        subtitle: subtitle,
-        metadata: undefined,
+        subtitle,
       });
     });
 
-    // Extract next page URL from pagination
-    const nextPageLink = $("#js-linkNext, .pagination a#js-linkNext").first();
-    const nextPageUrl = nextPageLink.attr("href");
+    const nextPageUrl = $("#js-linkNext, .pagination a#js-linkNext").first().attr("href");
 
     return {
       items: searchResults,
-      metadata: nextPageUrl ? { page: page + 1, nextPageUrl: nextPageUrl } : undefined,
+      metadata: nextPageUrl ? { page: page + 1, nextPageUrl } : undefined,
     };
   }
 
