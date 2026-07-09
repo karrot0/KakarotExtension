@@ -4,6 +4,7 @@
 import { AdvancedSearchForm, NavigationRow, Section, SelectRow, ToggleRow } from "@paperback/types";
 
 import { type Metadata, STATIC_SEARCH_DETAILS } from "../models";
+import { getNsfwSetting, setNsfwSetting } from "../settings";
 import { TagCategoryForm } from "./TagCategoryForm";
 import { ShowcaseForm } from "./ShowcaseForm";
 
@@ -15,7 +16,7 @@ export class MangaballSearchForm extends AdvancedSearchForm {
 
   constructor(initialMeta?: Metadata) {
     super();
-    this.nsfw = initialMeta?.nsfw ?? false;
+    this.nsfw = initialMeta?.nsfw ?? getNsfwSetting();
     this.demographic = [initialMeta?.demographic ?? "any"];
     this.originalLanguages = initialMeta?.originalLanguages ?? [];
 
@@ -32,6 +33,7 @@ export class MangaballSearchForm extends AdvancedSearchForm {
 
   async updateNsfw(value: boolean): Promise<void> {
     this.nsfw = value;
+    setNsfwSetting(value);
     this.reloadForm();
   }
 
@@ -122,13 +124,13 @@ export class MangaballSearchForm extends AdvancedSearchForm {
           ),
         }),
       ]),
-      Section("dev", [
-        NavigationRow("showcase", {
-          title: "UI Elements Showcase",
-          subtitle: "Preview every available form row and section type",
-          form: new ShowcaseForm(),
-        }),
-      ]),
+      // Section("dev", [
+      //   NavigationRow("showcase", {
+      //     title: "UI Elements Showcase",
+      //     subtitle: "Preview every available form row and section type",
+      //     form: new ShowcaseForm(),
+      //   }),
+      // ]),
     ];
   }
 }

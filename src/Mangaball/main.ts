@@ -16,6 +16,7 @@ import {
   type DiscoverSectionProviding,
   DiscoverSectionType,
   type Extension,
+  type Form,
   type Metadata,
   type MangaProviding,
   type PagedResults,
@@ -23,6 +24,7 @@ import {
   type SearchQuery,
   type SearchResultItem,
   type SearchResultsProviding,
+  type SettingsFormProviding,
   type SortingOption,
   type SourceManga,
   type TagSection,
@@ -40,8 +42,10 @@ import {
   type Metadata as MangaballMetadata,
 } from "./models";
 import { MangaballSearchForm } from "./forms/SearchForm";
+import { MangaballSettingsForm } from "./forms/SettingsForm";
 import { MainInterceptor } from "./network";
 import { parseApiItemsToDiscoverItems } from "./parsers";
+import { isLanguageAllowed } from "./settings";
 
 const baseUrl = "https://mangaball.net";
 
@@ -50,7 +54,8 @@ type MangaballImplementation = Extension &
   MangaProviding &
   ChapterProviding &
   CloudflareBypassRequestProviding &
-  DiscoverSectionProviding;
+  DiscoverSectionProviding &
+  SettingsFormProviding;
 
 export class MangaballExtension implements MangaballImplementation {
   requestManager = new MainInterceptor("main");
@@ -511,6 +516,10 @@ export class MangaballExtension implements MangaballImplementation {
     };
   }
 
+  async getSettingsForm(): Promise<Form> {
+    return new MangaballSettingsForm();
+  }
+
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId;
     const match = mangaId.match(/([a-f0-9]{24})$/);
@@ -551,6 +560,7 @@ export class MangaballExtension implements MangaballImplementation {
     for (const ch of json.ALL_CHAPTERS ?? []) {
       for (const t of ch.translations ?? []) {
         const language = (t.language || t.languageName || "").trim();
+        if (!isLanguageAllowed(t.language || "", t.languageName)) continue;
         const seenKey = `${t.id}:${language.toLowerCase()}`;
         if (seen.has(seenKey)) continue;
         seen.add(seenKey);
