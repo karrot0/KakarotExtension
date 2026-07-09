@@ -115,25 +115,15 @@ export class ReadComicsOnlineExtension
     query: SearchQuery<Metadata>,
     metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    const searchMeta = query.metadata?.searchMeta;
-    const hasFilters = !!(searchMeta && (searchMeta.status || searchMeta.types || searchMeta.categories));
-
-    if (!(query.title ?? "").trim() && !hasFilters) {
-      return { items: [] };
-    }
-
     return this.getAdvancedSearchResults(
       (query.title ?? "").trim(),
-      searchMeta ?? { status: "", types: "", categories: "" },
+      query.metadata?.searchMeta ?? { status: "", types: "", categories: "" },
       metadata?.page ?? 1,
       metadata?.csrfToken,
     );
   }
 
-  // All searches go through POST /advanced-search. The `name` field handles
-  // free-text search; status_id / type_id / category handle filters.
-  // On page 1 we GET the page to extract a fresh CSRF token; on subsequent
-  // pages we reuse the token passed through metadata to avoid a redundant GET.
+
   private async getAdvancedSearchResults(
     title: string,
     searchMeta: NonNullable<Metadata["searchMeta"]>,

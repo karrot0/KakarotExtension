@@ -3,10 +3,6 @@ import { PaperbackInterceptor, Request, Response } from "@paperback/types";
 const baseUrl = "https://readcomicsonline.ru";
 
 export class ReadComicsOnlineInterceptor extends PaperbackInterceptor {
-  // cf_clearance is bound to the User-Agent that solved the challenge — the
-  // WebView's UA. Native requests must send that exact UA or Cloudflare rejects
-  // the clearance and re-challenges. The extension reads the WebView UA at init
-  // and sets it here so native image loads match the stored clearance.
   private userAgentOverride?: string;
 
   setUserAgent(userAgent: string): void {
