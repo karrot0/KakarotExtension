@@ -96,11 +96,14 @@ export class BatcaveExtension implements BatcaveImplementation {
     // DOES NOT WORK WITH NO TITLE: https://batcave.biz/search/
 
     if (!query.title) {
-      const catalogueResults = await this.getCatalogueSectionItems({
-        id: "catalogue_section",
-        title: "",
-        type: DiscoverSectionType.simpleCarousel,
-      });
+      const catalogueResults = await this.getCatalogueSectionItems(
+        {
+          id: "catalogue_section",
+          title: "",
+          type: DiscoverSectionType.simpleCarousel,
+        },
+        metadata,
+      );
       return {
         items: catalogueResults.items
           .map((item) => {
@@ -341,8 +344,8 @@ export class BatcaveExtension implements BatcaveImplementation {
 
   async getCatalogueSectionItems(
     _section: DiscoverSection,
+    metadata?: Metadata,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
