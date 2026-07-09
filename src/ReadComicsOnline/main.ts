@@ -6,6 +6,7 @@ import {
   Cookie,
   CookieStorageInterceptor,
   CloudflareBypassRequestProviding,
+  CloudflareError,
   ContentRating,
   DiscoverSection,
   DiscoverSectionItem,
@@ -28,6 +29,7 @@ import { Metadata } from "./model";
 import { ReadComicsOnlineSearchForm } from "./forms";
 
 const baseUrl = "https://readcomicsonline.ru";
+const cdnUrl = "https://cdn.readcomicsonline.ru";
 
 type ReadComicsOnlineImplementation = Extension &
   SearchResultsProviding &
@@ -45,6 +47,26 @@ export class ReadComicsOnlineExtension
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
+    await this.syncWebViewUserAgent();
+  }
+
+  private async syncWebViewUserAgent(): Promise<void> {
+    try {
+      const { result } = await Application.executeInWebView({
+        source: {
+          html: "<!doctype html><html><head></head><body></body></html>",
+          baseUrl: `${baseUrl}/`,
+          loadCSS: false,
+          loadImages: false,
+        },
+        inject: "return navigator.userAgent;",
+        storage: { cookies: [] },
+      });
+      if (typeof result === "string" && result.trim()) {
+        this.requestManager.setUserAgent(result.trim());
+      }
+    } catch {
+    }
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
@@ -121,11 +143,11 @@ export class ReadComicsOnlineExtension
     let token = cachedToken ?? "";
 
     if (!token) {
-      const [, tokenData] = await Application.scheduleRequest({
-        url: `${baseUrl}/advanced-search`,
-        method: "GET",
-      });
-      const $tokenPage = cheerio.load(Application.arrayBufferToUTF8String(tokenData));
+      const { status, body: tokenHtml } = await this.webViewFetch(
+        `${baseUrl}/advanced-search`,
+      );
+      this.checkCloudflare(status, tokenHtml);
+      const $tokenPage = cheerio.load(tokenHtml);
       token = $tokenPage('input[name="_token"]').val() as string ?? "";
     }
 
@@ -141,19 +163,16 @@ export class ReadComicsOnlineExtension
       ? `${baseUrl}/advanced-search?page=${page}`
       : `${baseUrl}/advanced-search`;
 
-    const [, data] = await Application.scheduleRequest({
-      url: searchUrl,
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded",
-      },
+    const { status: searchStatus, body: searchHtml } = await this.webViewFetch(
+      searchUrl,
+      "POST",
       body,
-    });
-
-    const $ = cheerio.load(Application.arrayBufferToUTF8String(data));
+    );
+    this.checkCloudflare(searchStatus, searchHtml);
+    const $ = cheerio.load(searchHtml);
     const items: SearchResultItem[] = [];
 
-    // Results are thumbnail grid cards: <a class="group"> containing .rc-cover
+
     $("a:has(.rc-cover)").each((_, element) => {
       const unit = $(element);
       const href = unit.attr("href") ?? "";
@@ -173,6 +192,7 @@ export class ReadComicsOnlineExtension
     const hasNextPage = !!$("a[rel='next']").length;
     const nextToken = $('input[name="_token"]').val() as string | undefined;
 
+    await this.ensureCdnAccess((items[0] as { imageUrl?: string })?.imageUrl ?? "");
     return {
       items,
       metadata: hasNextPage ? { page: page + 1, csrfToken: nextToken ?? token } : undefined,
@@ -230,6 +250,8 @@ export class ReadComicsOnlineExtension
         })),
       });
     }
+
+    await this.ensureCdnAccess(image);
 
     return {
       mangaId,
@@ -325,12 +347,15 @@ export class ReadComicsOnlineExtension
         }
       });
 
+      await this.ensureCdnAccess(pages[0] ?? "");
+
       return {
         id: chapter.chapterId,
         mangaId: chapter.sourceManga.mangaId,
-        pages: pages,
+        pages,
       };
     } catch (error) {
+      if (error instanceof CloudflareError) throw error;
       console.error("Error fetching chapter details:", error);
       return {
         id: chapter.chapterId,
@@ -381,6 +406,7 @@ export class ReadComicsOnlineExtension
       }
     });
 
+    await this.ensureCdnAccess((items[0] as { imageUrl?: string })?.imageUrl ?? "");
     return {
       items,
       metadata: undefined,
@@ -425,6 +451,7 @@ export class ReadComicsOnlineExtension
       }
     });
 
+    await this.ensureCdnAccess((items[0] as { imageUrl?: string })?.imageUrl ?? "");
     return {
       items,
       metadata: undefined,
@@ -475,14 +502,19 @@ export class ReadComicsOnlineExtension
 
     const hasNextPage = !!$("a[rel='next']").length;
 
+    await this.ensureCdnAccess((items[0] as { imageUrl?: string })?.imageUrl ?? "");
     return {
-      items: items,
+      items,
       metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
     };
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/${mangaId}`;
+    return `${baseUrl}/comic/${mangaId}`;
+  }
+
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    this.persistCookies(cookies);
   }
 
   async cloudflareBypassCompleted(
@@ -490,10 +522,10 @@ export class ReadComicsOnlineExtension
     cookies: Cookie[],
     _localStorage: Record<string, string>,
   ): Promise<void> {
-    for (const cookie of this.cookieStorageInterceptor.cookies) {
-      this.cookieStorageInterceptor.deleteCookie(cookie);
-    }
+    this.persistCookies(cookies);
+  }
 
+  private persistCookies(cookies: Cookie[]): void {
     for (const cookie of cookies) {
       if (cookie.expires && cookie.expires.getTime() <= Date.now()) {
         continue;
@@ -503,11 +535,106 @@ export class ReadComicsOnlineExtension
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [response, data] = await Application.scheduleRequest(request);
-    if (response.status === 404) {
+    const { status, body } = await this.webViewFetch(
+      request.url,
+      request.method ?? "GET",
+      typeof request.body === "string" ? request.body : undefined,
+    );
+    this.checkCloudflare(status, body);
+    if (status === 404) {
       throw new Error("Content not found");
     }
-    return cheerio.load(Application.arrayBufferToUTF8String(data));
+    return cheerio.load(body);
+  }
+
+  private async webViewFetch(
+    url: string,
+    method: string = "GET",
+    body?: string,
+  ): Promise<{ status: number; body: string }> {
+    const inject = `
+      const res = await fetch(${JSON.stringify(url)}, {
+        method: ${JSON.stringify(method)},
+        headers: ${body ? '{ "content-type": "application/x-www-form-urlencoded" }' : "{}"},
+        ${body ? `body: ${JSON.stringify(body)},` : ""}
+        credentials: "include",
+        redirect: "follow",
+      });
+      const text = await res.text();
+      return JSON.stringify({ status: res.status, body: text });
+    `;
+
+    const { result, storage } = await Application.executeInWebView({
+      source: {
+        html: "<!doctype html><html><head></head><body></body></html>",
+        baseUrl: `${baseUrl}/`,
+        loadCSS: false,
+        loadImages: false,
+      },
+      inject,
+      storage: { cookies: [...this.cookieStorageInterceptor.cookies] },
+    });
+
+    if (storage?.cookies?.length) {
+      this.persistCookies(storage.cookies);
+    }
+
+    const parsed =
+      typeof result === "string"
+        ? (JSON.parse(result) as { status: number; body: string })
+        : (result as { status: number; body: string });
+
+    return { status: parsed?.status ?? 0, body: parsed?.body ?? "" };
+  }
+
+  private cdnAccessVerified = false;
+
+  private async ensureCdnAccess(probeUrl: string): Promise<void> {
+    if (this.cdnAccessVerified || !probeUrl.startsWith(cdnUrl)) return;
+
+    let status = 0;
+    let head = "";
+    try {
+      const [response, data] = await Application.scheduleRequest({
+        url: probeUrl,
+        method: "GET",
+        headers: { range: "bytes=0-0" },
+      });
+      status = response.status;
+      head = Application.arrayBufferToUTF8String(data).slice(0, 64);
+    } catch {
+      return;
+    }
+
+    const challenged =
+      status === 403 ||
+      status === 503 ||
+      head.trimStart().startsWith("<");
+    if (challenged) {
+      throw new CloudflareError({
+        url: probeUrl,
+        method: "GET",
+        headers: { referer: `${baseUrl}/`, origin: baseUrl },
+      } as Request);
+    }
+
+    this.cdnAccessVerified = true;
+  }
+
+  private checkCloudflare(status: number, html: string): void {
+    if (
+      status === 503 ||
+      status === 403 ||
+      html.includes("Just a moment") ||
+      html.includes("challenges.cloudflare.com") ||
+      (html.includes("window.performance") && html.includes("crypto.subtle"))
+    ) {
+      throw new CloudflareError({
+        url: baseUrl,
+        method: "GET",
+        headers: { referer: baseUrl, origin: baseUrl },
+      } as Request);
+    }
   }
 }
 
