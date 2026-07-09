@@ -289,27 +289,11 @@ export class RawkumaExtension implements RawkumaImplementation {
   }
 
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
-    const mangaRequest = {
+    // Chapters are rendered inline in the manga page; the old
+    // admin-ajax.php?action=chapter_list endpoint no longer exists.
+    const request = {
       url: `${baseUrl}/manga/${sourceManga.mangaId}`,
       method: "GET",
-    };
-    const $manga = await this.fetchCheerio(mangaRequest);
-
-    const hxGet =
-      $manga("[hx-get*='chapter_list']").first().attr("hx-get") || "";
-    const mangaIdMatch = hxGet.match(/manga_id=(\d+)/);
-    if (!mangaIdMatch) return [];
-    const mangaDbId = mangaIdMatch[1];
-
-    const request = {
-      url: `${baseUrl}/wp-admin/admin-ajax.php?manga_id=${mangaDbId}&action=chapter_list`,
-      method: "GET",
-      headers: {
-        "hx-request": "true",
-        "hx-target": "chapter-list",
-        "hx-trigger": "chapter-list",
-        referer: `${baseUrl}/manga/${sourceManga.mangaId}/`,
-      },
     };
     const $ = await this.fetchCheerio(request);
 
