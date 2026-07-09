@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Hentai2read",
   description: "Extension that pulls content from hentai2read.com.",
-  version: "1.0.0-alpha.2",
+  version: "1.1",
   icon: "icon.png",
   language: "multi",
   contentRating: ContentRating.ADULT,
