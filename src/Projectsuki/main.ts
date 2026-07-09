@@ -27,7 +27,7 @@ import * as cheerio from "cheerio";
 import * as htmlparser2 from "htmlparser2";
 
 import { ProjectsukiInterceptor } from "./interceptors";
-import { ProjectsukiMetadata, ApiResponse, MangaInfo, ChapterInfo } from "./model";
+import { ProjectsukiMetadata } from "./model";
 
 const baseUrl = "https://projectsuki.com";
 
@@ -103,7 +103,7 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
 
     const $ = await this.fetchCheerio(request);
     const items: SearchResultItem[] = [];
-    
+
     $(".browse").each((_, el) => {
       const titleAnchor = $(el).find(".details h4 a").first();
       const href = titleAnchor.attr("href") ?? "";
@@ -228,18 +228,23 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     const mangaId = sourceManga.mangaId;
     const url = `https://projectsuki.com/book/${mangaId}`;
-    
+
     const request: Request = { url, method: "GET" };
     const $ = await this.fetchCheerio(request);
 
     const chapters: Chapter[] = [];
+    const seen = new Set<string>();
 
-    $("table tbody tr").each((_, row) => {
-      const anchor = $(row).find("td a").first();
+    $('a[href*="/read/"]').each((_, el) => {
+      const anchor = $(el);
       const href = anchor.attr("href") || "";
       const match = href.match(/\/read\/\d+\/(\d+)/);
       const chapterId = match ? match[1] : undefined;
-      if (!chapterId) return;
+      if (!chapterId || seen.has(chapterId)) return;
+
+      const row = anchor.closest("tr");
+      if (!row.length) return; // skip stray "read now" buttons outside the list
+      seen.add(chapterId);
 
       const title = anchor.text().trim();
       // try to specifically capture the chapter number (e.g. "Ch.134", "Chapter 134") first
@@ -254,7 +259,7 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
 
       // publish date is in last column span title as dd-mm-yyyy
       let publishDate: Date | undefined;
-      const dateSpan = $(row).find("span[itemscope][itemtype*=dateCreated]").first();
+      const dateSpan = row.find("span[itemscope][itemtype*=dateCreated]").first();
       const dateTitle = dateSpan.attr("title") || dateSpan.text().trim();
       if (dateTitle) {
         const parts = dateTitle.split("-");
@@ -266,7 +271,7 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
         }
       }
 
-      const lang = $(row).find("td").eq(1).text().trim();
+      const lang = row.find("td").eq(1).text().trim();
       const langCode = lang ? lang.substring(0, 2).toLowerCase() : "en";
 
       // add a chapter order based on the chapter number and volume in the title (if present)
@@ -286,45 +291,59 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
         langCode,
         version: "1",
       });
-
-      // sort by volume first, then chapter number to ensure Vol3 Ch.134 is ordered after Vol2
-      chapters.sort((a, b) => {
-        if ((a.volume ?? 0) !== (b.volume ?? 0)) {
-          return (a.volume ?? 0) - (b.volume ?? 0);
-        }
-
-        if (a.chapNum !== b.chapNum) {
-          return a.chapNum - b.chapNum;
-        }
-
-        return 0;
-      });
     });
+
+    chapters.reverse();
+    chapters.sort((a, b) => {
+      if ((a.volume ?? 0) !== (b.volume ?? 0)) {
+        return (a.volume ?? 0) - (b.volume ?? 0);
+      }
+      return a.chapNum - b.chapNum;
+    });
+
+    // sortingIndex is the app's ordering key; ascending index = newest last.
+    chapters.forEach((chapter, i) => (chapter.sortingIndex = i));
 
     return chapters;
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const apiUrl = `https://api.mangacloud.org/chapter/${chapter.chapterId}`;
-    const request: Request = { url: apiUrl, method: "GET" };
+    const bookId = chapter.sourceManga.mangaId;
+    const chapterId = chapter.chapterId;
 
-    const [, data] = await Application.scheduleRequest(request);
-    const jsonStr = Application.arrayBufferToUTF8String(data);
-    const resp = JSON.parse(jsonStr) as ApiResponse<ChapterInfo>;
-    const info = resp.data;
+    const $ = await this.fetchCheerio({
+      url: `${baseUrl}/read/${bookId}/${chapterId}/1`,
+      method: "GET",
+    });
+    const firstImg = $('img[src*="/images/gallery/"]').first().attr("src") ?? "";
+    const hashMatch = firstImg.match(/\/images\/gallery\/\d+\/([a-f0-9]+)\//i);
+    if (!hashMatch) {
+      throw new Error(`Projectsuki: no page images found for chapter ${chapterId}`);
+    }
+    const hash = hashMatch[1];
+    const pageUrl = (n: number) =>
+      `${baseUrl}/images/gallery/${bookId}/${hash}/${n.toString().padStart(3, "0")}`;
+    const exists = async (n: number): Promise<boolean> => {
+      const [res] = await Application.scheduleRequest({ url: pageUrl(n), method: "HEAD" });
+      return res.status === 200;
+    };
 
-    const pages: string[] = [];
-    if (info.images && info.images.length > 0) {
-      for (const img of info.images) {
-        pages.push(
-          `https://pika.mangacloud.org/${info.comic_id}/${info.id}/${img.id}.${img.f}`
-        );
-      }
+    const BATCH = 10;
+    const MAX = 500;
+    const pages: string[] = [pageUrl(1)];
+    for (let start = 2; start <= MAX; start += BATCH) {
+      const nums: number[] = [];
+      for (let n = start; n < start + BATCH && n <= MAX; n++) nums.push(n);
+      const oks = await Promise.all(nums.map(exists));
+      const missing = oks.indexOf(false);
+      const upTo = missing === -1 ? oks.length : missing;
+      for (let i = 0; i < upTo; i++) pages.push(pageUrl(nums[i]));
+      if (missing !== -1) break;
     }
 
     return {
-      mangaId: chapter.sourceManga.mangaId,
-      id: chapter.chapterId,
+      mangaId: bookId,
+      id: chapterId,
       pages,
     };
   }
@@ -437,9 +456,12 @@ export class ProjectsukiExtension implements ProjectsukiImplementation {
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [, data] = await Application.scheduleRequest(request);
-    // this.checkCloudflareStatus((data as any)?.status ?? 200);
+    const [response, data] = await Application.scheduleRequest(request);
+    this.checkCloudflareStatus(response.status);
     const htmlStr = Application.arrayBufferToUTF8String(data);
+    if (/<title>Just a moment|cf-browser-verification/i.test(htmlStr)) {
+      throw new CloudflareError({ url: request.url, method: request.method });
+    }
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
   }
