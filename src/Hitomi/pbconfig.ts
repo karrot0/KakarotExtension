@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Hitomi",
   description: "Extension that pulls content from hitomi.la",
-  version: "1.4.9",
+  version: "1.6.7",
   icon: "icon.png",
   language: "multi",
   contentRating: ContentRating.ADULT,

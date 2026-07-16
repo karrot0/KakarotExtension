@@ -376,9 +376,9 @@ export class StatisticsForm extends Form {
     const earliestSessionDate =
       sessions.length > 0
         ? sessions
-            .map((s) => s.date)
-            .filter((d): d is string => typeof d === "string" && d.length > 0)
-            .sort()[0]
+          .map((s) => s.date)
+          .filter((d): d is string => typeof d === "string" && d.length > 0)
+          .sort()[0]
         : undefined;
     const effectiveInstallDate = earliestSessionDate
       ? !installDate || earliestSessionDate < installDate
@@ -395,12 +395,12 @@ export class StatisticsForm extends Form {
 
     const daysActive = effectiveInstallDate
       ? Math.max(
-          1,
-          Math.floor(
-            (Date.now() - new Date(effectiveInstallDate).getTime()) /
-              (1000 * 60 * 60 * 24),
-          ),
-        )
+        1,
+        Math.floor(
+          (Date.now() - new Date(effectiveInstallDate).getTime()) /
+          (1000 * 60 * 60 * 24),
+        ),
+      )
       : 1;
     const markOnDescCount = getDescMarkedReadIds().size;
     const chapterReadCount = totalRead;
@@ -469,13 +469,13 @@ export class StatisticsForm extends Form {
       ]),
       ...(rawStreak.current === 0 && graceDays < 5 && !this.streakSaveDismissed
         ? [
-            Section({ id: "streak" }, [
-              ButtonRow("saveStreak", {
-                title: `Save Streak (${graceDays + 1} day${graceDays + 1 !== 1 ? "s" : ""})`,
-                onSelect: Application.Selector(this as any, "handleSaveStreak"),
-              }),
-            ]),
-          ]
+          Section({ id: "streak" }, [
+            ButtonRow("saveStreak", {
+              title: `Save Streak (${graceDays + 1} day${graceDays + 1 !== 1 ? "s" : ""})`,
+              onSelect: Application.Selector(this as any, "handleSaveStreak"),
+            }),
+          ]),
+        ]
         : []),
       Section(
         {
@@ -588,12 +588,12 @@ class RemoveSpecificStatsForm extends Form {
         const totalViews = sessions.reduce((sum, s) => sum + s.count, 0);
         const daysActive = installDate
           ? Math.max(
-              1,
-              Math.floor(
-                (Date.now() - parseStoredDate(installDate).getTime()) /
-                  (1000 * 60 * 60 * 24),
-              ),
-            )
+            1,
+            Math.floor(
+              (Date.now() - parseStoredDate(installDate).getTime()) /
+              (1000 * 60 * 60 * 24),
+            ),
+          )
           : 1;
         return `${category.title}: ${formatStatValue(totalViews / daysActive, false)}`;
       }
@@ -639,16 +639,16 @@ class RemoveSpecificStatsForm extends Form {
       // Show double-confirm warning at top when first confirm was clicked
       ...(this.confirmingReset
         ? [
-            Section("doubleConfirm", [
-              ButtonRow("areYouSure", {
-                title: "ARE YOU VERY SURE?",
-                onSelect: Application.Selector(
-                  this as any,
-                  "handleFinalConfirm",
-                ),
-              }),
-            ]),
-          ]
+          Section("doubleConfirm", [
+            ButtonRow("areYouSure", {
+              title: "ARE YOU VERY SURE?",
+              onSelect: Application.Selector(
+                this as any,
+                "handleFinalConfirm",
+              ),
+            }),
+          ]),
+        ]
         : []),
       Section(
         {
@@ -981,7 +981,7 @@ class ContentStatsForm extends Form {
             displayRereadLimit === 1
               ? "Top Reread Manga"
               : `Top ${displayRereadLimit} Reread Manga`,
-          footer: "Swipe a manga to remove it from Top Reread Manga.",
+          footer: "Swipe To Remove",
           items: [...rereadButtons, ...rereadRows],
           allowDeletion: true,
           onDeletion: Application.Selector(

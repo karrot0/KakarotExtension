@@ -124,10 +124,11 @@ const DISPLAY_OPTION_IDS: DisplayOptionId[] = [
   "desc_relative_date",
   "parodies_bottom",
   "show_tags_in_desc",
-  "show_related_order",
   "show_tag_counts",
+  "show_tags_alpha",
   "abbreviate_tag_counts",
   "show_manga_id_in_description",
+  "show_related_order",
   "show_reread_count",
 ];
 function getSelectedOptionTitle(
@@ -262,6 +263,7 @@ function getDisplayOptionLabel(
     show_tag_counts: "Show Tag Counts in Search Filters",
     abbreviate_tag_counts: 'Show Tag Count Abbreviations ("11k")',
     show_reread_count: "Show Reread Count",
+    show_tags_alpha: "Show Tags Alphabetically in Search",
   };
   return labels[id] || id;
 }
@@ -320,7 +322,7 @@ export class HitomiSettingsForm extends Form {
         SelectRow("languageNav", {
           title:
             this.languageSetting.length === 1 &&
-            this.languageSetting[0] !== "all"
+              this.languageSetting[0] !== "all"
               ? "Preferred Language"
               : "Preferred Languages",
           layout: "list",
@@ -874,16 +876,16 @@ class MangaFiltersForm extends Form {
         }),
         ...(!this.fuzzySearchTags
           ? [
-              ToggleRow("onlyFuzzyUnknown", {
-                title: "Fuzzy Search Unknown Tags",
-                subtitle: "Always Fuzzy Nonexistent Tags",
-                value: this.onlyFuzzyUnknown,
-                onValueChange: Application.Selector(
-                  this as any,
-                  "updateOnlyFuzzyUnknown",
-                ),
-              }),
-            ]
+            ToggleRow("onlyFuzzyUnknown", {
+              title: "Fuzzy Search Unknown Tags",
+              subtitle: "Always Fuzzy Nonexistent Tags",
+              value: this.onlyFuzzyUnknown,
+              onValueChange: Application.Selector(
+                this as any,
+                "updateOnlyFuzzyUnknown",
+              ),
+            }),
+          ]
           : []),
         InputRow("includeTags", {
           title: this.fuzzySearchTags

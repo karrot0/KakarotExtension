@@ -53,10 +53,8 @@ import {
   resetNHentaiSettings,
   sanitizePagesExpressionInput,
   setApiKeyAuthorizedSetting,
-
   setDateSeparatorSetting,
   setDisplayOptionsSetting,
-
   setDaysOldFilterSetting,
   setDiscoverCarouselTilesSetting,
   setDiscoverPageTilesSetting,
@@ -172,9 +170,10 @@ function getDisplayOptionLabel(
     parodies_bottom: "Show Characters in Description",
     show_id: "Show 6-digit ID in Description",
     show_tags_in_desc: "Show Tags in Description",
+    show_tag_counts: "Show Tag Counts in Search Filters",
+    show_tags_alpha: "Show Tags Alphabetically in Search",
     hide_read: "Hide Read Manga",
     show_related_order: "Show Related Count and Order",
-    show_tag_counts: "Show Tag Counts in Search Filters",
     show_reread_count: "Show Reread Count",
   };
   return labels[id] || id;
@@ -226,6 +225,7 @@ const DISPLAY_OPTION_IDS: DisplayOptionId[] = [
   "show_related_order",
   "show_tag_counts",
   "show_reread_count",
+  "show_tags_alpha",
 ];
 
 class NHentaiApiKeyForm extends Form {
