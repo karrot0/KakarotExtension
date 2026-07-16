@@ -221,7 +221,8 @@ const LAST_SEARCH_FILTERS_KEY = "hitomi.lastSearchFilters";
 const IDSET_CACHE_STATE_KEY = "hitomi.idSetCache.v1";
 const RELATED_VIEW_COUNTS_KEY = "hitomi.relatedViewCounts";
 const TAG_CACHE_STATE_KEY = "hitomi.tagCache";
-const TAG_CACHE_CHUNK_COUNT_KEY = "hitomi.tagCacheChunkCount";
+const TAG_CACHE_VERSION = 2;
+const TAG_CACHE_VERSION_KEY = "hitomi.tagCacheVersion";
 const MERGED_TAGS_CACHE_KEY = "hitomi.mergedMaleFemaleTagSlugs";
 const TAG_CACHE_LAST_FETCH_KEY = "hitomi.tagCacheLastFetch";
 const GALLERY_CACHE_STATE_KEY = "hitomi.galleryCache";
@@ -1267,10 +1268,10 @@ function recordDisplayedTiles(items: readonly any[]): void {
       const candidate =
         item && typeof item === "object"
           ? (item as {
-              mangaId?: unknown;
-              id?: unknown;
-              galleryId?: unknown;
-            })
+            mangaId?: unknown;
+            id?: unknown;
+            galleryId?: unknown;
+          })
           : undefined;
       const id = candidate?.mangaId ?? candidate?.id ?? candidate?.galleryId;
       if (typeof id === "string") incrementDisplayedManga(id);
@@ -1333,7 +1334,7 @@ async function fetchGalleryIdsWithOrLogic(
           if (rangeVal && isIndexFile && buffer.byteLength > 2_000_000) {
             console.error(
               `[Hitomi Fetcher] Range request to ${url} returned ` +
-                `${buffer.byteLength} bytes — Range header likely stripped`,
+              `${buffer.byteLength} bytes — Range header likely stripped`,
             );
             throw new Error(
               `Range response too large: ${buffer.byteLength} bytes`,
@@ -1462,14 +1463,13 @@ function generateSubtitle(
 
 export class HitomiExtension
   implements
-    Extension,
-    SearchResultsProviding,
-    MangaProviding,
-    ChapterProviding,
-    SettingsFormProviding,
-    DiscoverSectionProviding,
-    CloudflareBypassRequestProviding
-{
+  Extension,
+  SearchResultsProviding,
+  MangaProviding,
+  ChapterProviding,
+  SettingsFormProviding,
+  DiscoverSectionProviding,
+  CloudflareBypassRequestProviding {
   requestManager = new HitomiInterceptor("hitomi");
   private cookieJar = new Map<string, Cookie>();
   // Initialize with dev settings - will be re-initialized on setting changes
@@ -1522,7 +1522,7 @@ export class HitomiExtension
   })();
   private galleryCacheDirty = false;
   coverCache = new Map<string, string>();
-  private prefetchedThumbnailUrls = new Set<string>();
+
   galleryPending = new Map<string, Promise<HitomiGallery>>();
   coverCacheLimit = 500;
 
@@ -1625,48 +1625,31 @@ export class HitomiExtension
     this.restoreCookieJar();
     this.restoreGalleryCache();
     this.restoreIdSetCache();
-    this.logSourceIdentityDiagnostics();
     // Restore tags from persisted cache WITHOUT triggering a new fetch.
     // Tags are only fetched on-demand when forms/search actually need them.
     this.restoreTagsFromCache();
   }
 
-  private logSourceIdentityDiagnostics(): void {
-    try {
-      const exportName = "Hitomi";
-      const pbName = hitomiInfo.name;
-      const pbVersion = hitomiInfo.version;
-      const ok = pbName === exportName;
-      console.log(
-        `[Hitomi] Source identity: export=${exportName}, pbconfig.name=${pbName}, version=${pbVersion}, consistent=${ok}`,
-      );
-    } catch (e) {
-      console.log("[Hitomi] Source identity diagnostics failed", e);
-    }
-  }
 
   private restoreTagsFromCache(): void {
     try {
-      const chunkCount = Application.getState(TAG_CACHE_CHUNK_COUNT_KEY) as
-        | number
-        | undefined;
-      let cachedRaw: string | undefined;
-
-      if (typeof chunkCount === "number") {
-        const chunks: string[] = [];
-        for (let i = 0; i < chunkCount; i++) {
-          const chunk = Application.getState(`${TAG_CACHE_STATE_KEY}_${i}`) as
-            | string
-            | undefined;
-          if (chunk) chunks.push(chunk);
+      // Bust stale or chunked cache layouts
+      const storedVersion = Application.getState(TAG_CACHE_VERSION_KEY);
+      if (storedVersion !== TAG_CACHE_VERSION) {
+        for (let i = 0; i < 10; i++) {
+          Application.setState(undefined, `${TAG_CACHE_STATE_KEY}_${i}`);
         }
-        cachedRaw = chunks.join("");
-      } else {
-        // Fallback for old single-key storage
-        cachedRaw = Application.getState(TAG_CACHE_STATE_KEY) as
-          | string
-          | undefined;
+        Application.setState(undefined, TAG_CACHE_STATE_KEY);
+        Application.setState(undefined, TAG_CACHE_LAST_FETCH_KEY);
+        Application.setState(undefined, MERGED_TAGS_CACHE_KEY);
+        Application.setState(TAG_CACHE_VERSION, TAG_CACHE_VERSION_KEY);
+        this.tagData.clear();
+        return;
       }
+
+      const cachedRaw = Application.getState(TAG_CACHE_STATE_KEY) as
+        | string
+        | undefined;
 
       const cachedSanitized = sanitizeCachedTagEntries(cachedRaw);
       const hasFullSnapshot = getTagCacheLastFetchTs() !== undefined;
@@ -1720,8 +1703,8 @@ export class HitomiExtension
     try {
       const saved = Application.getState(GALLERY_CACHE_STATE_KEY) as
         | {
-            entries: [string, { gallery: HitomiGallery; ts: number }][];
-          }
+          entries: [string, { gallery: HitomiGallery; ts: number }][];
+        }
         | undefined;
       if (!saved?.entries || !Array.isArray(saved.entries)) return;
 
@@ -2139,10 +2122,6 @@ export class HitomiExtension
     const inFlight = this.sectionRequestInFlight.get(key);
     if (inFlight) return inFlight;
     const startedAt = Date.now();
-    const sectionTileLimit =
-      (discoverMetadata?.page ?? 1) > 1
-        ? getDiscoverPageSize()
-        : getCarouselTiles();
     const waveHandle =
       !discoverMetadata?.page || discoverMetadata.page === 1
         ? this.beginSectionWave("Home", section.title ?? section.id)
@@ -2196,17 +2175,24 @@ export class HitomiExtension
     })();
     this.sectionRequestInFlight.set(key, request);
     try {
-      const result = await request;
-      const skipped = Math.max(0, sectionTileLimit - result.items.length);
-      const logParts: string[] = [`${result.items.length} items`];
-      if (skipped > 0) logParts.push(`${skipped} read`);
+      const result = await request as PagedResults<DiscoverSectionItem> & {
+        filteredSkipped?: number;
+        readSkipped?: number;
+      };
+      const filteredSkipped = result.filteredSkipped ?? 0;
+      const readSkipped = result.readSkipped ?? 0;
+      const filterSummary = formatSearchFilterSummary(
+        filteredSkipped,
+        readSkipped,
+        true,
+      );
       console.log(
-        `[Hitomi] ${section.title ?? section.id}: ${logParts.join(", ")}, ${Date.now() - startedAt}ms`,
+        `[Hitomi] ${section.title ?? section.id}: ${result.items.length} items${filterSummary}, ${Date.now() - startedAt}ms`,
       );
       if (waveHandle) {
-        this.completeSectionWave(waveHandle, result.items.length, skipped);
+        this.completeSectionWave(waveHandle, result.items.length, filteredSkipped + readSkipped);
       }
-      return result;
+      return result as PagedResults<DiscoverSectionItem>;
     } catch (e) {
       if (waveHandle) {
         this.completeSectionWave(
@@ -2355,7 +2341,7 @@ export class HitomiExtension
 
     const existingMerged = new Set<string>(
       (Application.getState(MERGED_TAGS_CACHE_KEY) as string[] | undefined) ??
-        [],
+      [],
     );
 
     const now = Date.now();
@@ -2535,26 +2521,16 @@ export class HitomiExtension
     buildTagTypeCache(this.tagData, this.mergedMaleFemaleTagSlugs);
 
     const compactTags = Array.from(this.tagData.values())
+      .filter((t) => t.count >= 100)
       .map((t) => `${t.slug}|${t.count}|${t.type}|${t.ref}`)
       .join("\n");
     try {
-      // Use chunked format to avoid hitting state size limits
-      const CHUNK_SIZE = 100000; // 100KB per chunk
-      const chunks: string[] = [];
-      for (let i = 0; i < compactTags.length; i += CHUNK_SIZE) {
-        chunks.push(compactTags.slice(i, i + CHUNK_SIZE));
-      }
-
-      Application.setState(chunks.length, TAG_CACHE_CHUNK_COUNT_KEY);
-      for (let i = 0; i < chunks.length; i++) {
-        Application.setState(chunks[i], `${TAG_CACHE_STATE_KEY}_${i}`);
-      }
-
+      Application.setState(compactTags, TAG_CACHE_STATE_KEY);
+      Application.setState(TAG_CACHE_VERSION, TAG_CACHE_VERSION_KEY);
       Application.setState(
         Array.from(this.mergedMaleFemaleTagSlugs),
         MERGED_TAGS_CACHE_KEY,
       );
-      // Only set the last fetch timestamp IF the chunks were stored successfully.
       Application.setState(String(now), TAG_CACHE_LAST_FETCH_KEY);
     } catch (e) {
       console.error("[Hitomi Tags] Failed to persist tag cache to state:", e);
@@ -2564,8 +2540,9 @@ export class HitomiExtension
       Array.from(this.tagData.values()).map((tag) => getTagCharKey(tag.slug)),
     );
     const missingChars = TAG_CHARS.filter((char) => !coveredChars.has(char));
+    const cachedCount = compactTags.split("\n").filter(Boolean).length;
     console.log(
-      `[Hitomi Tags] Done. Fetched: ${successCount}/${charsToFetch.length}, Failed: ${failCount}. Covered: ${coveredChars.size}/${TAG_CHARS.length}${missingChars.length > 0 ? ` (missing: ${missingChars.join(", ")})` : ""}`,
+      `[Hitomi Tags] Done. Fetched: ${successCount}/${charsToFetch.length}, Failed: ${failCount}. In-memory: ${this.tagData.size}, Cached (>=100 uses): ${cachedCount}. Covered: ${coveredChars.size}/${TAG_CHARS.length}${missingChars.length > 0 ? ` (missing: ${missingChars.join(", ")})` : ""}`,
     );
   }
 
@@ -2709,9 +2686,15 @@ export class HitomiExtension
 
     // Sort selected/excluded tags to the top of the tag list
     const selectedIds = new Set(Object.keys(cleanedTags));
+    const sortTagsAlpha =
+      getDisplayOptionsSetting().includes("show_tags_alpha");
+    const unselectedTags = displayTags.filter((t) => !selectedIds.has(t.id));
+    if (sortTagsAlpha) {
+      unselectedTags.sort((a, b) => a.display.localeCompare(b.display));
+    }
     const sortedTags = [
       ...displayTags.filter((t) => selectedIds.has(t.id)),
-      ...displayTags.filter((t) => !selectedIds.has(t.id)),
+      ...unselectedTags,
     ];
 
     const filters: SearchFilter[] = [];
@@ -2813,9 +2796,9 @@ export class HitomiExtension
     const searchWaveHandle =
       !cursor?.page || readCursorNumber(cursor.page, 1) === 1
         ? this.beginSectionWave(
-            "Search",
-            sortingOption?.label ?? sortingOption?.id ?? "default",
-          )
+          "Search",
+          sortingOption?.label ?? sortingOption?.id ?? "default",
+        )
         : undefined;
     const finishSearchWave = (label: string, itemCount: number): void => {
       if (!searchWaveHandle) return;
@@ -2854,8 +2837,8 @@ export class HitomiExtension
       const excludeRaw = getExcludeTagsSetting();
       const searchFilterTags = submittedFilters
         ? ((submittedFilters.find((filter) => filter.id === "tags")?.value as
-            | Record<string, "included" | "excluded">
-            | undefined) ?? {})
+          | Record<string, "included" | "excluded">
+          | undefined) ?? {})
         : getSearchFilterTags();
 
       const mergedTags = { ...searchFilterTags };
@@ -2879,8 +2862,8 @@ export class HitomiExtension
 
       const submittedActiveFilters = submittedFilters
         ? getActiveSearchFilterValues(submittedFilters).filter(
-            (filter) => filter.id !== "tags",
-          )
+          (filter) => filter.id !== "tags",
+        )
         : undefined;
 
       if (Object.keys(mergedTags).length > 0) {
@@ -2903,15 +2886,15 @@ export class HitomiExtension
         cursor === undefined
           ? undefined
           : {
-              page:
-                cursor.page !== undefined
-                  ? readCursorNumber(cursor.page, 1)
-                  : undefined,
-              offset:
-                cursor.offset !== undefined
-                  ? readCursorNumber(cursor.offset, 0)
-                  : undefined,
-            };
+            page:
+              cursor.page !== undefined
+                ? readCursorNumber(cursor.page, 1)
+                : undefined,
+            offset:
+              cursor.offset !== undefined
+                ? readCursorNumber(cursor.offset, 0)
+                : undefined,
+          };
       const tags: HitomiTag[] = [];
       const configuredDefaultSort = getDefaultSearchSortSetting();
       const incomingSort = sortingOption?.id;
@@ -3307,7 +3290,7 @@ export class HitomiExtension
           Math.max(
             offset + limit,
             (offset + limit) * (pageFilterActive || keywordActive ? 2 : 1) +
-              (hideReadFilter ? limit : 0),
+            (hideReadFilter ? limit : 0),
           ),
         );
         const rawWindow = rawIds.slice(0, lookaheadEnd);
@@ -3509,16 +3492,17 @@ export class HitomiExtension
     );
     const secondaryTitle = normalizeBridgeString(gallery.title?.japanese);
     const creators = getCreatorFields(gallery.artists, gallery.groups);
+    const thumbnailUrl = normalizeBridgeString(
+      this.getCoverImageSync(gallery),
+      HitomiExtension.PLACEHOLDER_COVER,
+    );
 
     return {
       mangaId,
       mangaInfo: {
         primaryTitle,
         secondaryTitles: secondaryTitle ? [secondaryTitle] : [],
-        thumbnailUrl: normalizeBridgeString(
-          this.getCoverImageSync(gallery),
-          HitomiExtension.PLACEHOLDER_COVER,
-        ),
+        thumbnailUrl,
         rating: 0,
         status: "COMPLETED",
         author: normalizeBridgeString(creators.author || creators.artist || ""),
@@ -3555,7 +3539,7 @@ export class HitomiExtension
     return [
       {
         chapterId: sourceManga.mangaId,
-        volume: 1,
+        volume: 0,
         chapNum: 1,
         langCode: gallery.languageName.english === "japanese" ? "jp" : "en",
         publishDate: gallery.publishedDate,
@@ -3760,8 +3744,8 @@ export class HitomiExtension
               mangaId: normalizeBridgeString(gallery.id, id.toString()),
               title: normalizeBridgeString(
                 gallery.title?.display ||
-                  gallery.title?.japanese ||
-                  `Gallery ${id}`,
+                gallery.title?.japanese ||
+                `Gallery ${id}`,
                 `Gallery ${id}`,
               ),
               imageUrl: coverUrl,
@@ -3880,8 +3864,8 @@ export class HitomiExtension
               mangaId: normalizeBridgeString(gallery.id, id.toString()),
               title: normalizeBridgeString(
                 gallery.title?.display ||
-                  gallery.title?.japanese ||
-                  `Gallery ${id}`,
+                gallery.title?.japanese ||
+                `Gallery ${id}`,
                 `Gallery ${id}`,
               ),
               imageUrl: coverUrl,
@@ -4139,18 +4123,6 @@ export class HitomiExtension
       nextScanOffset < candidateIds.length ||
       this.randomDiscoverServedIds.size < candidateIds.length;
 
-    if (items.length < limit) {
-      console.log(
-        (() => {
-          const filterSummary = formatSearchFilterSummary(
-            diagnostics.filteredByPage,
-            diagnostics.skippedRead,
-            true,
-          );
-          return `[Hitomi] Random underfill: requested ${limit}, returned ${items.length}, scanned ${consumed}${filterSummary}, failed=${diagnostics.failedLoads}`;
-        })(),
-      );
-    }
 
     logHitomiDebug(
       "random:return",
@@ -4164,6 +4136,11 @@ export class HitomiExtension
       metadata: hasMore
         ? buildOffsetMetadata(nextDisplayOffset, limit, nextScanOffset)
         : undefined,
+      filteredSkipped: diagnostics.filteredByPage,
+      readSkipped: diagnostics.skippedRead,
+    } as PagedResults<DiscoverSectionItem> & {
+      filteredSkipped: number;
+      readSkipped: number;
     };
   }
 
@@ -4265,10 +4242,10 @@ export class HitomiExtension
     const idWindowRange =
       tags.length === 0
         ? buildIndexNozomiRange(offset, limit, {
-            hideRead,
-            filtered:
-              pageFilter.min !== undefined || pageFilter.max !== undefined,
-          })
+          hideRead,
+          filtered:
+            pageFilter.min !== undefined || pageFilter.max !== undefined,
+        })
         : undefined;
 
     const rawIds = await this.getGalleryIdsCached({
@@ -4276,6 +4253,7 @@ export class HitomiExtension
       range: idWindowRange,
       languages: languageTokens,
       isSearch: tags.length > 0,
+      forceRefresh: offset === 0,
     });
     if (!Array.isArray(rawIds) || rawIds.length === 0) {
       return { items: [], metadata: undefined };
@@ -4303,24 +4281,12 @@ export class HitomiExtension
           skipHideRead: true,
           maxScanIds:
             pageFilter.exact !== undefined ||
-            pageFilter.min !== undefined ||
-            pageFilter.max !== undefined
+              pageFilter.min !== undefined ||
+              pageFilter.max !== undefined
               ? limit * 12
               : limit * 8,
         },
       );
-    if (items.length < limit) {
-      console.log(
-        (() => {
-          const filterSummary = formatSearchFilterSummary(
-            diagnostics.filteredByPage,
-            diagnostics.skippedRead,
-            true,
-          );
-          return `[Hitomi] Date Added underfill: requested ${limit}, returned ${items.length}, scanned ${consumed}${filterSummary}, failed=${diagnostics.failedLoads}`;
-        })(),
-      );
-    }
     const nextScanOffset = offset + consumed;
     const nextDisplayOffset = offset + items.length;
     const hasMore =
@@ -4333,6 +4299,11 @@ export class HitomiExtension
       metadata: hasMore
         ? buildOffsetMetadata(nextDisplayOffset, limit, nextScanOffset)
         : undefined,
+      filteredSkipped: diagnostics.filteredByPage,
+      readSkipped: diagnostics.skippedRead,
+    } as PagedResults<DiscoverSectionItem> & {
+      filteredSkipped: number;
+      readSkipped: number;
     };
   }
 
@@ -4353,10 +4324,10 @@ export class HitomiExtension
     const idWindowRange =
       tags.length === 0
         ? buildIndexNozomiRange(offset, limit, {
-            hideRead,
-            filtered:
-              pageFilter.min !== undefined || pageFilter.max !== undefined,
-          })
+          hideRead,
+          filtered:
+            pageFilter.min !== undefined || pageFilter.max !== undefined,
+        })
         : undefined;
 
     const rawIds = await this.getGalleryIdsCached({
@@ -4364,6 +4335,7 @@ export class HitomiExtension
       range: idWindowRange,
       languages: languageTokens,
       isSearch: tags.length > 0,
+      forceRefresh: offset === 0,
     });
     if (!Array.isArray(rawIds) || rawIds.length === 0) {
       return { items: [], metadata: undefined };
@@ -4423,25 +4395,13 @@ export class HitomiExtension
         skipHideRead: true,
         maxScanIds:
           pageFilter.exact !== undefined ||
-          pageFilter.min !== undefined ||
-          pageFilter.max !== undefined
+            pageFilter.min !== undefined ||
+            pageFilter.max !== undefined
             ? limit * 12
             : limit * 8,
       },
     );
 
-    if (sorted.length < limit) {
-      console.log(
-        (() => {
-          const filterSummary = formatSearchFilterSummary(
-            diagnostics.filteredByPage,
-            diagnostics.skippedRead,
-            true,
-          );
-          return `[Hitomi] Date Published underfill: requested ${limit}, returned ${sorted.length}, scanned ${consumed}${filterSummary}, failed=${diagnostics.failedLoads}`;
-        })(),
-      );
-    }
 
     const nextScanOffset = offset + consumed;
     const nextDisplayOffset = offset + sorted.length;
@@ -4456,6 +4416,11 @@ export class HitomiExtension
       metadata: hasMore
         ? buildOffsetMetadata(nextDisplayOffset, limit, nextScanOffset)
         : undefined,
+      filteredSkipped: diagnostics.filteredByPage,
+      readSkipped: diagnostics.skippedRead,
+    } as PagedResults<DiscoverSectionItem> & {
+      filteredSkipped: number;
+      readSkipped: number;
     };
   }
 
@@ -4501,7 +4466,7 @@ export class HitomiExtension
     }
 
     // Incrementally resolve details — stops at `limit` passing items
-    const { items, consumed, diagnostics } =
+    const { items, consumed } =
       await this.getGalleryDetailsIncremental(
         candidateIds,
         offset,
@@ -4511,24 +4476,12 @@ export class HitomiExtension
           skipHideRead: true,
           maxScanIds:
             pageFilter.exact !== undefined ||
-            pageFilter.min !== undefined ||
-            pageFilter.max !== undefined
+              pageFilter.min !== undefined ||
+              pageFilter.max !== undefined
               ? limit * 30
               : limit * 20,
         },
       );
-    if (items.length < limit) {
-      console.log(
-        (() => {
-          const filterSummary = formatSearchFilterSummary(
-            diagnostics.filteredByPage,
-            diagnostics.skippedRead,
-            true,
-          );
-          return `[Hitomi] Popular ${period} underfill: requested ${limit}, returned ${items.length}, scanned ${consumed}${filterSummary}, failed=${diagnostics.failedLoads}`;
-        })(),
-      );
-    }
     const nextScanOffset = offset + consumed;
     const nextDisplayOffset = offset + items.length;
     const hasMore =
@@ -4545,7 +4498,7 @@ export class HitomiExtension
   }
 
   private async getGalleryIdsCached(
-    options: GalleryIdOptions,
+    options: GalleryIdOptions & { forceRefresh?: boolean },
   ): Promise<number[]> {
     try {
       const canUseRangedWindowFetch =
@@ -4567,7 +4520,7 @@ export class HitomiExtension
       const cached = this.idSetCache.get(key);
       let fullIds: number[];
 
-      if (cached && Date.now() - cached.ts < this.IDSET_TTL) {
+      if (!options.forceRefresh && cached && Date.now() - cached.ts < this.IDSET_TTL) {
         fullIds = cached.ids;
       } else {
         // Deduplicate in-flight fetches: if another section is already fetching
@@ -4715,9 +4668,7 @@ export class HitomiExtension
       return;
     }
 
-    console.log(
-      `[Hitomi Related] Expanding pool: processing history ${startIndex}-${endIndex} of ${history.length}`,
-    );
+
 
     const batch = history.slice(startIndex, endIndex);
 
@@ -5021,10 +4972,10 @@ export class HitomiExtension
           const orderPrefix = normalizeBridgeString(item.tag);
           const subtitle = showRelatedOrder
             ? normalizeBridgeString(
-                orderPrefix
-                  ? `${orderPrefix} ${baseSubtitle}`.trim()
-                  : baseSubtitle,
-              )
+              orderPrefix
+                ? `${orderPrefix} ${baseSubtitle}`.trim()
+                : baseSubtitle,
+            )
             : baseSubtitle;
 
           items.push({
@@ -5138,20 +5089,8 @@ export class HitomiExtension
             try {
               const gallery = await this.loadGallery(entry.mangaId);
               if (!gallery) return null;
-              const topTags = gallery.tags
-                .filter(
-                  (tag) =>
-                    tag.type === "tag" ||
-                    tag.type === "male" ||
-                    tag.type === "female",
-                )
-                .map((tag) => tag.name.replace(/_/g, " ").trim())
-                .filter((tag) => tag.length > 0)
-                .slice(0, 10);
-              const subtitleWithTags =
-                topTags.length > 0
-                  ? `${entry.count} reads | ID: ${entry.mangaId} | ${topTags.join(", ")}`
-                  : `${entry.count} reads | ID: ${entry.mangaId}`;
+              const isRead = getReadCache().has(entry.mangaId);
+              const subtitle = generateSubtitle(gallery, isRead, entry.count);
               return {
                 mangaId: gallery.id.toString(),
                 title:
@@ -5159,7 +5098,7 @@ export class HitomiExtension
                   gallery.title?.japanese ||
                   entry.title ||
                   `Gallery ${entry.mangaId}`,
-                subtitle: subtitleWithTags,
+                subtitle,
                 imageUrl: this.getCoverImageSync(gallery),
                 metadata: undefined,
                 type: "simpleCarouselItem",
@@ -5732,23 +5671,7 @@ export class HitomiExtension
     return Application.arrayBufferToUTF8String(data);
   }
 
-  private prefetchThumbnailUrl(url: string): void {
-    if (!url || this.prefetchedThumbnailUrls.has(url)) return;
-    this.prefetchedThumbnailUrls.add(url);
-    if (this.prefetchedThumbnailUrls.size > 2000) {
-      const oldest = this.prefetchedThumbnailUrls.values().next().value;
-      if (typeof oldest === "string") {
-        this.prefetchedThumbnailUrls.delete(oldest);
-      }
-    }
-    void Application.scheduleRequest({
-      url,
-      method: "GET",
-      headers: {
-        Referer: "https://hitomi.la/",
-      },
-    }).catch(() => undefined);
-  }
+
 
   // Placeholder for items where cover URL cannot be resolved yet (GG.js not synced)
   private static readonly PLACEHOLDER_COVER = "https://hitomi.la/favicon.ico";
@@ -5762,7 +5685,6 @@ export class HitomiExtension
       // LRU: move to end of Map iteration order
       this.coverCache.delete(cacheKey);
       this.coverCache.set(cacheKey, cached);
-      this.prefetchThumbnailUrl(cached);
       return cached;
     }
 
@@ -5795,7 +5717,6 @@ export class HitomiExtension
     const thumbSize = quality === "low" ? "small" : "big";
     const placeholderUrl = `hitomi://thumb/${hash}/${uniqueExtCandidates[0]}/${thumbSize}`;
     if (ImageUriResolver.needsSync()) {
-      this.prefetchThumbnailUrl(placeholderUrl);
       return placeholderUrl;
     }
 
@@ -5827,16 +5748,13 @@ export class HitomiExtension
         try {
           const url = ImageUriResolver.getImageUri(file, ext, opts);
           if (!url || !url.startsWith("https://")) continue;
-          const finalUrl = `${url}${url.includes("?") ? "&" : "?"}__kq=${quality}`;
-          this.cacheCover(gallery.id, finalUrl);
-          this.prefetchThumbnailUrl(finalUrl);
-          return finalUrl;
+          this.cacheCover(gallery.id, url);
+          return url;
         } catch {
           continue;
         }
       }
     }
-    this.prefetchThumbnailUrl(placeholderUrl);
     return placeholderUrl;
   }
 

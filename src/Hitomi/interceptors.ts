@@ -184,7 +184,7 @@ export class HitomiInterceptor extends PaperbackInterceptor {
       }
     }
 
-    if (this.isCdnImageRequest(request.url)) {
+    if (this.isFullSizeCdnImageRequest(request.url)) {
       await this.refreshResolvedImageRequestUrl(request);
     }
 
@@ -274,7 +274,8 @@ export class HitomiInterceptor extends PaperbackInterceptor {
       if (
         (status === 404 || status === 403) &&
         request.url.includes("gold-usergeneratedcontent.net") &&
-        !request.url.includes("gg.js")
+        !request.url.includes("gg.js") &&
+        !request.url.includes(".nozomi")
       ) {
         logHitomiInterceptorNotice(
           "hitomi-interceptor:gg-refresh",

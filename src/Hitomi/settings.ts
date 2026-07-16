@@ -25,7 +25,8 @@ export type DisplayOptionId =
   | "abbreviate_tag_counts"
   | "show_tag_counts"
   | "show_manga_id_in_description"
-  | "show_reread_count";
+  | "show_reread_count"
+  | "show_tags_alpha"
 
 const LANGUAGE_STATE_KEY = "hitomi.settings.language";
 const HIDE_READ_STATE_KEY = "hitomi.settings.hideRead";
@@ -115,15 +116,15 @@ export const LANGUAGE_OPTIONS: {
   label: string;
   token?: string;
 }[] = [
-  { id: "all", label: "All Languages" },
-  { id: "english", label: "English", token: "english" },
-  { id: "japanese", label: "Japanese", token: "japanese" },
-  { id: "korean", label: "Korean", token: "korean" },
-  { id: "chinese", label: "Chinese", token: "chinese" },
-  { id: "spanish", label: "Spanish", token: "spanish" },
-  { id: "thai", label: "Thai", token: "thai" },
-  { id: "vietnamese", label: "Vietnamese", token: "vietnamese" },
-];
+    { id: "all", label: "All Languages" },
+    { id: "english", label: "English", token: "english" },
+    { id: "japanese", label: "Japanese", token: "japanese" },
+    { id: "korean", label: "Korean", token: "korean" },
+    { id: "chinese", label: "Chinese", token: "chinese" },
+    { id: "spanish", label: "Spanish", token: "spanish" },
+    { id: "thai", label: "Thai", token: "thai" },
+    { id: "vietnamese", label: "Vietnamese", token: "vietnamese" },
+  ];
 
 // Helper to get current date example with separator
 function getCurrentDateExampleFull(format: string, char: string): string {
@@ -219,12 +220,12 @@ export const DATE_SEPARATOR_OPTIONS: {
   label: string;
   char: string;
 }[] = [
-  { id: "period", label: `${getCurrentDateExample(".")} - Period`, char: "." },
-  { id: "dash", label: `${getCurrentDateExample("-")} - Dash`, char: "-" },
-  { id: "slash", label: `${getCurrentDateExample("/")} - Slash`, char: "/" },
-  { id: "comma", label: `${getCurrentDateExample(",")} - Comma`, char: "," },
-  { id: "space", label: `${getCurrentDateExample(" ")} - Space`, char: " " },
-];
+    { id: "period", label: `${getCurrentDateExample(".")} - Period`, char: "." },
+    { id: "dash", label: `${getCurrentDateExample("-")} - Dash`, char: "-" },
+    { id: "slash", label: `${getCurrentDateExample("/")} - Slash`, char: "/" },
+    { id: "comma", label: `${getCurrentDateExample(",")} - Comma`, char: "," },
+    { id: "space", label: `${getCurrentDateExample(" ")} - Space`, char: " " },
+  ];
 
 export type ThumbnailQuality = "low" | "high";
 
@@ -232,9 +233,9 @@ export const THUMBNAIL_QUALITY_OPTIONS: {
   id: ThumbnailQuality;
   label: string;
 }[] = [
-  { id: "low", label: "Low" },
-  { id: "high", label: "High" },
-];
+    { id: "low", label: "Low" },
+    { id: "high", label: "High" },
+  ];
 
 export type PreferredImageFormat = "webp" | "avif";
 
@@ -242,9 +243,9 @@ export const PREFERRED_IMAGE_FORMAT_OPTIONS: {
   id: PreferredImageFormat;
   label: string;
 }[] = [
-  { id: "webp", label: "WebP (Lower Crash Risk)" },
-  { id: "avif", label: "AVIF (Higher Quality)" },
-];
+    { id: "webp", label: "WebP (Lower Crash Risk)" },
+    { id: "avif", label: "AVIF (Higher Quality)" },
+  ];
 
 export const DISPLAY_OPTION_VALUES: { id: DisplayOptionId; label: string }[] = [
   { id: "hide_read_letter", label: "Hide 'r' Read Indicator" },
@@ -255,14 +256,12 @@ export const DISPLAY_OPTION_VALUES: { id: DisplayOptionId; label: string }[] = [
   { id: "desc_show_date", label: "Show Date in Description" },
   { id: "desc_relative_date", label: "Show Relative Date in Description" },
   { id: "parodies_bottom", label: "List Parodies/Characters in Description" },
+  { id: "show_manga_id_in_description", label: "Show 7-digit ID in Description" },
   { id: "show_tags_in_desc", label: "Show Tags in Description" },
+  { id: "show_tags_alpha", label: "Show Tags by Alphabet in Search" },
+  { id: "show_tag_counts", label: "Show Tag Counts in Search Filters" },
+  { id: "abbreviate_tag_counts", label: 'Show Tag Count Abbreviations ("11k")', },
   { id: "show_related_order", label: "Show Related Order ([1], [2], etc.)" },
-  { id: "show_tag_counts", label: "Show Tag Counts" },
-  {
-    id: "abbreviate_tag_counts",
-    label: 'Show Tag Count Abbreviations ("11k")',
-  },
-  { id: "show_manga_id_in_description", label: "Show manga ID in description" },
   { id: "show_reread_count", label: "Show Reread Count Everywhere" },
 ];
 
@@ -282,31 +281,31 @@ export const HITOMI_SEARCH_SORT_OPTIONS: {
   id: HitomiSearchSortId;
   label: string;
 }[] = [
-  { id: "date_added", label: "Date Added" },
-  { id: "date_published", label: "Date Published" },
-  { id: "popular_today", label: "Popular Today" },
-  { id: "popular_week", label: "Popular Week" },
-  { id: "popular_month", label: "Popular Month" },
-  { id: "popular_year", label: "Popular Year" },
-  { id: "random", label: "Random" },
-  { id: "last_read", label: "Last Read" },
-  { id: "related", label: "Related" },
-  { id: "top_reread", label: "Top Reread" },
-];
+    { id: "date_added", label: "Date Added" },
+    { id: "date_published", label: "Date Published" },
+    { id: "popular_today", label: "Popular Today" },
+    { id: "popular_week", label: "Popular Week" },
+    { id: "popular_month", label: "Popular Month" },
+    { id: "popular_year", label: "Popular Year" },
+    { id: "random", label: "Random" },
+    { id: "last_read", label: "Last Read" },
+    { id: "related", label: "Related" },
+    { id: "top_reread", label: "Top Reread" },
+  ];
 
 export const DATE_FILTER_PRESETS: {
   id: string;
   label: string;
   days?: number;
 }[] = [
-  { id: "all", label: "All Time" },
-  { id: "30", label: "< 30 days", days: 30 },
-  { id: "90", label: "< 90 days", days: 90 },
-  { id: "180", label: "< 180 days", days: 180 },
-  { id: "365", label: "< 1 year", days: 365 },
-  { id: "730", label: "< 2 years", days: 730 },
-  { id: "1460", label: "< 4 years", days: 1460 },
-];
+    { id: "all", label: "All Time" },
+    { id: "30", label: "< 30 days", days: 30 },
+    { id: "90", label: "< 90 days", days: 90 },
+    { id: "180", label: "< 180 days", days: 180 },
+    { id: "365", label: "< 1 year", days: 365 },
+    { id: "730", label: "< 2 years", days: 730 },
+    { id: "1460", label: "< 4 years", days: 1460 },
+  ];
 
 export const DATE_FILTER_OPTIONS: { id: string; label: string }[] = [
   { id: "all", label: "All Time" },
@@ -512,6 +511,14 @@ export function setSearchFilterDate(value: string): void {
 }
 
 export function getSearchFilterTags(): Record<string, "included" | "excluded"> {
+  const persisted = Application.getState(SEARCH_FILTER_TAGS_KEY) as
+    | Record<string, "included" | "excluded">
+    | undefined;
+  if (persisted && typeof persisted === "object" && Object.keys(persisted).length > 0) {
+    return persisted;
+  }
+
+  // Fall back to manga filter tags when no explicit search filter selection exists
   const include = sanitizeTagList(getIncludeTagsSetting(), {
     exclude: false,
   }).tokens;
@@ -538,9 +545,7 @@ export function getSearchFilterTags(): Record<string, "included" | "excluded"> {
 export function setSearchFilterTags(
   value: Record<string, "included" | "excluded">,
 ): void {
-  void value;
-  // No-op: Search filter tags default to Manga Filters.
-  // Paperback's query.metadata handles temporary Search Filter UI overrides.
+  Application.setState(value, SEARCH_FILTER_TAGS_KEY);
 }
 
 export function getExtraArgsSetting(): string {

@@ -168,14 +168,14 @@ export const DATE_FILTER_PRESETS: {
   label: string;
   days?: number;
 }[] = [
-  { id: "all", label: "All Time" },
-  { id: "30", label: "< 30 days", days: 30 },
-  { id: "90", label: "< 90 days", days: 90 },
-  { id: "180", label: "< 180 days", days: 180 },
-  { id: "365", label: "< 1 year", days: 365 },
-  { id: "730", label: "< 2 years", days: 730 },
-  { id: "1460", label: "< 4 years", days: 1460 },
-];
+    { id: "all", label: "All Time" },
+    { id: "30", label: "< 30 days", days: 30 },
+    { id: "90", label: "< 90 days", days: 90 },
+    { id: "180", label: "< 180 days", days: 180 },
+    { id: "365", label: "< 1 year", days: 365 },
+    { id: "730", label: "< 2 years", days: 730 },
+    { id: "1460", label: "< 4 years", days: 1460 },
+  ];
 
 export const DEFAULT_ENABLE_RELATED = true;
 export const DEFAULT_RELATED_LANGUAGE = "all";
@@ -210,7 +210,8 @@ export type DisplayOptionId =
   | "show_tags_in_desc"
   | "show_related_order"
   | "show_tag_counts"
-  | "show_reread_count";
+  | "show_reread_count"
+  | "show_tags_alpha";
 
 export type NHentaiSearchSortId =
   | "date"
@@ -234,10 +235,10 @@ export const THUMBNAIL_QUALITY_OPTIONS: {
   id: ThumbnailQuality;
   label: string;
 }[] = [
-  { id: "low", label: "Low" },
-  { id: "normal", label: "Normal" },
-  { id: "high", label: "High" },
-];
+    { id: "low", label: "Low" },
+    { id: "normal", label: "Normal" },
+    { id: "high", label: "High" },
+  ];
 
 // Helper to get current date example with separator
 function getCurrentDateExampleFull(format: string, char: string): string {
@@ -331,12 +332,12 @@ export const DATE_SEPARATOR_OPTIONS: {
   label: string;
   char: string;
 }[] = [
-  { id: "period", label: `${getCurrentDateExample(".")} - Period`, char: "." },
-  { id: "dash", label: `${getCurrentDateExample("-")} - Dash`, char: "-" },
-  { id: "slash", label: `${getCurrentDateExample("/")} - Slash`, char: "/" },
-  { id: "comma", label: `${getCurrentDateExample(",")} - Comma`, char: "," },
-  { id: "space", label: `${getCurrentDateExample(" ")} - Space`, char: " " },
-];
+    { id: "period", label: `${getCurrentDateExample(".")} - Period`, char: "." },
+    { id: "dash", label: `${getCurrentDateExample("-")} - Dash`, char: "-" },
+    { id: "slash", label: `${getCurrentDateExample("/")} - Slash`, char: "/" },
+    { id: "comma", label: `${getCurrentDateExample(",")} - Comma`, char: "," },
+    { id: "space", label: `${getCurrentDateExample(" ")} - Space`, char: " " },
+  ];
 
 export const DISPLAY_OPTION_VALUES: { id: DisplayOptionId; label: string }[] = [
   { id: "hide_read_letter", label: "Show 'r' Read Indicator" },
@@ -352,8 +353,9 @@ export const DISPLAY_OPTION_VALUES: { id: DisplayOptionId; label: string }[] = [
   { id: "parodies_bottom", label: "List Parodies/Characters at Bottom" },
   { id: "show_id", label: "Show 6-digit ID in Description" },
   { id: "show_tags_in_desc", label: "Show Tags in Description" },
+  { id: "show_tag_counts", label: "Show Tag Counts in Search Filters" },
+  { id: "show_tags_alpha", label: "Show Tags Alphabetically in Search" },
   { id: "show_related_order", label: "Show Related Order ([1], [2], etc.)" },
-  { id: "show_tag_counts", label: "Show Tag Counts" },
   { id: "show_reread_count", label: "Show Reread Count Everywhere" },
 ];
 
@@ -1626,8 +1628,8 @@ function getUserSearchFilterTags(): Record<string, "included" | "excluded"> {
 
   const legacy = sanitizeSearchFilterTags(
     Application.getState(SEARCH_FILTER_TAGS_KEY) as
-      | Record<string, "included" | "excluded">
-      | undefined,
+    | Record<string, "included" | "excluded">
+    | undefined,
   );
   if (Object.keys(legacy).length === 0) {
     return {};
