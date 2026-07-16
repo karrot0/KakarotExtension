@@ -4528,21 +4528,21 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     const CONCURRENCY = 2;
     for (let i = 0; i < liteIndexes.length; i += CONCURRENCY) {
+      const batchIndexes = liteIndexes.slice(i, i + CONCURRENCY)
       // Pre-batch slot check: if the rate limit window is too full to accept
       // this batch without stalling, bail to lite fallback immediately instead
       // of blocking inside withRateLimit for up to 60s.
       if (allowLiteFallback) {
         const authenticated = getApiKeyAuthorizedSetting();
         const slots = availableSlotsNow("galleryDetail", !!authenticated, "background");
-        if (slots < CONCURRENCY) {
+        if (slots < batchIndexes.length) {
           console.log(
-            `[NHentai] Hydration lite fallback: only ${slots} slots available (need ${CONCURRENCY}), returning ${result.filter((g) => !g.isLite).length} hydrated + ${result.filter((g) => g.isLite).length} lite galleries.`,
+            `[NHentai] Hydration lite fallback: only ${slots} slots available (need ${batchIndexes.length}), returning ${result.filter((g) => !g.isLite).length} hydrated + ${result.filter((g) => g.isLite).length} lite galleries.`,
           );
           break;
         }
       }
 
-      const batchIndexes = liteIndexes.slice(i, i + CONCURRENCY);
       const hydratedBatch = await Promise.all(
         batchIndexes.map(async (index) => {
           const gallery = result[index];
@@ -4976,7 +4976,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     const authenticated = hasAuthorizationHeader(preparedRequest);
     if (!authenticated && getApiKeyAuthorizedSetting()) {
       console.warn(
-        `[NHentai] Auth mismatch: unauthenticated rate bucket used for ${actualEndpointClass} despite API key being set (URL: ${preparedRequest.url.slice(0, 80)})`,
+        `[NHentai] Auth mismatch: unauthenticated rate bucket used for ${actualEndpointClass} despite API key being set.`,
       );
     }
     let effectiveRequest = preparedRequest;
