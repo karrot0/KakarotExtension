@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-07-16T17:47:32.842Z",
+  "buildTime": "2026-07-18T16:30:46.617Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.91",
     "types": "1.0.0-alpha.91"
@@ -115,7 +115,7 @@
       "developers": [
         {
           "name": "pisshammy",
-          "website": "$1/goon\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0"
+          "website": "$1/goon pls am poor\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0"
         }
       ],
       "id": "Hitomi"
@@ -271,7 +271,7 @@
     {
       "name": "NHentai",
       "description": "Extension that pulls content from nhentai.net",
-      "version": "2.6.7",
+      "version": "2.6.9",
       "icon": "icon.png",
       "language": "multi",
       "contentRating": "ADULT",
@@ -286,7 +286,7 @@
       "developers": [
         {
           "name": "pisshammy",
-          "website": "$1/goon\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0"
+          "website": "$1/goon pls im poor\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0"
         }
       ],
       "id": "NHentai"
