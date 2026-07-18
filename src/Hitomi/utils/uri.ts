@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 import { HitomiFile } from "../model";
 import { HitomiError, HitomiErrorCode } from "./common";
 import { IMAGE_DOMAIN, IMAGE_URI_PARTS, RESOURCE_DOMAIN } from "./constant";

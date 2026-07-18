@@ -1,5 +1,13 @@
-import { PaperbackInterceptor, Request, Response } from "@paperback/types";
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+import {
+  CloudflareError,
+  PaperbackInterceptor,
+  Request,
+  Response,
+} from "@paperback/types";
 import { addDataReceived } from "./settings";
+import { parseRetryAfterMs } from "./utils/http";
 
 export class NHentaiInterceptor extends PaperbackInterceptor {
   private cookieHeaderProvider: ((url: string) => string | undefined) | null =
@@ -12,7 +20,9 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
   private rateLimitStrikeCount = 0;
   private lastStrikeTime = 0;
   private readonly FAST_WINDOW_IMAGE_COUNT = 50;
-  private readonly FAST_IMAGE_MIN_INTERVAL_MS = 65;
+  private readonly COVER_IMAGE_MIN_INTERVAL_MS = 38;
+  private readonly COVER_IMAGE_JITTER_MAX_MS = 4;
+  private readonly FAST_IMAGE_MIN_INTERVAL_MS = 80;
   private readonly FAST_IMAGE_JITTER_MAX_MS = 10;
   private readonly STEADY_IMAGE_MIN_INTERVAL_MS = 130;
   private readonly STEADY_IMAGE_JITTER_MAX_MS = 30;
@@ -38,6 +48,12 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
     this.galleryFastWindowCounts.delete(galleryId);
   }
 
+  resetCoverPacing(): void {
+    // Let the next batch of cover images start without inheriting leftover
+    // pacing delay from reader or previous search pages.
+    this.imageNextAllowedAt = 0;
+  }
+
   override async interceptRequest(request: Request): Promise<Request> {
     if (!this.cachedUserAgent) {
       this.cachedUserAgent = await Application.getDefaultUserAgent();
@@ -45,7 +61,7 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
     request.headers = {
       ...request.headers,
       referer: `https://nhentai.net/`,
-      "user-agent": this.cachedUserAgent,
+      "user-agent": this.cachedUserAgent!,
     };
     if (this.cookieHeaderProvider && request.url.startsWith("http")) {
       const cookieHeader = this.cookieHeaderProvider(request.url);
@@ -71,6 +87,14 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
       addDataReceived(data.byteLength);
     }
 
+    if (response.headers?.["cf-mitigated"] === "challenge") {
+      throw new CloudflareError({
+        url: request.url,
+        method: request.method ?? "GET",
+        headers: { "user-agent": await Application.getDefaultUserAgent() },
+      });
+    }
+
     if (this.isFullSizeCdnImageRequest(request.url)) {
       const status = response.status;
       const now = Date.now();
@@ -88,7 +112,7 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
       if (status === 429 || status === 503) {
         this.rateLimitStrikeCount = Math.min(5, this.rateLimitStrikeCount + 1);
         this.lastStrikeTime = now;
-        const retryAfterMs = this.parseRetryAfterMs(response.headers);
+        const retryAfterMs = parseRetryAfterMs(response.headers);
         const cooldownMs = Math.min(
           this.MAX_BACKOFF_MS,
           retryAfterMs ?? 650 * 2 ** (this.rateLimitStrikeCount - 1),
@@ -123,7 +147,7 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
     );
     if (!match) return null;
     const pageNumber = Number.parseInt(match[2] ?? "", 10);
-    if (pageNumber === 1) return null; // Exempt page 1 (covers/first reader page) from sequential pacing queue
+    // page 1 is NOT exempt — it enters the chain with cover-specific pacing
     return {
       galleryId: match[1] ?? "",
       pageNumber: Number.isFinite(pageNumber) ? pageNumber : 0,
@@ -170,6 +194,13 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
       };
     }
 
+    if (match.pageNumber === 1) {
+      return {
+        minIntervalMs: this.COVER_IMAGE_MIN_INTERVAL_MS,
+        jitterMaxMs: this.COVER_IMAGE_JITTER_MAX_MS,
+      };
+    }
+
     const usedFastSlots =
       this.galleryFastWindowCounts.get(match.galleryId) ?? 0;
     this.galleryFastWindowCounts.set(match.galleryId, usedFastSlots + 1);
@@ -202,21 +233,6 @@ export class NHentaiInterceptor extends PaperbackInterceptor {
     }
   }
 
-  private parseRetryAfterMs(
-    headers: Record<string, string>,
-  ): number | undefined {
-    const retryAfter = headers["retry-after"] ?? headers["Retry-After"];
-    if (!retryAfter) return undefined;
-    const numericSeconds = Number.parseInt(retryAfter, 10);
-    if (Number.isFinite(numericSeconds)) {
-      return Math.max(0, numericSeconds * 1000);
-    }
-    const dateMs = Date.parse(retryAfter);
-    if (Number.isFinite(dateMs)) {
-      return Math.max(0, dateMs - Date.now());
-    }
-    return undefined;
-  }
 
   private sleep(ms: number): Promise<void> {
     if (ms <= 0) {

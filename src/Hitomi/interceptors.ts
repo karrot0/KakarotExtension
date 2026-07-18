@@ -1,4 +1,11 @@
-import { PaperbackInterceptor, Request } from "@paperback/types";
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
+import {
+  CloudflareError,
+  PaperbackInterceptor,
+  Request,
+  Response,
+} from "@paperback/types";
 import { HitomiFile } from "./model";
 import { addDataReceived } from "./settings";
 import { ImageUriResolver } from "./utils/uri";
@@ -40,6 +47,7 @@ export class HitomiInterceptor extends PaperbackInterceptor {
   private rateLimitBackoffUntil = 0;
   private rateLimitStrikeCount = 0;
   private lastStrikeTime = 0;
+  private cachedUserAgent: string | null = null;
   private readonly MAX_CONCURRENT_IMAGE_REQUESTS = 8;
   private readonly IMAGE_REQUEST_LEASE_TIMEOUT_MS = 1600;
   private readonly IMAGE_MIN_INTERVAL_MS = 16;
@@ -72,11 +80,13 @@ export class HitomiInterceptor extends PaperbackInterceptor {
   }
 
   override async interceptRequest(request: Request): Promise<Request> {
+    if (!this.cachedUserAgent) {
+      this.cachedUserAgent = await Application.getDefaultUserAgent();
+    }
     request.headers = {
       ...request.headers,
       Referer: "https://hitomi.la/",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      "User-Agent": this.cachedUserAgent!,
     };
 
     if (this.cookieHeaderProvider && request.url.startsWith("http")) {
@@ -214,6 +224,21 @@ export class HitomiInterceptor extends PaperbackInterceptor {
     const accountedBytes = bodyBytes > 0 ? bodyBytes : contentLengthBytes;
     if (accountedBytes > 0) {
       addDataReceived(accountedBytes);
+    }
+
+    if (
+      response !== null &&
+      typeof response === "object" &&
+      "headers" in response
+    ) {
+      const headers = (response as Response).headers;
+      if (headers?.["cf-mitigated"] === "challenge") {
+        throw new CloudflareError({
+          url: request.url,
+          method: request.method ?? "GET",
+          headers: { "user-agent": await Application.getDefaultUserAgent() },
+        });
+      }
     }
 
     // Detect CDN 404/403: indicates gg.js has been rotated server-side.
