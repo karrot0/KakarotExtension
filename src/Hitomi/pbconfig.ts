@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
@@ -18,7 +20,7 @@ export default {
   developers: [
     {
       name: "pisshammy",
-      website: "$1/goon\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0",
+      website: "$1/goon pls am poor\nzelle: pisshammy@gmail.com\ncashapp: $0hammy0",
     },
   ],
 } satisfies ExtensionInfo;

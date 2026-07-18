@@ -8,6 +8,7 @@ A repository for paperback that includes both manga and comic extensions
 - Elftoon
 - GodaComic
 - Hentai2Read
+- Hitomi
 - Kenmei
 - LeagueOfComicGeeks
 - MangaBall

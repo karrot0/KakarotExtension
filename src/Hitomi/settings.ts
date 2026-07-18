@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 import { SearchFilter } from "@paperback/types/lib/compat/0.8/searchFilters";
 
 export type LanguageId =

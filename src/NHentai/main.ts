@@ -1,30 +1,26 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 import {
   BasicRateLimiter,
   Chapter,
   ChapterDetails,
-  ChapterProviding,
-  CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
   Cookie,
   DiscoverSection,
   DiscoverSectionItem,
-  DiscoverSectionProviding,
   DiscoverSectionType,
-  Extension,
+  ExtensionImpl,
   Form,
   InputRow,
   JSONValue,
   LabelRow,
-  MangaProviding,
   PagedResults,
   Request,
   Response,
   SearchQuery,
   SearchResultItem,
-  SearchResultsProviding,
   Section,
-  SettingsFormProviding,
   SortingOption,
   SourceManga,
   Tag,
@@ -37,115 +33,11 @@ import {
   type SearchFilterValue,
 } from "@paperback/types/lib/compat/0.8/searchFilters";
 import { closureSelector } from "@paperback/types/lib/impl/Selector.js";
-// -- SHA-256 (pure JS, synchronous) --
-function sha256(input: Uint8Array): Uint8Array {
-  const K: number[] = [
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
-    0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
-    0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
-    0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-    0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
-    0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-  ];
-  const msgLen = input.length;
-  const bitLen = msgLen * 8;
-  const padLen = (64 - ((msgLen + 9) % 64)) % 64;
-  const totalLen = msgLen + 1 + padLen + 8;
-  const padded = new Uint8Array(totalLen);
-  padded.set(input);
-  padded[msgLen] = 0x80;
-  const dv = new DataView(padded.buffer);
-  dv.setUint32(totalLen - 4, bitLen, false);
-  let h0 = 0x6a09e667;
-  let h1 = 0xbb67ae85;
-  let h2 = 0x3c6ef372;
-  let h3 = 0xa54ff53a;
-  let h4 = 0x510e527f;
-  let h5 = 0x9b05688c;
-  let h6 = 0x1f83d9ab;
-  let h7 = 0x5be0cd19;
-  const w = new Int32Array(64);
-  for (let offset = 0; offset < totalLen; offset += 64) {
-    for (let i = 0; i < 16; i++) {
-      w[i] = dv.getInt32(offset + i * 4, false);
-    }
-    for (let i = 16; i < 64; i++) {
-      const s0 =
-        (((w[i - 15] >>> 7) | (w[i - 15] << 25)) ^
-          ((w[i - 15] >>> 18) | (w[i - 15] << 14)) ^
-          (w[i - 15] >>> 3)) |
-        0;
-      const s1 =
-        (((w[i - 2] >>> 17) | (w[i - 2] << 15)) ^
-          ((w[i - 2] >>> 19) | (w[i - 2] << 13)) ^
-          (w[i - 2] >>> 10)) |
-        0;
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
-    }
-    let a = h0,
-      b = h1,
-      c = h2,
-      d = h3,
-      e = h4,
-      f = h5,
-      g = h6,
-      h = h7;
-    for (let i = 0; i < 64; i++) {
-      const S1 =
-        (((e >>> 6) | (e << 26)) ^
-          ((e >>> 11) | (e << 21)) ^
-          ((e >>> 25) | (e << 7))) |
-        0;
-      const ch = ((e & f) ^ (~e & g)) | 0;
-      const temp1 = (h + S1 + ch + K[i] + w[i]) | 0;
-      const S0 =
-        (((a >>> 2) | (a << 30)) ^
-          ((a >>> 13) | (a << 19)) ^
-          ((a >>> 22) | (a << 10))) |
-        0;
-      const maj = ((a & b) ^ (a & c) ^ (b & c)) | 0;
-      const temp2 = (S0 + maj) | 0;
-      h = g;
-      g = f;
-      f = e;
-      e = (d + temp1) | 0;
-      d = c;
-      c = b;
-      b = a;
-      a = (temp1 + temp2) | 0;
-    }
-    h0 = (h0 + a) | 0;
-    h1 = (h1 + b) | 0;
-    h2 = (h2 + c) | 0;
-    h3 = (h3 + d) | 0;
-    h4 = (h4 + e) | 0;
-    h5 = (h5 + f) | 0;
-    h6 = (h6 + g) | 0;
-    h7 = (h7 + h) | 0;
-  }
-  const result = new Uint8Array(32);
-  const rv = new DataView(result.buffer);
-  rv.setInt32(0, h0, false);
-  rv.setInt32(4, h1, false);
-  rv.setInt32(8, h2, false);
-  rv.setInt32(12, h3, false);
-  rv.setInt32(16, h4, false);
-  rv.setInt32(20, h5, false);
-  rv.setInt32(24, h6, false);
-  rv.setInt32(28, h7, false);
-  return result;
-}
-function sha256Bytes(input: Uint8Array): Uint8Array {
-  return sha256(input);
-}
 import { SettingsForm } from "./forms";
 import * as NHentaiSettings from "./settings";
+import NHentaiConfig from "./pbconfig";
 import { NHentaiInterceptor } from "./interceptors";
+import { parseRetryAfterMs } from "./utils/http";
 import {
   addDescMarkedReadId,
   ALL_DISCOVER_SECTIONS,
@@ -190,7 +82,6 @@ import {
   getSearchFilterTags,
   getSearchPageTilesSetting,
   getStatsTrackingEnabledSetting,
-  getStrictFavoritesFilterSetting,
   getThumbnailQualitySetting,
   incrementDisplayedManga,
   incrementMarkReadOnDescCount,
@@ -297,8 +188,6 @@ const API_V2_URL = `${DOMAIN}/api/v2`;
 const EMPTY_QUERY = '""';
 const READ_STATE_KEY = "nhentai.readHistory";
 const COOKIE_JAR_STATE_KEY = "nhentai.cookieJar";
-const RELATED_IDS_CACHE_KEY = "nhentai.relatedIdsCache";
-const RELATED_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const RELATED_VIEW_COUNTS_KEY = "nhentai.relatedViewCounts";
 const CDN_IMAGE_SERVERS_STATE_KEY = "nhentai.cdn.imageServers";
 const CDN_THUMB_SERVERS_STATE_KEY = "nhentai.cdn.thumbServers";
@@ -312,6 +201,7 @@ const DEFAULT_SEARCH_PAGE_SIZE = 9;
 const MAX_SEARCH_PAGES = 50; // Max API pages to search through when filtering
 const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours; search pages are safe to reuse across app restarts
 const SEARCH_CACHE_STATE_KEY = "nhentai.searchCache.v1";
+const TILE_STORE_STATE_KEY = "nhentai.tileStore.v1";
 // Keep initial discover burst to one request per section to manage rate limits.
 // With 6 discover sections (Popular, Recent, Random, etc.), this prevents burst 429s.
 const DISCOVER_FETCH_INITIAL_BATCH_SIZE = 1;
@@ -465,11 +355,20 @@ const POPULAR_TAGS_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 const POPULAR_TAGS_STATE_KEY = "nhentai.popularTagsCache";
 const POPULAR_TAGS_TS_STATE_KEY = "nhentai.popularTagsCacheTs";
 
-// Persistent gallery cache - survives app restarts
-const GALLERY_CACHE_STATE_KEY = "nhentai.galleryCache";
-const GALLERY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours; cached details prevent repeat hydration requests after restarts
-const GALLERY_CACHE_PAGE1_TTL_MS = 10 * 60 * 1000; // 10 minutes for page 1 of Date Added / Search feeds so newly published manga appear
-const GALLERY_CACHE_MAX_SIZE = 200; // Max galleries to persist (reduced for storage efficiency)
+// Page-1 search cache TTL — short so newly published manga appear promptly
+const GALLERY_CACHE_PAGE1_TTL_MS = 10 * 60 * 1000;
+
+// Lightweight tile info derived from search/related API responses (no gallery detail needed).
+// Session-only: populated each run from the restored search cache + live results.
+interface LiteGalleryTile {
+  id: number;
+  title: string;
+  mediaId: string;
+  thumbPath: string;
+  num_pages: number;
+  num_favorites: number;
+  tag_ids?: number[];
+}
 
 const RATE_LIMIT_WINDOW_SECONDS = 0.1;
 // Static limiter defaults reapplied on each extension initialization.
@@ -508,7 +407,6 @@ type EndpointClass =
   | "tagged"
   | "popular"
   | "config"
-  | "pow"
   | "captcha"
   | "default";
 type RequestPriority = "foreground" | "background";
@@ -582,12 +480,6 @@ const burstQueues: Record<EndpointClass, BurstQueue> = {
     blockedChecks: 0,
     rateLimitedUntil: 0,
   },
-  pow: {
-    timestamps: [],
-    mutex: Promise.resolve(),
-    blockedChecks: 0,
-    rateLimitedUntil: 0,
-  },
   captcha: {
     timestamps: [],
     mutex: Promise.resolve(),
@@ -612,7 +504,6 @@ const NHENTAI_AUTH_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
   tagged: 30,
   popular: 30,
   config: 30,
-  pow: 30,
   captcha: 12,
   default: 30,
 };
@@ -627,7 +518,6 @@ const NHENTAI_ANON_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
   tagged: 15,
   popular: 15,
   config: 15,
-  pow: 20,
   captcha: 6,
   default: 15,
 };
@@ -693,7 +583,7 @@ function getEndpointRateLimit(
 function getBackgroundReservedSlots(endpointClass: EndpointClass): number {
   switch (endpointClass) {
     case "galleryDetail":
-      return 1; // Was 3 (effective 17/min anon); now 1 (effective 19/min anon)
+      return 2; // Was 3 (effective 17/min anon); now 1 (effective 18/min anon)
     case "search":
     case "galleries":
     case "related":
@@ -704,44 +594,6 @@ function getBackgroundReservedSlots(endpointClass: EndpointClass): number {
     default:
       return 0;
   }
-}
-
-function utf8Bytes(input: string): Uint8Array {
-  const bytes: number[] = [];
-  for (let i = 0; i < input.length; i++) {
-    const codePoint = input.codePointAt(i) ?? 0;
-    if (codePoint > 0xffff) i++;
-    if (codePoint <= 0x7f) {
-      bytes.push(codePoint);
-    } else if (codePoint <= 0x7ff) {
-      bytes.push(0xc0 | (codePoint >> 6));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    } else if (codePoint <= 0xffff) {
-      bytes.push(0xe0 | (codePoint >> 12));
-      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    } else {
-      bytes.push(0xf0 | (codePoint >> 18));
-      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
-      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    }
-  }
-  return new Uint8Array(bytes);
-}
-
-function hasLeadingZeroBits(bytes: Uint8Array, difficulty: number): boolean {
-  let remaining = Math.max(0, Math.floor(difficulty));
-  for (const byte of bytes) {
-    if (remaining <= 0) return true;
-    if (remaining >= 8) {
-      if (byte !== 0) return false;
-      remaining -= 8;
-      continue;
-    }
-    return byte >> (8 - remaining) === 0;
-  }
-  return remaining <= 0;
 }
 
 function classifyEndpoint(url: string): EndpointClass {
@@ -764,10 +616,6 @@ function classifyEndpoint(url: string): EndpointClass {
 
   if (path === "" || path === "config" || path === "cdn") {
     return "config";
-  }
-
-  if (path === "pow") {
-    return "pow";
   }
 
   if (path === "captcha") {
@@ -997,6 +845,12 @@ async function staggeredSectionDelay(): Promise<void> {
 
 type TagDefinition = { id: string; label: string; count: string };
 
+const LANGUAGE_TAG_IDS = {
+  english: 12227,
+  chinese: 29963,
+  japanese: 6346,
+};
+
 const DEBUG_NHENTAI =
   typeof globalThis !== "undefined" &&
   (globalThis as { process?: { env?: Record<string, string | undefined> } })
@@ -1008,11 +862,6 @@ function logDebug(...args: unknown[]) {
   }
 }
 
-function summarizeRelatedPoolOrder(
-  items: { id: number; tag: string; cycleIndex: number }[],
-): string {
-  return items.map((item) => `${item.tag}:${item.id}`).join(", ");
-}
 
 type FavoritesConstraint = {
   min?: number;
@@ -1301,86 +1150,6 @@ class ReadHistory {
   }
 }
 
-interface IdentifiableItem {
-  id: string;
-}
-
-type CacheEntry<T> = {
-  item: T;
-  createdDate: Date;
-  lastAccessDate: Date;
-};
-
-class MemoryCache<T extends IdentifiableItem> {
-  private items: string[] = [];
-  private cache: Record<string, CacheEntry<T>> = {};
-
-  maxCount = 500;
-  maxCountBuffer = 50;
-
-  get count(): number {
-    return this.items.length;
-  }
-
-  addItem(item: T): void {
-    if (!this.items.includes(item.id)) this.items.push(item.id);
-    const date = new Date();
-    this.cache[item.id] = { createdDate: date, lastAccessDate: date, item };
-    this.pruneCacheIfNeeded();
-  }
-
-  setEntry(
-    item: T,
-    createdDate: Date,
-    lastAccessDate: Date = createdDate,
-  ): void {
-    if (!this.items.includes(item.id)) this.items.push(item.id);
-    this.cache[item.id] = { item, createdDate, lastAccessDate };
-    this.pruneCacheIfNeeded();
-  }
-
-  getEntry(id: string, touch = true): CacheEntry<T> | undefined {
-    const entry = this.cache[id];
-    if (!entry) return undefined;
-    if (touch) entry.lastAccessDate = new Date();
-    return entry;
-  }
-
-  getItem(id: string): T | undefined {
-    const entry = this.getEntry(id);
-    return entry?.item;
-  }
-
-  contains(id: string): boolean {
-    return this.cache[id] != undefined;
-  }
-
-  removeItem(id: string): void {
-    if (!this.cache[id]) return;
-    delete this.cache[id];
-    this.items = this.items.filter((itemId) => itemId !== id);
-  }
-
-  entries(): Array<[string, CacheEntry<T>]> {
-    return this.items
-      .map((id) => {
-        const entry = this.cache[id];
-        return entry ? ([id, entry] as [string, CacheEntry<T>]) : undefined;
-      })
-      .filter((value): value is [string, CacheEntry<T>] => value !== undefined);
-  }
-
-  pruneCacheIfNeeded(): void {
-    if (this.count < this.maxCount + this.maxCountBuffer) return;
-    this.items.sort((a, b) => {
-      const aLastAccess = this.cache[a]?.lastAccessDate.getTime() ?? 0;
-      const bLastAccess = this.cache[b]?.lastAccessDate.getTime() ?? 0;
-      return aLastAccess - bLastAccess;
-    });
-    const evicted = this.items.splice(0, this.count - this.maxCount);
-    for (const id of evicted) delete this.cache[id];
-  }
-}
 
 let readHistory: ReadHistory | undefined;
 
@@ -1422,10 +1191,6 @@ interface Gallery {
   upload_date: number;
 }
 
-type NHentaiGalleryCacheItem = {
-  id: string;
-  gallery: Gallery;
-};
 
 interface QueryResponse {
   result?: Gallery[];
@@ -1443,8 +1208,9 @@ interface V2GalleryListItem {
   english_title: string | null;
   japanese_title: string | null;
   tag_ids: number[];
-  num_pages?: number; // Available from search API
-  num_favorites?: number; // Available from search API
+  num_pages?: number;
+  num_favorites?: number;
+  blacklisted?: boolean;
 }
 
 interface V2SearchResponse {
@@ -1516,24 +1282,6 @@ interface V2ConfigResponse extends V2CdnResponse {
   };
 }
 
-interface V2RootResponse {
-  version?: string;
-  message?: string;
-  error?: string;
-}
-
-interface V2PowResponse {
-  challenge: string;
-  difficulty: number;
-  error?: string;
-}
-
-interface PowTokenCacheEntry {
-  token: string;
-  challenge: string;
-  difficulty: number;
-  ts: number;
-}
 
 interface ResponseAndText {
   response: Response;
@@ -1578,15 +1326,7 @@ type SectionWaveHandle = {
   label: string;
 };
 
-type NHentaiImplementation = Extension &
-  SettingsFormProviding &
-  DiscoverSectionProviding &
-  SearchResultsProviding &
-  MangaProviding &
-  ChapterProviding &
-  CloudflareBypassRequestProviding;
-
-export class NHentaiExtension implements NHentaiImplementation {
+export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
   requestManager = new NHentaiInterceptor("main");
   private cookieJar = new Map<string, Cookie>();
   // Backup limiter for fallback cases. Primary rate limiting uses endpoint-aware
@@ -1610,12 +1350,6 @@ export class NHentaiExtension implements NHentaiImplementation {
   private cdnThumbServers?: string[];
   private cdnConfigTs?: number;
   private cdnConfigFetch?: Promise<void>;
-  private apiRootCache?: { response: V2RootResponse; ts: number };
-  private powCache = new Map<string, PowTokenCacheEntry>();
-  private powPending = new Map<
-    string,
-    Promise<PowTokenCacheEntry | undefined>
-  >();
   private searchCache = new Map<
     string,
     { response: QueryResponse; ts: number }
@@ -1641,7 +1375,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     // Ensure install date is set for statistics
     ensureInstallDate();
     this.restoreCookieJar();
-    this.restoreGalleryCache();
+    this.restoreTileStore();
     this.restoreSearchCache();
 
     try {
@@ -1675,9 +1409,6 @@ export class NHentaiExtension implements NHentaiImplementation {
       !this.cdnConfigTs ||
       Date.now() - this.cdnConfigTs >= CDN_CACHE_TTL_MS ||
       !hasServers;
-    void this.getApiRoot().catch((error) =>
-      logDebug("API v2 connectivity check failed", error),
-    );
     if (needsRefresh) {
       this.cdnConfigFetch = this.refreshCdnConfig().finally(() => {
         this.cdnConfigFetch = undefined;
@@ -1799,16 +1530,11 @@ export class NHentaiExtension implements NHentaiImplementation {
       );
     }
 
-    if (String(wave.kind).toLowerCase() !== "search") {
-      if (ordered.length > 1) {
-        console.log(
-          `[NHentai] ${wave.kind} Wave Total Time: ${totalMs}ms, ${totalPagesScanned} pages searched\n${logLines.join("\n")}`,
-        );
-      } else if (ordered.length === 1) {
-        console.log(
-          `[NHentai] ${wave.kind} Wave: ${logLines[0]?.replace("  - ", "")}`,
-        );
-      }
+    if (String(wave.kind).toLowerCase() !== "search" && ordered.length > 1) {
+      const prefix = `${wave.kind} Wave`;
+      console.log(
+        `[NHentai] ${prefix} Total Time: ${totalMs}ms, ${totalPagesScanned} pages searched\n${logLines.join("\n")}`,
+      );
     }
 
     this.activeSectionWaves.delete(handle.kind);
@@ -1855,9 +1581,10 @@ export class NHentaiExtension implements NHentaiImplementation {
       try {
         const elapsedMs = Math.max(0, Date.now() - sectionStart);
         const pagesScannedLog = options?.pagesScanned ?? 0;
+        const totalSkipped = skippedTotal + readSkipped;
         console.log(
           `[NHentai] Discover ${section.title ?? section.id}, ${result.items.length} items` +
-          formatSearchFilterSummary(skippedTotal, readSkipped, true) +
+          (totalSkipped > 0 ? `, ${totalSkipped} skipped` : "") +
           (pagesScannedLog > 0 ? `, ${pagesScannedLog} pages scanned` : "") +
           `, ${elapsedMs}ms`,
         );
@@ -2049,28 +1776,13 @@ export class NHentaiExtension implements NHentaiImplementation {
           const pagesMin = discoverPagesConstraint?.min;
           const pagesMax = discoverPagesConstraint?.max;
 
-          const strictFavoritesEnabled =
-            (getStrictFavoritesFilterSetting() ||
-              discoverFavoritesConstraint?.max !== undefined) &&
-            hasFavoritesConstraint(discoverFavoritesConstraint) &&
-            !queryHasFavoritesToken;
-          const favoritesSource = strictFavoritesEnabled
-            ? await this.hydrateLiteGalleries(filtered, filtered.length, {
-              force: true,
-            })
-            : filtered;
-
           const filteredForFavorites = hasFavoritesConstraint(
             discoverFavoritesConstraint,
-          )
-            ? favoritesSource.filter((g) => {
-              if (!strictFavoritesEnabled && g.isLite) return true;
-              return matchesFavoritesConstraint(
-                g,
-                discoverFavoritesConstraint,
-              );
-            })
-            : favoritesSource;
+          ) && !queryHasFavoritesToken
+            ? filtered.filter((g) =>
+              matchesFavoritesConstraint(g, discoverFavoritesConstraint),
+            )
+            : filtered;
 
           const filteredForPages =
             pagesExact !== undefined ||
@@ -2219,6 +1931,20 @@ export class NHentaiExtension implements NHentaiImplementation {
           currentPage <= response.num_pages);
 
       recordDisplayedTiles(items);
+
+      // Trigger prefetch for next page in discover when approaching pagination boundary
+      // Only for page >1 (skip initial carousel load), when largest multiple of page size <= 25 is reached
+      const discoverIsNotFirstPage = currentPage > 1;
+      const prefetchThreshold = 25 - (25 % sectionTileLimit);
+      const discoverShouldPrefetch = discoverIsNotFirstPage && items.length >= prefetchThreshold && currentPage < (response?.num_pages ?? 999);
+      if (discoverShouldPrefetch) {
+        this.triggerDiscoverPrefetch(
+          query,
+          currentPage + 1,
+          sortKey,
+        );
+      }
+
       return finalizeSection(
         {
           items,
@@ -2402,6 +2128,14 @@ export class NHentaiExtension implements NHentaiImplementation {
     if (changed) {
       this.persistCookieJar();
     }
+  }
+
+  async cloudflareBypassCompleted(
+    _request: Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
+    await this.saveCloudflareBypassCookies(cookies);
   }
 
   async getSearchFilters(): Promise<SearchFilter[]> {
@@ -2731,31 +2465,34 @@ export class NHentaiExtension implements NHentaiImplementation {
         setSearchFilterTags({});
       }
 
-      // If user selected 'Related' sort, return related section items instead
       if (effectiveSort === "related") {
-        const relatedSection = await this.getRelatedSection(pagination);
-        return {
-          items: this.discoverItemsToSearchResults(relatedSection.items),
-          metadata: relatedSection.metadata,
-        };
+        const relatedSection = await this.getRelatedSection(pagination, true);
+        const items = this.discoverItemsToSearchResults(relatedSection.items);
+        console.log(
+          `[NHentai] Related: ${items.length} items, ${Date.now() - searchStart}ms`,
+        );
+        return { items, metadata: relatedSection.metadata };
       }
 
-      // If user selected 'Last Read' sort, return last read section items
       if (effectiveSort === "last_read") {
-        const lastReadSection = await this.getLastReadSection(pagination);
-        return {
-          items: this.discoverItemsToSearchResults(lastReadSection.items),
-          metadata: lastReadSection.metadata,
-        };
+        const lastReadSection = await this.getLastReadSection(pagination, true);
+        const items = this.discoverItemsToSearchResults(lastReadSection.items);
+        console.log(
+          `[NHentai] Last Read: ${items.length} items, ${Date.now() - searchStart}ms`,
+        );
+        return { items, metadata: lastReadSection.metadata };
       }
 
-      // If user selected 'Top Reread' sort, return top reread section items
       if (effectiveSort === "top_reread") {
-        const topRereadSection = await this.getTopRereadSection(pagination);
-        return {
-          items: this.discoverItemsToSearchResults(topRereadSection.items),
-          metadata: topRereadSection.metadata,
-        };
+        const topRereadSection = await this.getTopRereadSection(
+          pagination,
+          true,
+        );
+        const items = this.discoverItemsToSearchResults(topRereadSection.items);
+        console.log(
+          `[NHentai] Top Reread: ${items.length} items, ${Date.now() - searchStart}ms`,
+        );
+        return { items, metadata: topRereadSection.metadata };
       }
 
       // Define interface for tags filter value
@@ -2813,11 +2550,6 @@ export class NHentaiExtension implements NHentaiImplementation {
       });
       const hideRead = getHideReadSetting();
       const readCache = hideRead ? getReadCache() : null;
-      const strictFavoritesEnabled =
-        (getStrictFavoritesFilterSetting() ||
-          favoritesConstraint?.max !== undefined) &&
-        hasFavoritesConstraint(favoritesConstraint) &&
-        !queryContainsFavoritesToken(searchQuery);
 
       const pagesExact = pagesConstraint?.exact;
       const pagesMin = pagesConstraint?.min;
@@ -2878,6 +2610,7 @@ export class NHentaiExtension implements NHentaiImplementation {
         pageLabel: number | string,
       ) => {
         if (pageCandidates.length === 0) return;
+        this.requestManager.resetCoverPacing();
         const hydratedCandidates = await this.hydrateLiteGalleries(
           pageCandidates,
           pageCandidates.length,
@@ -2970,35 +2703,17 @@ export class NHentaiExtension implements NHentaiImplementation {
             ? galleries.filter((g) => !readCache.has(g.id.toString()))
             : galleries;
 
-        const favoritesSource = strictFavoritesEnabled
-          ? await this.hydrateLiteGalleries(
-            preFilteredForRead,
-            preFilteredForRead.length,
-            {
-              force: true,
-            },
+        const filteredForFavorites = hasFavoritesConstraint(favoritesConstraint)
+          && !queryContainsFavoritesToken(searchQuery)
+          ? preFilteredForRead.filter((g) =>
+            matchesFavoritesConstraint(g, favoritesConstraint),
           )
           : preFilteredForRead;
-
-        const filteredForFavorites = hasFavoritesConstraint(favoritesConstraint)
-          ? favoritesSource.filter((g) => {
-            if (!strictFavoritesEnabled && g.isLite) return true;
-            return matchesFavoritesConstraint(g, favoritesConstraint);
-          })
-          : favoritesSource;
         logDebug(
           "search:page",
           `page=${currentPage}`,
           `raw=${galleries.length}`,
           `afterFavorites=${filteredForFavorites.length}`,
-        );
-
-        logDebug(
-          "search:strict",
-          `page=${currentPage}`,
-          `afterStrictFavorites=${filteredForFavorites.length}`,
-          `strictEnabled=${strictFavoritesEnabled}`,
-          `activeRange=${favoritesConstraint?.min ?? "-"}:${favoritesConstraint?.max ?? "-"}`,
         );
 
         const filteredForRead = filteredForFavorites;
@@ -3124,6 +2839,23 @@ export class NHentaiExtension implements NHentaiImplementation {
       );
 
       recordDisplayedTiles(items);
+
+      // Trigger prefetch for next page when approaching pagination boundary
+      // Only for search/discover (not page 2 of new search), when largest multiple of page size <= 25 is reached
+      const isPastFirstPage = currentPage > 1;
+      const isNotSecondPageNewSearch = !(currentPage === 2 && pagination?.page === undefined);
+      const prefetchThreshold = 25 - (25 % searchPageSize);
+      const shouldPrefetch = isPastFirstPage && isNotSecondPageNewSearch && items.length >= prefetchThreshold && nextPage <= (knownNumPages ?? 999);
+      if (shouldPrefetch) {
+        this.triggerSearchPrefetch(
+          searchQuery,
+          nextPage,
+          sortOrder,
+          titleOrGroups,
+          searchSessionKey,
+        );
+      }
+
       const sortLabel = this.formatSearchSortLabel(effectiveSort);
       const filterSummary = formatSearchFilterSummary(
         filteredSkippedTotal,
@@ -3232,9 +2964,11 @@ export class NHentaiExtension implements NHentaiImplementation {
   private readonly LAZY_BATCH_SIZE = 4; // Load 4 history items at a time (reduced from 8 to avoid 429s)
   private readonly RELATED_PER_HISTORY = 5; // Max related per history item
 
-  // Gallery cache with persistence
-  private galleryCache = new MemoryCache<NHentaiGalleryCacheItem>();
-  private galleryCacheDirty = false;
+  // Tile store: media_id + thumb info from search/related responses.
+  // Persisted across sessions so history/reread/related sections avoid
+  // gallery detail requests in lite mode (no date subtitles).
+  private tileStore = new Map<string, LiteGalleryTile>();
+  private tileStoreDirty = false;
   private galleryPending = new Map<string, Promise<Gallery>>();
   private relatedPoolCache:
     | { id: number; tag: string; cycleIndex: number }[]
@@ -3249,14 +2983,13 @@ export class NHentaiExtension implements NHentaiImplementation {
   private searchBufferGalleries: Gallery[] = [];
   private searchBufferNextPage = 1;
   private searchBufferNumPages: number | undefined;
+  private prefetchedPageMediaIds: number[] = [];
+  private prefetchInProgress = false;
+  private lastPrefetchSessionKey = "";
   private galleryDetailRateLimited = false;
   private galleryDetailProbeAfter = 0;
   private readonly GALLERY_DETAIL_PROBE_INTERVAL_MS = 900;
 
-
-  constructor() {
-    this.galleryCache.maxCount = 500;
-  }
 
   private restoreSearchCache(): void {
     try {
@@ -3275,6 +3008,11 @@ export class NHentaiExtension implements NHentaiImplementation {
           response: this.cloneQueryResponse(entry.response),
           ts: entry.ts,
         });
+        // Populate tile store from cached search pages so history/related sections
+        // can build tiles without hitting gallery detail on startup.
+        for (const gallery of entry.response.result ?? []) {
+          this.storeTileFromGallery(gallery);
+        }
         restoredCount++;
       }
       if (restoredCount > 0) {
@@ -3308,6 +3046,33 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
   }
 
+  private restoreTileStore(): void {
+    try {
+      const saved = Application.getState(TILE_STORE_STATE_KEY) as
+        | [string, LiteGalleryTile][]
+        | undefined;
+      if (!Array.isArray(saved)) return;
+      for (const [key, tile] of saved) {
+        if (key && tile?.id && tile.mediaId) {
+          this.tileStore.set(key, tile);
+        }
+      }
+    } catch {
+      // Ignore restore failures
+    }
+  }
+
+  private saveTileStore(): void {
+    if (!this.tileStoreDirty) return;
+    this.tileStoreDirty = false;
+    try {
+      const entries = [...this.tileStore.entries()];
+      Application.setState(entries, TILE_STORE_STATE_KEY);
+    } catch {
+      // Ignore save failures
+    }
+  }
+
   private getSearchCacheTtl(cacheKey: string): number {
     const [sortPart, pagePart] = cacheKey.split("|");
     const page = Number.parseInt(pagePart ?? "", 10);
@@ -3317,61 +3082,66 @@ export class NHentaiExtension implements NHentaiImplementation {
       : SEARCH_CACHE_TTL_MS;
   }
 
-  private restoreGalleryCache(): void {
-    try {
-      const saved = Application.getState(GALLERY_CACHE_STATE_KEY) as
-        | { entries: [string, { gallery: Gallery; ts: number }][] }
-        | undefined;
-      if (!saved?.entries) return;
-
-      const now = Date.now();
-      let restoredCount = 0;
-      for (const [id, entry] of saved.entries) {
-        // Skip expired entries
-        if (now - entry.ts > GALLERY_CACHE_TTL_MS) continue;
-        const entryDate = new Date(entry.ts);
-        this.galleryCache.setEntry(
-          { id, gallery: entry.gallery },
-          entryDate,
-          entryDate,
-        );
-        restoredCount++;
-      }
-      if (restoredCount > 0) {
-        console.log(`[NHentai] Restored ${restoredCount} cached galleries`);
-      }
-    } catch {
-      // Ignore restore failures
-    }
+  private storeTileFromGallery(gallery: Gallery): void {
+    if (!gallery?.id || !gallery.media_id) return;
+    const thumbPath = gallery.images.thumbnail?.path ?? gallery.images.cover?.path ?? "";
+    if (!thumbPath && !gallery.images.pages[0]?.path) return;
+    this.tileStore.set(gallery.id.toString(), {
+      id: gallery.id,
+      title: gallery.title?.pretty ?? gallery.title?.english ?? gallery.title?.japanese ?? `Gallery ${gallery.id}`,
+      mediaId: gallery.media_id,
+      thumbPath,
+      num_pages: gallery.num_pages ?? 0,
+      num_favorites: gallery.num_favorites ?? 0,
+    });
+    this.tileStoreDirty = true;
   }
 
-  private scheduleGalleryCacheSave(): void {
-    // Paperback's sandbox doesn't provide setTimeout. Use Application.sleep() instead.
-    // Just save immediately since we're already batching by dirty flag
-    this.galleryCacheDirty = true;
-    this.saveGalleryCache();
+  private storeTileFromListItem(item: V2GalleryListItem): void {
+    if (!item?.id || !item.media_id || !item.thumbnail) return;
+    this.tileStore.set(item.id.toString(), {
+      id: item.id,
+      title: item.english_title ?? item.japanese_title ?? `Gallery ${item.id}`,
+      mediaId: item.media_id,
+      thumbPath: item.thumbnail,
+      num_pages: item.num_pages ?? 0,
+      num_favorites: item.num_favorites ?? 0,
+      tag_ids: item.tag_ids,
+    });
+    this.tileStoreDirty = true;
   }
 
-  private saveGalleryCache(): void {
-    if (!this.galleryCacheDirty) return;
-    try {
-      // Convert map to array, sorted by timestamp (newest first), limited to max size
-      const entries = this.galleryCache
-        .entries()
-        .map(
-          ([id, entry]) =>
-            [
-              id,
-              { gallery: entry.item.gallery, ts: entry.createdDate.getTime() },
-            ] as [string, { gallery: Gallery; ts: number }],
-        )
-        .sort((a, b) => b[1].ts - a[1].ts)
-        .slice(0, GALLERY_CACHE_MAX_SIZE);
-      Application.setState({ entries }, GALLERY_CACHE_STATE_KEY);
-      this.galleryCacheDirty = false;
-    } catch {
-      // Ignore save failures
-    }
+  private buildGalleryFromTile(tile: LiteGalleryTile): Gallery {
+    const tags = (tile.tag_ids ?? []).map((id) => {
+      let name = "";
+      let type: "language" | "unknown" = "unknown";
+      if (id === LANGUAGE_TAG_IDS.english) {
+        name = "english";
+        type = "language";
+      } else if (id === LANGUAGE_TAG_IDS.chinese) {
+        name = "chinese";
+        type = "language";
+      } else if (id === LANGUAGE_TAG_IDS.japanese) {
+        name = "japanese";
+        type = "language";
+      }
+      return { id, type, name, url: "", count: 0 };
+    });
+    return {
+      id: tile.id,
+      media_id: tile.mediaId,
+      isLite: true,
+      title: { pretty: tile.title },
+      images: {
+        pages: [],
+        cover: { path: tile.thumbPath, t: this.getImageTypeFromPath(tile.thumbPath) },
+        thumbnail: { path: tile.thumbPath, t: this.getImageTypeFromPath(tile.thumbPath) },
+      },
+      tags,
+      num_pages: tile.num_pages,
+      num_favorites: tile.num_favorites,
+      upload_date: 0,
+    };
   }
 
   private getNextGalleryDetailProbeAt(now: number = Date.now()): number {
@@ -3402,33 +3172,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     this.galleryDetailProbeAfter = 0;
   }
 
-  private getCachedGallery(id: string): Gallery | undefined {
-    const entry = this.galleryCache.getEntry(id);
-    if (!entry) return undefined;
-    // Check if expired
-    if (Date.now() - entry.createdDate.getTime() > GALLERY_CACHE_TTL_MS) {
-      this.galleryCache.removeItem(id);
-      return undefined;
-    }
-    return entry.item.gallery;
-  }
-
-  private setCachedGallery(id: string, gallery: Gallery): void {
-    this.galleryCache.addItem({ id, gallery });
-    this.scheduleGalleryCacheSave();
-  }
-
-  private async loadGalleryCached(id: string): Promise<Gallery> {
-    const cached = this.getCachedGallery(id);
-    if (cached) return cached;
-    try {
-      const gallery = await this.fetchGallery(id);
-      this.setCachedGallery(id, gallery);
-      return gallery;
-    } catch {
-      throw new Error(`Failed to load gallery ${id}`);
-    }
-  }
 
   private incrementNonCarouselCounter(): void {
     try {
@@ -3555,26 +3298,18 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     const batch = history.slice(startIndex, endIndex);
 
-    // Load history galleries in parallel, tracking original batch position.
-    // Language filtering is deferred to getRelatedSection() at display time
-    // to avoid expensive parallel gallery fetches that trigger 429s.
-    const historyGalleries = await Promise.all(
-      batch.map(async (hid, batchIndex) => {
-        try {
-          const g = await this.loadGalleryCached(hid);
-          if (!g?.id) return null;
-          return { id: g.id, historyId: hid, batchIndex };
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    // Filter valid galleries
-    const validGalleries = historyGalleries.filter(
-      (g): g is { id: number; historyId: string; batchIndex: number } =>
-        g !== null,
-    );
+    // History IDs are the gallery numeric IDs as strings — parse directly.
+    // No gallery detail request needed to build the related pool.
+    const validGalleries = batch
+      .map((hid, batchIndex) => {
+        const numId = parseInt(hid, 10);
+        if (!Number.isFinite(numId) || numId <= 0) return null;
+        return { id: numId, historyId: hid, batchIndex };
+      })
+      .filter(
+        (g): g is { id: number; historyId: string; batchIndex: number } =>
+          g !== null,
+      );
 
     // Scrape related IDs with adaptive concurrency — start at 2 parallel
     // requests, fall back to sequential on any 429/Cloudflare error.
@@ -3726,21 +3461,24 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   private async scrapeRelatedManga(mangaId: string): Promise<number[]> {
     try {
-      // Check cache first (24hr TTL)
-      const cache =
-        (Application.getState(RELATED_IDS_CACHE_KEY) as
-          | Record<string, { ids: number[]; ts: number }>
-          | undefined) ?? {};
-      const cached = cache[mangaId];
-      if (cached && Date.now() - cached.ts < RELATED_CACHE_TTL_MS) {
-        logDebug("Using cached related IDs for", mangaId);
-        return cached.ids;
-      }
-
+      // Always fetch fresh to populate tile store with tag_ids and metadata.
+      // Tile store is used by getRelatedSection to avoid gallery detail requests.
+      logDebug("scrapeRelatedManga: fetching related for", mangaId);
       const response = await this.fetchJson<V2RelatedResponse>({
         url: `${API_V2_URL}/galleries/${encodeURIComponent(mangaId)}/related`,
         method: "GET",
       });
+      logDebug(
+        "scrapeRelatedManga: received",
+        response.result?.length ?? 0,
+        "items for",
+        mangaId,
+      );
+      // Store tile info for each related item so related/history sections
+      // can render without further gallery detail requests in lite mode.
+      for (const item of response.result ?? []) {
+        this.storeTileFromListItem(item);
+      }
       const relatedIds = (response.result ?? [])
         .map((entry) => entry.id)
         .filter(
@@ -3748,18 +3486,8 @@ export class NHentaiExtension implements NHentaiImplementation {
             Number.isFinite(id) && id.toString() !== mangaId,
         );
 
-      // Cache the result with timestamp (prune to 500 entries max)
-      cache[mangaId] = { ids: relatedIds, ts: Date.now() };
-      const entries = Object.entries(cache);
-      if (entries.length > 500) {
-        entries.sort((a, b) => b[1].ts - a[1].ts);
-        const pruned = Object.fromEntries(entries.slice(0, 500));
-        Application.setState(pruned, RELATED_IDS_CACHE_KEY);
-      } else {
-        Application.setState(cache, RELATED_IDS_CACHE_KEY);
-      }
-
       logDebug("Loaded", relatedIds.length, "related IDs for", mangaId);
+      this.saveTileStore();
       return relatedIds;
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
@@ -3770,14 +3498,24 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   async getRelatedSection(
     metadata: PaginationMetadata | undefined,
+    forSearch = false,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     if (!getEnableRelatedSetting()) return { items: [], metadata: undefined };
 
     const offset = getEffectiveOffset(metadata);
     const relatedCarouselTiles = getCarouselTiles();
     const discoverPageSize = getDiscoverPageSize();
-    const limit = offset === 0 ? relatedCarouselTiles : discoverPageSize;
-    const minItems = offset === 0 ? relatedCarouselTiles : discoverPageSize;
+    const searchPageSize = getSearchPageSize();
+    const limit = forSearch
+      ? searchPageSize
+      : offset === 0
+        ? relatedCarouselTiles
+        : discoverPageSize;
+    const minItems = forSearch
+      ? searchPageSize
+      : offset === 0
+        ? relatedCarouselTiles
+        : discoverPageSize;
     if (limit <= 0) {
       return { items: [], metadata: undefined };
     }
@@ -3797,78 +3535,59 @@ export class NHentaiExtension implements NHentaiImplementation {
         return { items: [], metadata: undefined };
       }
 
-      // Apply hideReadInRelated filter and remove over-viewed items
       const hideReadInRelated = getHideReadInRelatedSetting();
       const readCache = hideReadInRelated ? getReadCache() : null;
-      // When mark-read-on-desc is ON, exclude those manga from Related (they go to Last Read only)
       const descMarkedIds =
         getHideReadSetting() && getMarkReadOnViewSetting()
           ? getDescMarkedReadIds()
           : null;
 
       const filterPool = (p: typeof pool) => {
-        let filteredByRead = 0;
-        let filteredByDesc = 0;
-        let filteredByAge = 0;
         const cycleLastIndex = new Map<number, number>();
         for (let index = 0; index < p.length; index++) {
           cycleLastIndex.set(p[index].cycleIndex, index);
         }
-        const nextPool = p.filter((item) => {
+        return p.filter((item) => {
           const isBaseCycle = item.tag.startsWith("[r");
           if (
             !isBaseCycle &&
             hideReadInRelated &&
             readCache &&
             readCache.has(item.id.toString())
-          ) {
-            filteredByRead++;
-            return false;
-          }
+          ) return false;
           if (
             !isBaseCycle &&
             descMarkedIds &&
             descMarkedIds.has(item.id.toString())
-          ) {
-            filteredByDesc++;
-            return false;
-          }
+          ) return false;
           const cycleEndIndex = cycleLastIndex.get(item.cycleIndex);
           if (
             cycleEndIndex !== undefined &&
             offset >= cycleEndIndex + RELATED_AGE_WINDOW_TILES
-          ) {
-            filteredByAge++;
-            return false;
-          }
+          ) return false;
           return true;
         });
-        logDebug(
-          "getRelatedSection: filter",
-          `in=${p.length}`,
-          `out=${nextPool.length}`,
-          `read=${filteredByRead}`,
-          `desc=${filteredByDesc}`,
-          `age=${filteredByAge}`,
-        );
-        return nextPool;
       };
-      pool = filterPool(pool);
 
-      // Re-index [rN] tags sequentially after filtering so they start from [r1]
+      const reindexBaseTags = (p: typeof pool) => {
+        let rCounter = 0;
+        for (const item of p) {
+          if (item.tag.startsWith("[r")) {
+            rCounter++;
+            item.tag = `[r${rCounter}]`;
+          }
+        }
+      };
+
       const alignPoolStart = () => {
         const firstCycleStart = pool.findIndex((item) => item.tag === "[r1]");
         if (firstCycleStart > 0) {
           pool = pool.slice(firstCycleStart);
         }
       };
-      let rCounter = 0;
-      for (const item of pool) {
-        if (item.tag.startsWith("[r")) {
-          rCounter++;
-          item.tag = `[r${rCounter}]`;
-        }
-      }
+
+      pool = filterPool(pool);
+      reindexBaseTags(pool);
       alignPoolStart();
 
       for (
@@ -3880,50 +3599,25 @@ export class NHentaiExtension implements NHentaiImplementation {
       ) {
         neededItems += 80;
         pool = filterPool(await this.fetchRelatedPool(neededItems));
-        // Re-index again after expansion
-        rCounter = 0;
-        for (const item of pool) {
-          if (item.tag.startsWith("[r")) {
-            rCounter++;
-            item.tag = `[r${rCounter}]`;
-          }
-        }
+        reindexBaseTags(pool);
         alignPoolStart();
       }
-
-      logDebug(
-        "getRelatedSection: Pool size",
-        pool.length,
-        "offset",
-        offset,
-        "limit",
-        limit,
-      );
-      logDebug(
-        "getRelatedSection: order",
-        summarizeRelatedPoolOrder(
-          pool.slice(offset, offset + Math.min(limit * 2, pool.length)),
-        ),
-      );
 
       if (
         pool.length < offset + minItems &&
         this.relatedPoolLastHistoryIndex < history.length
       ) {
         pool = filterPool(await this.fetchRelatedPool(offset + limit + 120));
-        // Re-index expanded pool
-        rCounter = 0;
-        for (const item of pool) {
-          if (item.tag.startsWith("[r")) {
-            rCounter++;
-            item.tag = `[r${rCounter}]`;
-          }
-        }
+        reindexBaseTags(pool);
         alignPoolStart();
-
         if (pool.length <= offset) {
           return { items: [], metadata: undefined };
         }
+      }
+
+      let cursor = Math.min(offset, pool.length);
+      if (cursor >= pool.length) {
+        return { items: [], metadata: undefined };
       }
 
       const items: DiscoverSectionItem[] = [];
@@ -3931,140 +3625,105 @@ export class NHentaiExtension implements NHentaiImplementation {
       const displayOptions = getDisplayOptionsSetting();
       const showRelatedOrder = displayOptions.includes("show_related_order");
       const seenIds = new Set<number>();
-      let cursor = Math.min(offset, pool.length);
       let expansions = 0;
       const batchSize = Math.max(limit, relatedCarouselTiles);
+      let languageSkipped = 0;
 
       while (items.length < limit) {
         if (cursor >= pool.length) {
           if (
             this.relatedPoolLastHistoryIndex >= history.length ||
             expansions >= 3
-          ) {
-            break;
-          }
+          ) break;
 
           neededItems += 80;
           pool = filterPool(await this.fetchRelatedPool(neededItems));
-          rCounter = 0;
-          for (const item of pool) {
-            if (item.tag.startsWith("[r")) {
-              rCounter++;
-              item.tag = `[r${rCounter}]`;
-            }
-          }
+          reindexBaseTags(pool);
           alignPoolStart();
           expansions++;
 
-          if (cursor >= pool.length) {
-            continue;
-          }
+          if (cursor >= pool.length) continue;
         }
 
         const nextCursor = Math.min(cursor + batchSize, pool.length);
         const currentSlice = pool.slice(cursor, nextCursor);
-        logDebug(
-          "getRelatedSection: slice",
-          `cursor=${cursor}`,
-          `sliceEnd=${nextCursor}`,
-          summarizeRelatedPoolOrder(currentSlice),
-        );
         cursor = nextCursor;
 
-        const galleryPromises = currentSlice
-          .filter((item) => !seenIds.has(item.id))
-          .map(async (item) => {
-            try {
-              const gallery = await this.loadGalleryCached(item.id.toString());
-              return { item, gallery };
-            } catch (e) {
-              logDebug("Failed to load gallery for related", item.id, e);
-              return null;
-            }
-          });
-
-        const results = await Promise.all(galleryPromises);
-
-        for (const result of results) {
-          if (!result) continue;
-          const { item, gallery } = result;
+        for (const item of currentSlice) {
+          if (seenIds.has(item.id)) continue;
           seenIds.add(item.id);
 
-          const languageSlug = this.extractLanguageSlug(gallery.tags);
           const isBaseCycle = item.tag.startsWith("[r");
-          if (
-            !isBaseCycle &&
-            relatedLang !== "all" &&
-            languageSlug !== relatedLang
-          )
+
+          if (!isBaseCycle && readCache && readCache.has(item.id.toString())) {
             continue;
+          }
+
+          // Language filter — tile always has tag_ids from /related response
+          if (!isBaseCycle && relatedLang !== "all") {
+            const tile = this.tileStore.get(item.id.toString());
+            const tagIds = tile?.tag_ids ?? [];
+            const hasPreferredLanguage = relatedLang === "english"
+              ? tagIds.includes(LANGUAGE_TAG_IDS.english)
+              : relatedLang === "chinese"
+                ? tagIds.includes(LANGUAGE_TAG_IDS.chinese)
+                : relatedLang === "japanese"
+                  ? tagIds.includes(LANGUAGE_TAG_IDS.japanese)
+                  : false;
+            if (!hasPreferredLanguage) {
+              languageSkipped++;
+              continue;
+            }
+          }
+
+          // Build display data from tile store (no gallery fetch needed)
+          const tile = this.tileStore.get(item.id.toString());
+          const displayGallery = tile
+            ? this.buildGalleryFromTile(tile)
+            : null;
+          if (!displayGallery) continue;
 
           const title =
-            gallery.title.pretty ??
-            gallery.title.english ??
-            gallery.title.japanese ??
+            displayGallery.title.pretty ??
+            displayGallery.title.english ??
+            displayGallery.title.japanese ??
             "";
-          const baseSubtitle = this.createSubtitle(gallery, {
-            forceShowNonPreferredLanguage: true,
-            rereadCount: getRereadCount(gallery.id.toString()),
+          const baseSubtitle = this.createSubtitle(displayGallery, {
+            rereadCount: getRereadCount(displayGallery.id.toString()),
           });
-          const orderPrefix = item.tag;
           const subtitle = showRelatedOrder
-            ? `${orderPrefix} ${baseSubtitle}`
+            ? `${item.tag} ${baseSubtitle}`
             : baseSubtitle;
 
           items.push({
             type: "simpleCarouselItem",
-            mangaId: normalizeBridgeString(gallery.id, item.id.toString()),
+            mangaId: normalizeBridgeString(displayGallery.id, item.id.toString()),
             title: normalizeBridgeString(title, `Gallery ${item.id}`),
             subtitle: normalizeBridgeString(subtitle),
-            imageUrl: normalizeBridgeString(this.buildCoverUrl(gallery)),
+            imageUrl: normalizeBridgeString(this.buildCoverUrl(displayGallery)),
             metadata: undefined,
           });
 
           incrementRelatedViewCount(item.id);
-          if (items.length >= limit) {
-            break;
-          }
+          if (items.length >= limit) break;
         }
 
-        if (items.length >= minItems && offset === 0) {
-          break;
-        }
+        if (items.length >= minItems && offset === 0) break;
       }
 
       const hasMoreInPool = cursor < pool.length;
       const hasMoreHistory = this.relatedPoolLastHistoryIndex < history.length;
       const hasMore = hasMoreInPool || hasMoreHistory;
-      logDebug(
-        "getRelatedSection: Returning",
-        items.length,
-        "items, hasMore:",
-        hasMore,
-        "(pool:",
-        hasMoreInPool,
-        "history:",
-        hasMoreHistory,
-        ")",
-      );
-      logDebug(
-        "getRelatedSection: returnedOrder",
-        items
-          .map((item) => {
-            const mangaId = "mangaId" in item ? item.mangaId : "unknown";
-            const subtitle = "subtitle" in item ? (item.subtitle ?? "") : "";
-            return `${mangaId}:${subtitle}`;
-          })
-          .join(" | "),
-      );
       recordDisplayedTiles(items);
 
+      const description = languageSkipped > 0 ? `${languageSkipped} language filtered` : undefined;
       return {
         items,
         metadata: hasMore
           ? buildOffsetMetadata(offset + items.length, cursor)
           : undefined,
-      };
+        description,
+      } as PagedResults<DiscoverSectionItem> & { description?: string };
     } catch (e) {
       if (e instanceof CloudflareError) throw e;
       console.error("[NHentai Related] Failed", e);
@@ -4074,11 +3733,15 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   async getLastReadSection(
     metadata: PaginationMetadata | undefined,
+    forSearch = false,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     try {
       const offset = getEffectiveOffset(metadata);
-      // For carousel (offset = 0), show fewer tiles; for expanded view, show more
-      const limit = offset === 0 ? getCarouselTiles() : getDiscoverPageSize();
+      const limit = forSearch
+        ? getSearchPageSize()
+        : offset === 0
+          ? getCarouselTiles()
+          : getDiscoverPageSize();
       if (limit <= 0) {
         return { items: [], metadata: undefined };
       }
@@ -4095,12 +3758,14 @@ export class NHentaiExtension implements NHentaiImplementation {
         return { items: [], metadata: undefined };
       }
 
-      // Fetch gallery details for each ID in parallel
       const items: DiscoverSectionItem[] = [];
       const galleryResults = await Promise.all(
         slice.map(async (id) => {
           try {
-            const gallery = await this.fetchGallery(id);
+            const tile = this.tileStore.get(id);
+            const gallery: Gallery | undefined = tile
+              ? this.buildGalleryFromTile(tile)
+              : await this.fetchGallery(id);
             if (!gallery) return null;
             return this.mapGalleryToDiscoverItem(gallery);
           } catch (e) {
@@ -4118,7 +3783,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       return {
         items,
         metadata: hasMore
-          ? buildOffsetMetadata(offset + items.length, offset + limit)
+          ? buildOffsetMetadata(offset + limit, offset + limit)
           : undefined,
       };
     } catch (e) {
@@ -4130,11 +3795,15 @@ export class NHentaiExtension implements NHentaiImplementation {
 
   async getTopRereadSection(
     metadata: PaginationMetadata | undefined,
+    forSearch = false,
   ): Promise<PagedResults<DiscoverSectionItem>> {
     try {
       const offset = getEffectiveOffset(metadata);
-      // For carousel (offset = 0), show fewer tiles; for expanded view, show more
-      const limit = offset === 0 ? getCarouselTiles() : getDiscoverPageSize();
+      const limit = forSearch
+        ? getSearchPageSize()
+        : offset === 0
+          ? getCarouselTiles()
+          : getDiscoverPageSize();
       if (limit <= 0) {
         return { items: [], metadata: undefined };
       }
@@ -4153,7 +3822,10 @@ export class NHentaiExtension implements NHentaiImplementation {
       const galleryResults = await Promise.all(
         slice.map(async (entry) => {
           try {
-            const gallery = await this.fetchGallery(entry.mangaId);
+            const tile = this.tileStore.get(entry.mangaId);
+            const gallery: Gallery | undefined = tile
+              ? this.buildGalleryFromTile(tile)
+              : await this.fetchGallery(entry.mangaId);
             if (!gallery) return null;
             const title =
               gallery.title?.pretty ||
@@ -4193,7 +3865,7 @@ export class NHentaiExtension implements NHentaiImplementation {
       return {
         items,
         metadata: hasMore
-          ? buildOffsetMetadata(offset + items.length, offset + limit)
+          ? buildOffsetMetadata(offset + limit, offset + limit)
           : undefined,
       };
     } catch (e) {
@@ -4220,13 +3892,11 @@ export class NHentaiExtension implements NHentaiImplementation {
       subtitle: existingInfo?.author ?? "",
     };
 
-    let cachedGallery = this.getCachedGallery(sourceManga.mangaId);
-    if (!cachedGallery) {
-      try {
-        cachedGallery = await this.fetchGallery(sourceManga.mangaId);
-      } catch (error) {
-        logDebug("Synchronous gallery fetch failed", error);
-      }
+    let cachedGallery: Gallery | undefined;
+    try {
+      cachedGallery = await this.fetchGallery(sourceManga.mangaId);
+    } catch (error) {
+      logDebug("Synchronous gallery fetch failed", error);
     }
 
     const publishDate = cachedGallery?.upload_date
@@ -4305,25 +3975,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     }
   }
 
-  private parseRetryAfterMs(
-    headers: Record<string, string>,
-  ): number | undefined {
-    const retryAfter = headers["retry-after"] ?? headers["Retry-After"];
-    if (!retryAfter) return undefined;
-
-    const numericSeconds = Number.parseInt(retryAfter, 10);
-    if (Number.isFinite(numericSeconds)) {
-      return Math.max(0, numericSeconds * 1000);
-    }
-
-    const dateMs = Date.parse(retryAfter);
-    if (Number.isFinite(dateMs)) {
-      return Math.max(0, dateMs - Date.now());
-    }
-
-    return undefined;
-  }
-
   private computeBackoffDelayMs(
     attempt: number,
     status: number,
@@ -4331,9 +3982,9 @@ export class NHentaiExtension implements NHentaiImplementation {
     endpointClass: EndpointClass,
   ): number {
     const isGalleryDetail = endpointClass === "galleryDetail";
-    const retryAfterMs = this.parseRetryAfterMs(headers);
+    const retryAfterMs = parseRetryAfterMs(headers);
     if (retryAfterMs !== undefined) {
-      const cap = status === 429 ? (isGalleryDetail ? 2_200 : 900) : 3_000;
+      const cap = status === 429 ? (isGalleryDetail ? 2_200 : 5_000) : 3_000;
       return Math.min(cap, Math.max(300, retryAfterMs));
     }
 
@@ -4341,11 +3992,11 @@ export class NHentaiExtension implements NHentaiImplementation {
       status === 403 || status === 429 || status === 503
         ? isGalleryDetail
           ? 900
-          : 100
+          : 5_000
         : 120;
     const expMs = baseMs * Math.pow(2, attempt);
     const jitterMs = Math.floor(Math.random() * (isGalleryDetail ? 250 : 120));
-    const maxMs = status === 429 ? (isGalleryDetail ? 2_200 : 900) : 3_000;
+    const maxMs = status === 429 ? (isGalleryDetail ? 2_200 : 5_000) : 3_000;
     return Math.min(maxMs, expMs + jitterMs);
   }
 
@@ -4374,12 +4025,17 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     const fetchPromise = this.fetchJson<V2SearchResponse>(request).then(
       async (response) => {
+        // Populate tile store before converting so raw V2GalleryListItem data is available.
+        for (const item of response.result ?? []) {
+          this.storeTileFromListItem(item);
+        }
         const hydrated = this.mapV2SearchResponseToQueryResponse(response);
         this.searchCache.set(cacheKey, {
           response: this.cloneQueryResponse(hydrated),
           ts: Date.now(),
         });
         this.saveSearchCache();
+        this.saveTileStore();
         return hydrated;
       },
     );
@@ -4403,6 +4059,21 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   private mapV2ListItemToGallery(item: V2GalleryListItem): Gallery {
+    const tags = (item.tag_ids ?? []).map((id) => {
+      let name = "";
+      let type: "language" | "unknown" = "unknown";
+      if (id === LANGUAGE_TAG_IDS.english) {
+        name = "english";
+        type = "language";
+      } else if (id === LANGUAGE_TAG_IDS.chinese) {
+        name = "chinese";
+        type = "language";
+      } else if (id === LANGUAGE_TAG_IDS.japanese) {
+        name = "japanese";
+        type = "language";
+      }
+      return { id, type, name, url: "", count: 0 };
+    });
     return {
       id: item.id,
       media_id: item.media_id,
@@ -4424,10 +4095,10 @@ export class NHentaiExtension implements NHentaiImplementation {
           t: this.getImageTypeFromPath(item.thumbnail),
         },
       },
-      tags: [],
-      num_pages: item.num_pages ?? 0, // Use page count from search API
+      tags,
+      num_pages: item.num_pages ?? 0,
       num_favorites: item.num_favorites ?? 0,
-      upload_date: 0, // Only available from gallery detail API
+      upload_date: 0,
     };
   }
 
@@ -4444,11 +4115,9 @@ export class NHentaiExtension implements NHentaiImplementation {
     // Hydration fetches full gallery data, but the search payload now carries
     // favorites, so only subtitle date options still require it.
     const displayOptions = getDisplayOptionsSetting();
-    const quality = getThumbnailQualitySetting();
     const needsHydration =
       displayOptions.includes("subtitle_date") ||
-      displayOptions.includes("subtitle_relative") ||
-      quality === "high";
+      displayOptions.includes("subtitle_relative");
 
     if (!options?.force && !needsHydration) {
       // Skip hydration - search API provides enough data (num_pages) for basic subtitles
@@ -4528,21 +4197,21 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     const CONCURRENCY = 2;
     for (let i = 0; i < liteIndexes.length; i += CONCURRENCY) {
-      const batchIndexes = liteIndexes.slice(i, i + CONCURRENCY)
       // Pre-batch slot check: if the rate limit window is too full to accept
       // this batch without stalling, bail to lite fallback immediately instead
       // of blocking inside withRateLimit for up to 60s.
       if (allowLiteFallback) {
         const authenticated = getApiKeyAuthorizedSetting();
         const slots = availableSlotsNow("galleryDetail", !!authenticated, "background");
-        if (slots < batchIndexes.length) {
+        if (slots < CONCURRENCY) {
           console.log(
-            `[NHentai] Hydration lite fallback: only ${slots} slots available (need ${batchIndexes.length}), returning ${result.filter((g) => !g.isLite).length} hydrated + ${result.filter((g) => g.isLite).length} lite galleries.`,
+            `[NHentai] Hydration lite fallback: only ${slots} slots available (need ${CONCURRENCY}), returning ${result.filter((g) => !g.isLite).length} hydrated + ${result.filter((g) => g.isLite).length} lite galleries.`,
           );
           break;
         }
       }
 
+      const batchIndexes = liteIndexes.slice(i, i + CONCURRENCY);
       const hydratedBatch = await Promise.all(
         batchIndexes.map(async (index) => {
           const gallery = result[index];
@@ -4671,6 +4340,80 @@ export class NHentaiExtension implements NHentaiImplementation {
   }
 
   /**
+   * Prefetch next search page in background when user approaches pagination boundary.
+   * Stores media IDs from prefetched page to speed up next-page transitions.
+   * Only runs once per session per next page; skips if already in progress.
+   */
+  private triggerSearchPrefetch(
+    baseQuery: string,
+    prefetchPage: number,
+    sort: string,
+    additionalOrGroups: string[][] = [],
+    sessionKey: string,
+  ): void {
+    // Skip if already prefetching this page or different session
+    if (this.prefetchInProgress || this.lastPrefetchSessionKey !== sessionKey) {
+      this.lastPrefetchSessionKey = sessionKey;
+      return;
+    }
+
+    if (this.prefetchedPageMediaIds.length > 0) {
+      // Already have prefetched page, don't fetch again
+      return;
+    }
+
+    this.prefetchInProgress = true;
+    this.lastPrefetchSessionKey = sessionKey;
+
+    // Fire in background without awaiting
+    this.fetchSearchWithOrExpansion(baseQuery, prefetchPage, sort, additionalOrGroups)
+      .then((response) => {
+        if (response?.result && Array.isArray(response.result)) {
+          this.prefetchedPageMediaIds = response.result.map((g) => g.id);
+          logDebug("search:prefetch", `page=${prefetchPage}`, `mediaIds=${this.prefetchedPageMediaIds.length}`);
+        }
+      })
+      .catch((error) => {
+        logDebug("search:prefetch", `page=${prefetchPage}`, `error=${getErrorMessage(error)}`);
+      })
+      .finally(() => {
+        this.prefetchInProgress = false;
+      });
+  }
+
+  /**
+   * Prefetch next discover page in background.
+   * Simpler than search prefetch since discover doesn't use OR groups.
+   */
+  private triggerDiscoverPrefetch(
+    baseQuery: string,
+    prefetchPage: number,
+    sort: string,
+  ): void {
+    // Skip if already prefetching
+    if (this.prefetchInProgress || this.prefetchedPageMediaIds.length > 0) {
+      return;
+    }
+
+    this.prefetchInProgress = true;
+
+    // Fire in background without awaiting
+    this.fetchSearch(baseQuery, prefetchPage, sort)
+      .then((response) => {
+        if (response?.result && Array.isArray(response.result)) {
+          this.prefetchedPageMediaIds = response.result.map((g) => g.id);
+          logDebug("discover:prefetch", `page=${prefetchPage}`, `mediaIds=${this.prefetchedPageMediaIds.length}`);
+        }
+      })
+      .catch((error) => {
+        logDebug("discover:prefetch", `page=${prefetchPage}`, `error=${getErrorMessage(error)}`);
+      })
+      .finally(() => {
+        this.prefetchInProgress = false;
+      });
+  }
+
+  /**
    * Fetch all alternatives in a single OR group and union results.
    * Runs in batches of 3 for faster OR expansion while keeping requests bounded.
    */
@@ -4733,12 +4476,6 @@ export class NHentaiExtension implements NHentaiImplementation {
     mangaId: string,
     options?: { priority?: RequestPriority; liteHydration?: boolean },
   ): Promise<Gallery> {
-    // Check persistent cache first
-    const cached = this.getCachedGallery(mangaId);
-    if (cached) {
-      return cached;
-    }
-
     // Check if there's already a pending request for this gallery
     const pending = this.galleryPending.get(mangaId);
     if (pending) {
@@ -4755,7 +4492,7 @@ export class NHentaiExtension implements NHentaiImplementation {
     })
       .then((detail) => this.mapV2GalleryDetailToGallery(detail))
       .then((gallery) => {
-        this.setCachedGallery(mangaId, gallery);
+        this.storeTileFromGallery(gallery);
         return gallery;
       })
       .finally(() => {
@@ -4849,124 +4586,11 @@ export class NHentaiExtension implements NHentaiImplementation {
     await Application.sleep(ms / 1000);
   }
 
-  private async getApiRoot(): Promise<V2RootResponse> {
-    if (
-      this.apiRootCache &&
-      Date.now() - this.apiRootCache.ts < 5 * 60 * 1000
-    ) {
-      return this.apiRootCache.response;
-    }
-    const response = await this.fetchJson<V2RootResponse>(
-      {
-        url: API_V2_URL,
-        method: "GET",
-      },
-      { priority: "foreground", skipPow: true },
-    );
-    this.apiRootCache = { response, ts: Date.now() };
-    return response;
-  }
-
-  private async getPowToken(
-    action: string,
-  ): Promise<PowTokenCacheEntry | undefined> {
-    const normalizedAction = action.trim() || "default";
-    const cached = this.powCache.get(normalizedAction);
-    if (cached && Date.now() - cached.ts < 90_000) {
-      return cached;
-    }
-
-    const pending = this.powPending.get(normalizedAction);
-    if (pending) return pending;
-
-    const pendingFetch = (async () => {
-      const challengeUrl =
-        normalizedAction === "default"
-          ? `${API_V2_URL}/pow`
-          : `${API_V2_URL}/pow?action=${encodeURIComponent(normalizedAction)}`;
-      const challenge = await this.fetchJson<V2PowResponse>(
-        {
-          url: challengeUrl,
-          method: "GET",
-        },
-        { priority: "foreground", skipPow: true },
-      );
-      if (!challenge.challenge) return undefined;
-      const difficulty = Math.max(0, Math.floor(challenge.difficulty ?? 0));
-      const token = this.solvePowChallenge(challenge.challenge, difficulty);
-      const entry = {
-        token,
-        challenge: challenge.challenge,
-        difficulty,
-        ts: Date.now(),
-      };
-      this.powCache.set(normalizedAction, entry);
-      return entry;
-    })().catch((error) => {
-      logDebug("PoW challenge unavailable", error);
-      return undefined;
-    });
-
-    this.powPending.set(normalizedAction, pendingFetch);
-    return pendingFetch.finally(() => {
-      this.powPending.delete(normalizedAction);
-    });
-  }
-
-  private solvePowChallenge(challenge: string, difficulty: number): string {
-    if (difficulty <= 0) {
-      return `${challenge}:0`;
-    }
-    const maxIterations = 2_000_000;
-    for (let nonce = 0; nonce < maxIterations; nonce++) {
-      const candidate = `${challenge}:${nonce}`;
-      const hash = sha256Bytes(utf8Bytes(candidate));
-      if (hasLeadingZeroBits(hash, difficulty)) {
-        return candidate;
-      }
-    }
-    throw new Error(`[NHentai] Unable to solve PoW challenge (${difficulty})`);
-  }
-
-  private requestNeedsPow(endpointClass: EndpointClass): boolean {
-    // PoW challenges are only required for authenticated (API-key-bearing)
-    // requests.  Anonymous traffic is rate-limited differently and never needs
-    // to solve a PoW puzzle — skip the /api/v2/pow round-trip entirely.
-    const apiKey = getApiKeyAuthorizedSetting()
-      ? getNHentaiApiKey()
-      : undefined;
-    if (!apiKey) {
-      return false;
-    }
-    switch (endpointClass) {
-      case "search":
-      case "galleryDetail":
-      case "galleries":
-      case "random":
-      case "related":
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private appendPowToRequest(request: Request, token: string): Request {
-    const separator = request.url.includes("?") ? "&" : "?";
-    return {
-      ...request,
-      url: `${request.url}${separator}pow=${encodeURIComponent(token)}`,
-      headers: {
-        ...(request.headers ?? {}),
-        "X-PoW-Token": token,
-      },
-    };
-  }
 
   private async fetchJson<T>(
     request: Request,
     options?: {
       priority?: RequestPriority;
-      skipPow?: boolean;
       rateLimitEndpoint?: EndpointClass;
     },
   ): Promise<T> {
@@ -4976,16 +4600,10 @@ export class NHentaiExtension implements NHentaiImplementation {
     const authenticated = hasAuthorizationHeader(preparedRequest);
     if (!authenticated && getApiKeyAuthorizedSetting()) {
       console.warn(
-        `[NHentai] Auth mismatch: unauthenticated rate bucket used for ${actualEndpointClass} despite API key being set.`,
+        `[NHentai] Auth mismatch: unauthenticated rate bucket used for ${actualEndpointClass} despite API key being set (URL: ${preparedRequest.url.slice(0, 80)})`,
       );
     }
     let effectiveRequest = preparedRequest;
-    if (!options?.skipPow && this.requestNeedsPow(actualEndpointClass)) {
-      const pow = await this.getPowToken(actualEndpointClass);
-      if (pow) {
-        effectiveRequest = this.appendPowToRequest(preparedRequest, pow.token);
-      }
-    }
 
     // Use withRateLimit to serialize requests and enforce spacing
     return withRateLimit(
@@ -5009,7 +4627,7 @@ export class NHentaiExtension implements NHentaiImplementation {
                 this.markGalleryDetailRateLimited();
               }
               if (status === 429) {
-                const retryAfterMs = this.parseRetryAfterMs(response.headers);
+                const retryAfterMs = parseRetryAfterMs(response.headers);
                 const queue = burstQueues[endpointClass];
                 const cooldown = Math.min(retryAfterMs ?? 60_000, 60_000);
                 queue.rateLimitedUntil = Math.max(
@@ -5098,14 +4716,14 @@ export class NHentaiExtension implements NHentaiImplementation {
           url: `${API_V2_URL}/config`,
           method: "GET",
         },
-        { skipPow: true, priority: "foreground" },
+        { priority: "foreground" },
       ).catch(() =>
         this.fetchJson<V2CdnResponse>(
           {
             url: `${API_V2_URL}/cdn`,
             method: "GET",
           },
-          { skipPow: true, priority: "foreground" },
+          { priority: "foreground" },
         ),
       );
 
@@ -5442,17 +5060,6 @@ export class NHentaiExtension implements NHentaiImplementation {
         tokens.push(`pages:<=${pagesConstraint.max}`);
     }
 
-    // Tags tokens (selected in search UI)
-    const tagsFilter = filters?.find((f) => f.id === "tags")?.value as
-      | Record<string, "included" | "excluded">
-      | undefined;
-    if (tagsFilter) {
-      for (const [tagId, state] of Object.entries(tagsFilter)) {
-        if (state === "included") tokens.push(tagId);
-        else if (state === "excluded") tokens.push(`-${tagId}`);
-      }
-    }
-
     return { tokens, favoritesConstraint, pagesConstraint, dateConstraint };
   }
 
@@ -5584,24 +5191,25 @@ export class NHentaiExtension implements NHentaiImplementation {
     if (quality === "high") {
       const firstPage = gallery.images.pages[0];
       if (firstPage?.path) {
-        // Hydrated: alternate between image server (1.ext) and thumb server (cover)
-        // to spread load across separate CDN rate limit buckets.
-        if (gallery.id % 2 === 0) {
-          const url = this.buildAbsoluteMediaUrl(firstPage.path, mediaId, "image");
-          logDebug("High quality URL (image server):", url);
-          return url;
-        }
-        if (gallery.images.cover.path) {
-          const url = this.buildAbsoluteMediaUrl(gallery.images.cover.path, mediaId, "thumb");
-          logDebug("High quality URL (thumb server):", url);
-          return url;
-        }
-        // No cover path — fall back to page 1
         const url = this.buildAbsoluteMediaUrl(firstPage.path, mediaId, "image");
-        logDebug("High quality URL (image server fallback):", url);
+        logDebug("High quality URL (page 1):", url);
         return url;
       }
-      // Lite gallery: page extension unknown, fall through to cover/thumb
+      // Lite gallery: derive page 1 extension from thumbnail path from thumb.ExtensionType.
+      // Thumbnails may be re-encoded as webp (e.g. "thumb.jpg.webp"), so strip
+      // the .webp suffix first to expose the underlying source extension.
+      if (gallery.images.thumbnail.path) {
+        let thumbPath = gallery.images.thumbnail.path;
+        if (thumbPath.endsWith(".webp")) {
+          thumbPath = thumbPath.slice(0, -5);
+        }
+        const lastDot = thumbPath.lastIndexOf(".");
+        const thumbExt = lastDot !== -1 ? thumbPath.slice(lastDot + 1) : "webp";
+        const page1Path = `galleries/${mediaId}/1.${thumbExt}`;
+        const url = this.buildAbsoluteMediaUrl(page1Path, mediaId, "image");
+        logDebug("High quality lite URL (page 1 from thumb ext):", url);
+        return url;
+      }
     }
 
     // Low: thumb.webp (smallest thumbnail)
@@ -5762,7 +5370,6 @@ export class NHentaiExtension implements NHentaiImplementation {
   private createSubtitle(
     gallery: Gallery,
     options?: {
-      forceShowNonPreferredLanguage?: boolean;
       rereadCount?: number;
       isTopReread?: boolean;
     },
@@ -5833,22 +5440,8 @@ export class NHentaiExtension implements NHentaiImplementation {
 
     const showLangTip = displayOptions.includes("show_lang_tip");
 
-    // In Related section, show language if it differs from preferred language
-    // even when show_lang_tip is disabled
-    const preferredLangs = getLanguageSetting();
-    const langMismatch =
-      languageSlug &&
-      !preferredLangs.includes(languageSlug) &&
-      !preferredLangs.includes("all");
-
     const subtitleParts: string[] = [];
-    // Show language in subtitle if:
-    // 1. User enabled show_lang_tip, OR
-    // 2. We're in Related section (forceShowNonPreferredLanguage) AND language differs from preferred
-    if (
-      showLangTip ||
-      (options?.forceShowNonPreferredLanguage && langMismatch)
-    ) {
+    if (showLangTip && languageSlug) {
       const languageAbbrev = getLanguageAbbreviationFromSlug(languageSlug);
       if (languageAbbrev && languageAbbrev !== "UNK") {
         subtitleParts.push(languageAbbrev.toUpperCase());
@@ -5909,6 +5502,25 @@ export class NHentaiExtension implements NHentaiImplementation {
       return available;
     }
     return available.filter((slug) => slug !== preferredSlug);
+  }
+
+  private extractLanguageSlugsFromTagIds(tagIds: number[]): string[] {
+    const slugs: string[] = [];
+    if (tagIds.includes(LANGUAGE_TAG_IDS.english)) slugs.push("english");
+    if (tagIds.includes(LANGUAGE_TAG_IDS.chinese)) slugs.push("chinese");
+    if (tagIds.includes(LANGUAGE_TAG_IDS.japanese)) slugs.push("japanese");
+    return slugs;
+  }
+
+  private extractPreferredLanguageFromTagIds(tagIds: number[]): string | undefined {
+    const available = this.extractLanguageSlugsFromTagIds(tagIds);
+    if (available.length === 0) return undefined;
+
+    const preferenceOrder = this.getLanguagePreferenceOrder();
+    for (const slug of preferenceOrder) {
+      if (available.includes(slug)) return slug;
+    }
+    return available[0];
   }
 
   private getNonTranslatedLanguageSlugs(tags: GalleryTag[]): string[] {

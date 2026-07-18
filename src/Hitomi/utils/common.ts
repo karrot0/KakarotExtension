@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 export const enum HitomiErrorCode {
   INVALID_VALUE,
   INVALID_CALL,

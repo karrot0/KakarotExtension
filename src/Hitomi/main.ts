@@ -1,29 +1,25 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Copyright © 2026 Inkdex */
 import {
   BasicRateLimiter,
   Chapter,
   ChapterDetails,
-  ChapterProviding,
-  CloudflareBypassRequestProviding,
   CloudflareError,
   ContentRating,
   Cookie,
   DiscoverSection,
   DiscoverSectionItem,
-  DiscoverSectionProviding,
   DiscoverSectionType,
-  Extension,
+  ExtensionImpl,
   Form,
   InputRow,
   JSONValue,
   LabelRow,
-  MangaProviding,
   PagedResults,
   Request,
   SearchQuery,
   SearchResultItem,
-  SearchResultsProviding,
   Section,
-  SettingsFormProviding,
   SortingOption,
   SourceManga,
   TagSection,
@@ -1461,15 +1457,7 @@ function generateSubtitle(
   return parts.join(separator);
 }
 
-export class HitomiExtension
-  implements
-  Extension,
-  SearchResultsProviding,
-  MangaProviding,
-  ChapterProviding,
-  SettingsFormProviding,
-  DiscoverSectionProviding,
-  CloudflareBypassRequestProviding {
+export class HitomiExtension implements ExtensionImpl<typeof hitomiInfo> {
   requestManager = new HitomiInterceptor("hitomi");
   private cookieJar = new Map<string, Cookie>();
   // Initialize with dev settings - will be re-initialized on setting changes
@@ -1941,6 +1929,14 @@ export class HitomiExtension
     if (changed) {
       this.persistCookieJar();
     }
+  }
+
+  async cloudflareBypassCompleted(
+    _request: Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
+    await this.saveCloudflareBypassCookies(cookies);
   }
 
   private clearLegacyRelatedPoolState(): void {
@@ -5350,8 +5346,7 @@ export class HitomiExtension
       method: "GET",
       headers: {
         Referer: "https://hitomi.la/",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "User-Agent": await Application.getDefaultUserAgent(),
       },
     } satisfies Request;
 
@@ -6148,24 +6143,4 @@ export class HitomiExtension
   }
 }
 
-type HitomiSourceExport = Extension &
-  SearchResultsProviding &
-  MangaProviding &
-  ChapterProviding &
-  SettingsFormProviding &
-  DiscoverSectionProviding &
-  CloudflareBypassRequestProviding;
-
-function buildHitomiSourceExport(source: HitomiExtension): HitomiSourceExport {
-  if (
-    typeof source.initialise !== "function" ||
-    typeof source.getDiscoverSections !== "function" ||
-    typeof source.getDiscoverSectionItems !== "function" ||
-    typeof source.getSearchResults !== "function"
-  ) {
-    throw new Error("[Hitomi] Invalid source export shape");
-  }
-  return source;
-}
-
-export const Hitomi = buildHitomiSourceExport(new HitomiExtension());
+export const Hitomi = new HitomiExtension();
