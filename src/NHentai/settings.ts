@@ -428,6 +428,47 @@ export function getLanguageToken(
   return LANGUAGE_OPTIONS.find((option) => option.id === settings[0])?.token;
 }
 
+/**
+ * Build nHentai search language tokens for the preferred-language setting.
+ * - single language → `language:english`
+ * - multiple (but not all) → exclude the non-selected language(s), e.g. `-language:japanese`
+ * - all / empty → no language constraint
+ */
+export function getLanguageQueryTokens(
+  languageSetting?: string | string[],
+): string[] {
+  const settings = languageSetting
+    ? Array.isArray(languageSetting)
+      ? languageSetting
+      : [languageSetting]
+    : getLanguageSetting();
+
+  if (settings.includes("all") || settings.length === 0) return [];
+
+  const selectedTokens = settings
+    .map((id) => LANGUAGE_OPTIONS.find((option) => option.id === id)?.token)
+    .filter((token): token is string => typeof token === "string" && token.length > 0);
+
+  if (selectedTokens.length === 0) return [];
+
+  const allLanguageTokens = LANGUAGE_OPTIONS.map((option) => option.token).filter(
+    (token): token is string => typeof token === "string" && token.length > 0,
+  );
+
+  // Selecting every supported language is equivalent to "all"
+  if (selectedTokens.length >= allLanguageTokens.length) return [];
+
+  if (selectedTokens.length === 1) {
+    return [`language:${selectedTokens[0]}`];
+  }
+
+  // Multiple preferred languages: exclude the singular non-selected language(s)
+  // so discover/search never show the language the user turned off.
+  return allLanguageTokens
+    .filter((token) => !selectedTokens.includes(token))
+    .map((token) => `-language:${token}`);
+}
+
 export function getLanguageAbbreviationFromSlug(
   slug: string | undefined,
 ): string {
@@ -705,6 +746,7 @@ export function resetNHentaiSettings(): void {
   Application.setState(DEFAULT_DISCOVER_PAGE_TILES, DISCOVER_PAGE_TILES_KEY);
   Application.setState(DEFAULT_SEARCH_PAGE_TILES, SEARCH_PAGE_TILES_KEY);
   Application.setState(null, NHENTAI_API_KEY_STATE_KEY);
+  Application.setState(false, API_KEY_AUTHORIZED_STATE_KEY);
   // Discover section order & visibility
   Application.setState([...DEFAULT_SECTION_ORDER], DISCOVER_SECTION_ORDER_KEY);
   Application.setState(
@@ -1192,10 +1234,8 @@ export function setRateLimitLiteFallbackSetting(value: boolean): void {
  * Retrieve the stored NHentai API key, if any.
  * Returns a non-empty string when an API key has been saved via `setNHentaiApiKey`,
  * otherwise returns `undefined`.
- *
- * Used to gate PoW challenge requests — PoW is only required for authenticated
- * (API-key-bearing) requests.  Anonymous traffic should never trigger PoW calls.
  */
+
 export function getNHentaiApiKey(): string | undefined {
   const stored = Application.getState(NHENTAI_API_KEY_STATE_KEY);
   if (typeof stored === "string" && stored.trim().length > 0) {
@@ -1209,18 +1249,37 @@ export function getNHentaiApiKey(): string | undefined {
  * Pass `undefined` or an empty string to clear the key (anonymous mode).
  */
 export function setNHentaiApiKey(value: string | undefined): void {
-  Application.setState(value, NHENTAI_API_KEY_STATE_KEY);
-  // Clear authorization status when key changes - will be re-validated on next use or in settings form
-  Application.setState(false, API_KEY_AUTHORIZED_STATE_KEY);
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  // Always store null (not undefined) when clearing so state is consistent with reset.
+  Application.setState(
+    trimmed.length > 0 ? trimmed : null,
+    NHENTAI_API_KEY_STATE_KEY,
+  );
+  // Clear authorization status when key changes - will be re-validated in settings form
+  if (trimmed.length === 0) {
+    Application.setState(false, API_KEY_AUTHORIZED_STATE_KEY);
+  }
 }
 
+/**
+ * True only when a key is still stored AND validation last succeeded.
+ * Prevents "Authorized" UI / auth rate limits when the key was lost or cleared.
+ */
 export function getApiKeyAuthorizedSetting(): boolean {
+  if (!getNHentaiApiKey()) {
+    return false;
+  }
   return (
     (Application.getState(API_KEY_AUTHORIZED_STATE_KEY) as boolean) ?? false
   );
 }
 
 export function setApiKeyAuthorizedSetting(value: boolean): void {
+  // Never mark authorized without a stored key (guards async validation races).
+  if (value && !getNHentaiApiKey()) {
+    Application.setState(false, API_KEY_AUTHORIZED_STATE_KEY);
+    return;
+  }
   Application.setState(value, API_KEY_AUTHORIZED_STATE_KEY);
 }
 

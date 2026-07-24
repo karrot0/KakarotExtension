@@ -232,43 +232,51 @@ const DISPLAY_OPTION_IDS: DisplayOptionId[] = [
 
 class NHentaiApiKeyForm extends Form {
   private apiKey = getNHentaiApiKey() ?? "";
+  private parentForm: Form;
 
+  constructor(parentForm: Form) {
+    super();
+    this.parentForm = parentForm;
+  }
 
   async updateApiKey(value: string): Promise<void> {
     this.apiKey = value.trim();
-    setNHentaiApiKey(this.apiKey.length > 0 ? this.apiKey : undefined);
+    const keyBeingValidated = this.apiKey;
+    setNHentaiApiKey(keyBeingValidated.length > 0 ? keyBeingValidated : undefined);
 
-    if (this.apiKey.length > 0) {
-
+    if (this.apiKey.length > 8) {
       this.reloadForm();
 
       try {
-        // The API root is public, so use a normal API endpoint to confirm the
-        // key is accepted in the same shape the app sends during browsing.
+        // Validate the API key against the /favorite endpoint which requires
+        // authentication. A valid key returns 200; an invalid key returns 401.
         const [response] = await Application.scheduleRequest({
-          url: `https://nhentai.net/api/v2/search?query=english&page=1&sort=date`,
+          url: `https://nhentai.net/api/v2/galleries/12232/favorite`,
           method: "GET",
           headers: {
+            accept: "application/json",
             Authorization: `Key ${this.apiKey}`,
           },
         });
 
-        // Log status for easier debugging when users report auth issues.
+        const authorized = response.status === 200;
         console.log(
-          `[NHentai] API key validation response: ${response.status} for provided key (length ${this.apiKey.length})`,
+          `[NHentai] API key validation: ${authorized ? "Authenticated" : "Unauthenticated"} (HTTP ${response.status})`,
         );
-
-        setApiKeyAuthorizedSetting(response.status === 200);
+        setApiKeyAuthorizedSetting(authorized);
       } catch (e) {
         setApiKeyAuthorizedSetting(false);
-      } finally {
-
       }
     } else {
       setApiKeyAuthorizedSetting(false);
     }
 
     this.reloadForm();
+
+    // Reload the main settings form to update the footer
+    if (this.parentForm) {
+      this.parentForm.reloadForm();
+    }
   }
 
   override getSections(): FormSectionElement<unknown>[] {
@@ -303,6 +311,14 @@ export class SettingsForm extends Form {
   private thumbnailQuality = getThumbnailQualitySetting();
   private hideRead = getHideReadSetting();
   private removeSpaces = getRemoveSeparatorSpacesSetting();
+
+  /**
+   * Re-read API key auth status / rate-limit footer when returning from nested forms.
+   * Nested forms also call reloadForm on this parent as soon as auth completes.
+   */
+  override formWillAppear(): void {
+    this.reloadForm();
+  }
 
   async updateLanguage(value: string[]): Promise<void> {
     if (!value || value.length === 0) {
@@ -419,16 +435,16 @@ export class SettingsForm extends Form {
    * For anonymous users (no API key), search is limited to 10/min.
    */
   private getRateLimitFooter(): string {
-    const hasApiKey = !!getNHentaiApiKey();
+    const hasAuthorizedApiKey = !!getApiKeyAuthorizedSetting();
     const enabledOptions = getHydrationLimitedEnabledOptions();
 
-    if (!hasApiKey) {
+    if (!hasAuthorizedApiKey) {
       // Anonymous rate limits are lower; reflect this accurately.
       if (enabledOptions.length === 0) {
-        return `API Rate Limit: 10 search requests/minute (No API key)`;
+        return `API Rate Limit: 10 search requests/minute (Unauthenticated)`;
       }
       const optionsList = formatNaturalOptionsList(enabledOptions);
-      return `API Rate Limit: 20 total manga requests/minute (No API key)\n\nFor a 10 search requests/minute limit disable: ${optionsList}`;
+      return `API Rate Limit: 20 total manga requests/minute (Unauthenticated)\n\nFor a 10 search requests/minute limit disable:\n${optionsList}`;
     }
 
     if (enabledOptions.length === 0) {
@@ -491,9 +507,9 @@ export class SettingsForm extends Form {
         NavigationRow("apiKeyNav", {
           title: "NHentai API Key",
           value: getApiKeyAuthorizedSetting()
-            ? "Status: Authorized"
-            : "Status: Unauthorized",
-          form: new NHentaiApiKeyForm(),
+            ? "Status: Authenticated"
+            : "Status: Unauthenticated",
+          form: new NHentaiApiKeyForm(this),
         }),
       ]),
       // Thumbnail and Display Options section
