@@ -67,8 +67,8 @@ import {
   getIncludeOrGroups,
   getIncognitoModeSetting,
   getLanguageAbbreviationFromSlug,
+  getLanguageQueryTokens,
   getLanguageSetting,
-  getLanguageToken,
   getMarkReadOnViewSetting,
   getNHentaiApiKey,
   getPagesExpressionSetting,
@@ -368,6 +368,7 @@ interface LiteGalleryTile {
   num_pages: number;
   num_favorites: number;
   tag_ids?: number[];
+  upload_date?: number;
 }
 
 const RATE_LIMIT_WINDOW_SECONDS = 0.1;
@@ -376,26 +377,6 @@ const RATE_LIMIT_WINDOW_SECONDS = 0.1;
 const NHENTAI_BACKUP_API_REQUESTS_PER_SECOND = 18;
 // Image rate limiter: separate budget for concurrent image/thumbnail fetches.
 const NHENTAI_IMAGE_REQUESTS_PER_SECOND = 24;
-
-// ============================================================================
-// Endpoint-Aware Rate Limiting with Mutex-Style Queue (Session-Only)
-// ============================================================================
-// nhentai API v2 rate limits per endpoint (as of 2026-04-26):
-//   - /api/v2/search: 20/1min per IP (tightened from 30)
-//   - /api/v2/galleries/{id}: 45/1min per IP
-//   - /api/v2/galleries (list), /galleries/tagged: 30/1min per IP
-//   - /api/v2/galleries/popular: 20/1min per IP
-//   - /api/v2/galleries/random: 60/1min per IP
-//   - /api/v2/galleries/{id}/related: 45/1min per IP
-//
-// CDN media endpoints (images/thumbnails) are generous; treat 429 as backoff.
-// Gallery paths are relative; fetch available servers from GET /api/v2/cdn.
-//
-// BURST-BASED RATE LIMITING:
-// Instead of waiting between each request, we allow requests to fire as fast as
-// possible up to the limit. Only when we hit the limit do we wait for the minute
-// window to reset. This provides much faster loading while respecting rate limits.
-// ============================================================================
 
 type EndpointClass =
   | "search"
@@ -493,6 +474,7 @@ const burstQueues: Record<EndpointClass, BurstQueue> = {
     rateLimitedUntil: 0,
   },
 };
+// Authenticated vs anonymous endpoint limits differ; this table defines the limits for each endpoint class.
 
 const NHENTAI_AUTH_ENDPOINT_LIMITS: Record<EndpointClass, number> = {
   search: 20,
@@ -969,6 +951,61 @@ function isLanguageLikeCreatorToken(value: string): boolean {
   const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
   if (!normalized) return true;
   return CREATOR_LANGUAGE_TOKEN_SET.has(normalized);
+}
+
+/**
+ * Derive a display "pretty" title from raw english/japanese search titles.
+ * Search results only provide english_title/japanese_title (not API pretty),
+ * so strip artist/group prefixes and trailing metadata the same way galleries
+ * detail does.
+ *
+ * Example:
+ *   (C105) [Group (Artist)] "Title" | 日本語 (Series) [Chinese] [Group] [Decensored]
+ *   → "Title" | 日本語
+ */
+function toPrettyTitle(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let title = raw.trim();
+  if (!title) return "";
+
+  // Leading convention codes / artist-group brackets:
+  // (C105), (Street Fighter 6), [jigokuno], [Group (Various artists)]
+  let previous = "";
+  while (title !== previous) {
+    previous = title;
+    title = title
+      .replace(/^\([^)]*\)\s*/, "")
+      .replace(/^\[[^\]]*\]\s*/, "")
+      .trim();
+  }
+
+  // Trailing language / translator / status brackets and series parentheses:
+  // [Chinese], [Decensored], [ongoing], (Blue Archive)
+  previous = "";
+  while (title !== previous) {
+    previous = title;
+    title = title
+      .replace(/\s*\[[^\]]*\]\s*$/, "")
+      .replace(/\s*\([^)]*\)\s*$/, "")
+      .trim();
+  }
+
+  return title;
+}
+
+/** Prefer english, then japanese, then a stable fallback — always pretty-stripped. */
+function prettyTitleFromListItem(item: {
+  id: number;
+  english_title: string | null;
+  japanese_title: string | null;
+}): string {
+  const pretty =
+    toPrettyTitle(item.english_title) ||
+    toPrettyTitle(item.japanese_title) ||
+    item.english_title?.trim() ||
+    item.japanese_title?.trim() ||
+    "";
+  return pretty.length > 0 ? pretty : `Gallery ${item.id}`;
 }
 
 function normalizeCreatorToken(value: string): string {
@@ -1583,7 +1620,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
         const pagesScannedLog = options?.pagesScanned ?? 0;
         const totalSkipped = skippedTotal + readSkipped;
         console.log(
-          `[NHentai] Discover ${section.title ?? section.id}, ${result.items.length} items` +
+          `[NHentai] Discover ${section.title ?? section.id}: ${result.items.length} items` +
           (totalSkipped > 0 ? `, ${totalSkipped} skipped` : "") +
           (pagesScannedLog > 0 ? `, ${pagesScannedLog} pages scanned` : "") +
           `, ${elapsedMs}ms`,
@@ -2131,7 +2168,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
   }
 
   async cloudflareBypassCompleted(
-    _request: Request,
+    _request: globalThis.Request,
     cookies: Cookie[],
     _localStorage: Record<string, string>,
   ): Promise<void> {
@@ -2958,6 +2995,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
   private readonly RELATED_POOL_HISTORY_INDEX_KEY =
     "nhentai.relatedPoolHistoryIndex";
   private readonly RELATED_POOL_SEEN_IDS_KEY = "nhentai.relatedPoolSeenIds";
+  private readonly RELATED_POOL_MAX_CURSOR_KEY = "nhentai.relatedPoolMaxCursor";
   private readonly NONCAROUSEL_PAGE_COUNT_KEY = "nhentai.nonCarouselPageCount";
 
   // Lazy loading configuration
@@ -2970,12 +3008,19 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
   private tileStore = new Map<string, LiteGalleryTile>();
   private tileStoreDirty = false;
   private galleryPending = new Map<string, Promise<Gallery>>();
+  private galleryRecentCache = new Map<string, { gallery: Gallery; expiresAt: number }>();
   private relatedPoolCache:
     | { id: number; tag: string; cycleIndex: number }[]
     | undefined;
   private relatedPoolLastHistoryIndex = 0;
   private relatedPoolSeenIds = new Set<number>();
   private relatedPoolHistoryIds = new Set<number>(); // Track history IDs to exclude from relatedIds
+  private relatedPoolMaxCursor = 0; // Max pool cursor seen across sessions for age-out
+  // True when the pool was restored from persisted state this session.
+  // When false, expandRelatedPool already populated the tile store in-session,
+  // so the rescrape block in getRelatedSection is redundant and would issue
+  // duplicate /api/v2/galleries/{id}/related requests.
+  private relatedPoolRestoredFromPersistence = false;
   // Session-based page tracking: maps item ID → page number when first displayed
   // Used to hide items after the configured related age window.
   private searchConsecutiveEmpty = 0; // Track consecutive empty pages to prevent infinite loops
@@ -3086,13 +3131,36 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     if (!gallery?.id || !gallery.media_id) return;
     const thumbPath = gallery.images.thumbnail?.path ?? gallery.images.cover?.path ?? "";
     if (!thumbPath && !gallery.images.pages[0]?.path) return;
+    const existing = this.tileStore.get(gallery.id.toString());
+    // Preserve language tag ids so related/history tiles can still show language
+    // codes after a full gallery fetch overwrites a search/related list tile.
+    const languageTagIds = (gallery.tags ?? [])
+      .filter((tag) => {
+        if (tag.type !== "language") return false;
+        const name = tag.name?.toLowerCase().trim();
+        return name === "english" || name === "chinese" || name === "japanese";
+      })
+      .map((tag) => tag.id);
+    // Prefer API pretty when present; otherwise strip prefixes/suffixes from raw titles.
+    const pretty =
+      gallery.title?.pretty?.trim() ||
+      toPrettyTitle(gallery.title?.english) ||
+      toPrettyTitle(gallery.title?.japanese) ||
+      gallery.title?.english ||
+      gallery.title?.japanese ||
+      `Gallery ${gallery.id}`;
     this.tileStore.set(gallery.id.toString(), {
       id: gallery.id,
-      title: gallery.title?.pretty ?? gallery.title?.english ?? gallery.title?.japanese ?? `Gallery ${gallery.id}`,
+      title: pretty,
       mediaId: gallery.media_id,
       thumbPath,
       num_pages: gallery.num_pages ?? 0,
       num_favorites: gallery.num_favorites ?? 0,
+      tag_ids:
+        languageTagIds.length > 0
+          ? languageTagIds
+          : existing?.tag_ids,
+      upload_date: gallery.upload_date > 0 ? gallery.upload_date : existing?.upload_date,
     });
     this.tileStoreDirty = true;
   }
@@ -3101,7 +3169,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     if (!item?.id || !item.media_id || !item.thumbnail) return;
     this.tileStore.set(item.id.toString(), {
       id: item.id,
-      title: item.english_title ?? item.japanese_title ?? `Gallery ${item.id}`,
+      title: prettyTitleFromListItem(item),
       mediaId: item.media_id,
       thumbPath: item.thumbnail,
       num_pages: item.num_pages ?? 0,
@@ -3140,7 +3208,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       tags,
       num_pages: tile.num_pages,
       num_favorites: tile.num_favorites,
-      upload_date: 0,
+      upload_date: tile.upload_date ?? 0,
     };
   }
 
@@ -3197,6 +3265,19 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
         return [];
       }
 
+      // Check if in-session cached pool exists but read history changed at index 0 (new read item added)
+      if (
+        this.relatedPoolCache &&
+        this.relatedPoolCache.length > 0 &&
+        history.length > 0
+      ) {
+        const cycle1Item = this.relatedPoolCache.find((p) => p.cycleIndex === 1 && p.tag.startsWith("[r"));
+        if (cycle1Item && cycle1Item.id.toString() !== history[0]) {
+          logDebug("fetchRelatedPool: In-session history mismatch at cycle 1, invalidating pool cache");
+          this.invalidateRelatedPool();
+        }
+      }
+
       // Initialize pool if needed
       if (!this.relatedPoolCache) {
         this.relatedPoolCache = [];
@@ -3209,6 +3290,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
             .map((hid) => parseInt(hid, 10))
             .filter((id) => !Number.isNaN(id)),
         );
+        this.relatedPoolRestoredFromPersistence = false;
 
         // Try to restore from persisted state
         try {
@@ -3221,6 +3303,9 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
           const persistedSeenIds = Application.getState(
             this.RELATED_POOL_SEEN_IDS_KEY,
           ) as number[] | undefined;
+          const persistedMaxCursor = Application.getState(
+            this.RELATED_POOL_MAX_CURSOR_KEY,
+          ) as number | undefined;
 
           if (
             persistedPool &&
@@ -3243,10 +3328,18 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
             if (valid) {
               this.relatedPoolCache = persistedPool;
               this.relatedPoolLastHistoryIndex = persistedIndex;
-              // Restore seenIds from persisted state only (not merged with history)
-              this.relatedPoolSeenIds = new Set(persistedSeenIds ?? []);
+              // Always rebuild seenIds from the pool itself so that expandRelatedPool
+              // never re-adds items already in the pool (guards against stale/empty persisted seenIds).
+              this.relatedPoolSeenIds = new Set([
+                ...persistedPool.map((p) => p.id),
+                ...(persistedSeenIds ?? []),
+              ]);
+              this.relatedPoolMaxCursor = typeof persistedMaxCursor === "number" ? persistedMaxCursor : 0;
+              // Pool was restored from persistence — tile store may not have tiles
+              // for these IDs, so getRelatedSection's rescrape block is needed.
+              this.relatedPoolRestoredFromPersistence = true;
               logDebug(
-                `fetchRelatedPool: Restored pool with ${persistedPool.length} items, index ${persistedIndex}`,
+                `fetchRelatedPool: Restored pool with ${persistedPool.length} items, index ${persistedIndex}, maxCursor ${this.relatedPoolMaxCursor}`,
               );
             }
           }
@@ -3377,8 +3470,14 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     for (const r of relatedResults) {
       const cycleIndex = startIndex + r.batchIndex + 1;
 
-      // Add the read manga as [rN]
-      if (!this.relatedPoolSeenIds.has(r.historyGalleryId)) {
+      // Add the read manga as [rN] — always add base regardless of seenIds
+      // (a manga previously seen as a related item of another cycle may now be
+      // the history item for this cycle; relatedPoolHistoryIds guards against the
+      // reverse direction: a history item appearing as someone else's related).
+      const alreadyInPool = this.relatedPoolCache!.some(
+        (p) => p.id === r.historyGalleryId,
+      );
+      if (!alreadyInPool) {
         this.relatedPoolCache!.push({
           id: r.historyGalleryId,
           tag: `[r${cycleIndex}]`,
@@ -3437,6 +3536,10 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
         Array.from(this.relatedPoolSeenIds),
         this.RELATED_POOL_SEEN_IDS_KEY,
       );
+      Application.setState(
+        this.relatedPoolMaxCursor,
+        this.RELATED_POOL_MAX_CURSOR_KEY,
+      );
     } catch {
       // Ignore state errors
     }
@@ -3447,11 +3550,14 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     this.relatedPoolLastHistoryIndex = 0;
     this.relatedPoolSeenIds = new Set<number>();
     this.relatedPoolHistoryIds = new Set<number>();
+    this.relatedPoolMaxCursor = 0;
+    this.relatedPoolRestoredFromPersistence = false;
 
     try {
       Application.setState(undefined, this.RELATED_POOL_STATE_KEY);
       Application.setState(undefined, this.RELATED_POOL_HISTORY_INDEX_KEY);
       Application.setState(undefined, this.RELATED_POOL_SEEN_IDS_KEY);
+      Application.setState(undefined, this.RELATED_POOL_MAX_CURSOR_KEY);
     } catch {
       // Ignore
     }
@@ -3543,10 +3649,6 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
           : null;
 
       const filterPool = (p: typeof pool) => {
-        const cycleLastIndex = new Map<number, number>();
-        for (let index = 0; index < p.length; index++) {
-          cycleLastIndex.set(p[index].cycleIndex, index);
-        }
         return p.filter((item) => {
           const isBaseCycle = item.tag.startsWith("[r");
           if (
@@ -3560,23 +3662,8 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
             descMarkedIds &&
             descMarkedIds.has(item.id.toString())
           ) return false;
-          const cycleEndIndex = cycleLastIndex.get(item.cycleIndex);
-          if (
-            cycleEndIndex !== undefined &&
-            offset >= cycleEndIndex + RELATED_AGE_WINDOW_TILES
-          ) return false;
           return true;
         });
-      };
-
-      const reindexBaseTags = (p: typeof pool) => {
-        let rCounter = 0;
-        for (const item of p) {
-          if (item.tag.startsWith("[r")) {
-            rCounter++;
-            item.tag = `[r${rCounter}]`;
-          }
-        }
       };
 
       const alignPoolStart = () => {
@@ -3587,7 +3674,6 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       };
 
       pool = filterPool(pool);
-      reindexBaseTags(pool);
       alignPoolStart();
 
       for (
@@ -3599,7 +3685,6 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       ) {
         neededItems += 80;
         pool = filterPool(await this.fetchRelatedPool(neededItems));
-        reindexBaseTags(pool);
         alignPoolStart();
       }
 
@@ -3608,7 +3693,6 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
         this.relatedPoolLastHistoryIndex < history.length
       ) {
         pool = filterPool(await this.fetchRelatedPool(offset + limit + 120));
-        reindexBaseTags(pool);
         alignPoolStart();
         if (pool.length <= offset) {
           return { items: [], metadata: undefined };
@@ -3629,6 +3713,50 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       const batchSize = Math.max(limit, relatedCarouselTiles);
       let languageSkipped = 0;
 
+      // For pool items in the upcoming display window: if any tiles are missing,
+      // re-scrape that cycle's base (fetches related tiles).
+      // Lookahead is capped to the current page (limit items) to avoid bursting
+      // related requests for cycles far ahead on each scroll.
+      //
+      // Only run when the pool was restored from persistence this session.
+      // When expandRelatedPool built the pool in-session, scrapeRelatedManga
+      // already populated the tile store — re-running it here would issue
+      // duplicate /api/v2/galleries/{id}/related requests.
+      const windowEnd = Math.min(cursor + limit, pool.length);
+      const windowSlice = pool.slice(cursor, windowEnd);
+
+      // Find cycles that have any missing tiles (cap at 4 to avoid 429s)
+      const cyclesNeedingRescrape = new Set<number>();
+      if (this.relatedPoolRestoredFromPersistence) {
+        for (const item of windowSlice) {
+          if (cyclesNeedingRescrape.size >= 4) break;
+          if (!this.tileStore.has(item.id.toString())) {
+            cyclesNeedingRescrape.add(item.cycleIndex);
+          }
+        }
+      }
+
+      if (cyclesNeedingRescrape.size > 0) {
+        const rescrapePromises: Promise<void>[] = [];
+        for (const cycleIndex of cyclesNeedingRescrape) {
+          const historyId = history[cycleIndex - 1];
+          if (!historyId) continue;
+          rescrapePromises.push(
+            (async () => {
+              try {
+                // Re-scrape related tiles for this cycle to populate tile store
+                await this.scrapeRelatedManga(historyId);
+              } catch {
+                /* non-critical */
+              }
+            })(),
+          );
+        }
+        if (rescrapePromises.length > 0) {
+          await Promise.all(rescrapePromises);
+        }
+      }
+
       while (items.length < limit) {
         if (cursor >= pool.length) {
           if (
@@ -3638,77 +3766,88 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
 
           neededItems += 80;
           pool = filterPool(await this.fetchRelatedPool(neededItems));
-          reindexBaseTags(pool);
           alignPoolStart();
           expansions++;
 
           if (cursor >= pool.length) continue;
         }
 
-        const nextCursor = Math.min(cursor + batchSize, pool.length);
-        const currentSlice = pool.slice(cursor, nextCursor);
-        cursor = nextCursor;
+        const item = pool[cursor++];
 
-        for (const item of currentSlice) {
-          if (seenIds.has(item.id)) continue;
-          seenIds.add(item.id);
+        if (seenIds.has(item.id)) continue;
+        seenIds.add(item.id);
 
-          const isBaseCycle = item.tag.startsWith("[r");
+        const isBaseCycle = item.tag.startsWith("[r");
 
-          if (!isBaseCycle && readCache && readCache.has(item.id.toString())) {
-            continue;
-          }
-
-          // Language filter — tile always has tag_ids from /related response
-          if (!isBaseCycle && relatedLang !== "all") {
-            const tile = this.tileStore.get(item.id.toString());
-            const tagIds = tile?.tag_ids ?? [];
-            const hasPreferredLanguage = relatedLang === "english"
-              ? tagIds.includes(LANGUAGE_TAG_IDS.english)
-              : relatedLang === "chinese"
-                ? tagIds.includes(LANGUAGE_TAG_IDS.chinese)
-                : relatedLang === "japanese"
-                  ? tagIds.includes(LANGUAGE_TAG_IDS.japanese)
-                  : false;
-            if (!hasPreferredLanguage) {
-              languageSkipped++;
-              continue;
-            }
-          }
-
-          // Build display data from tile store (no gallery fetch needed)
-          const tile = this.tileStore.get(item.id.toString());
-          const displayGallery = tile
-            ? this.buildGalleryFromTile(tile)
-            : null;
-          if (!displayGallery) continue;
-
-          const title =
-            displayGallery.title.pretty ??
-            displayGallery.title.english ??
-            displayGallery.title.japanese ??
-            "";
-          const baseSubtitle = this.createSubtitle(displayGallery, {
-            rereadCount: getRereadCount(displayGallery.id.toString()),
-          });
-          const subtitle = showRelatedOrder
-            ? `${item.tag} ${baseSubtitle}`
-            : baseSubtitle;
-
-          items.push({
-            type: "simpleCarouselItem",
-            mangaId: normalizeBridgeString(displayGallery.id, item.id.toString()),
-            title: normalizeBridgeString(title, `Gallery ${item.id}`),
-            subtitle: normalizeBridgeString(subtitle),
-            imageUrl: normalizeBridgeString(this.buildCoverUrl(displayGallery)),
-            metadata: undefined,
-          });
-
-          incrementRelatedViewCount(item.id);
-          if (items.length >= limit) break;
+        if (!isBaseCycle && hideReadInRelated && readCache && readCache.has(item.id.toString())) {
+          continue;
         }
 
-        if (items.length >= minItems && offset === 0) break;
+        // Language filter — tile always has tag_ids from /related response
+        if (!isBaseCycle && relatedLang !== "all") {
+          const tile = this.tileStore.get(item.id.toString());
+          const tagIds = tile?.tag_ids ?? [];
+          const hasPreferredLanguage = relatedLang === "english"
+            ? tagIds.includes(LANGUAGE_TAG_IDS.english)
+            : relatedLang === "chinese"
+              ? tagIds.includes(LANGUAGE_TAG_IDS.chinese)
+              : relatedLang === "japanese"
+                ? tagIds.includes(LANGUAGE_TAG_IDS.japanese)
+                : false;
+          if (!hasPreferredLanguage) {
+            languageSkipped++;
+            continue;
+          }
+        }
+
+        // Build display data from tile store.
+        // Base [rN] items may have no tile if never fetched this session;
+        // fetch unconditionally to render them at all.
+        // For all items, if date display is on and the tile lacks upload_date,
+        // fetch gallery detail to hydrate it — but only when not rate-limited.
+        let tile = this.tileStore.get(item.id.toString());
+        const needsDate =
+          !this.galleryDetailRateLimited &&
+          (displayOptions.includes("subtitle_relative") ||
+            displayOptions.includes("subtitle_date"));
+        if (!tile && isBaseCycle) {
+          try {
+            const gallery = await this.fetchGallery(item.id.toString());
+            if (gallery) tile = this.tileStore.get(item.id.toString());
+          } catch { /* non-critical — skip if rate-limited */ }
+        } else if (tile && needsDate && !tile.upload_date) {
+          try {
+            const gallery = await this.fetchGallery(item.id.toString());
+            if (gallery) tile = this.tileStore.get(item.id.toString());
+          } catch { /* non-critical */ }
+        }
+        const displayGallery = tile
+          ? this.buildGalleryFromTile(tile)
+          : null;
+        if (!displayGallery) continue;
+
+        const title =
+          displayGallery.title.pretty ??
+          displayGallery.title.english ??
+          displayGallery.title.japanese ??
+          "";
+        const baseSubtitle = this.createSubtitle(displayGallery, {
+          rereadCount: getRereadCount(displayGallery.id.toString()),
+        });
+        const subtitle = showRelatedOrder
+          ? `${item.tag} ${baseSubtitle}`
+          : baseSubtitle;
+
+        items.push({
+          type: "simpleCarouselItem",
+          mangaId: normalizeBridgeString(displayGallery.id, item.id.toString()),
+          title: normalizeBridgeString(title, `Gallery ${item.id}`),
+          subtitle: normalizeBridgeString(subtitle),
+          imageUrl: normalizeBridgeString(this.buildCoverUrl(displayGallery)),
+          metadata: undefined,
+        });
+
+        incrementRelatedViewCount(item.id);
       }
 
       const hasMoreInPool = cursor < pool.length;
@@ -4074,6 +4213,8 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       }
       return { id, type, name, url: "", count: 0 };
     });
+    // Search API has no pretty field — synthesize one from raw titles.
+    const pretty = prettyTitleFromListItem(item);
     return {
       id: item.id,
       media_id: item.media_id,
@@ -4081,8 +4222,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       title: {
         ...(item.english_title ? { english: item.english_title } : {}),
         ...(item.japanese_title ? { japanese: item.japanese_title } : {}),
-        pretty:
-          item.english_title ?? item.japanese_title ?? `Gallery ${item.id}`,
+        pretty,
       },
       images: {
         pages: [],
@@ -4476,6 +4616,13 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     mangaId: string,
     options?: { priority?: RequestPriority; liteHydration?: boolean },
   ): Promise<Gallery> {
+    // Return recently completed result to deduplicate sequential calls
+    // (e.g. getMangaDetails → getChapters both fetching the same gallery)
+    const recent = this.galleryRecentCache.get(mangaId);
+    if (recent && Date.now() < recent.expiresAt) {
+      return recent.gallery;
+    }
+
     // Check if there's already a pending request for this gallery
     const pending = this.galleryPending.get(mangaId);
     if (pending) {
@@ -4493,6 +4640,8 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
       .then((detail) => this.mapV2GalleryDetailToGallery(detail))
       .then((gallery) => {
         this.storeTileFromGallery(gallery);
+        this.saveTileStore();
+        this.galleryRecentCache.set(mangaId, { gallery, expiresAt: Date.now() + 30_000 });
         return gallery;
       })
       .finally(() => {
@@ -4600,7 +4749,7 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     const authenticated = hasAuthorizationHeader(preparedRequest);
     if (!authenticated && getApiKeyAuthorizedSetting()) {
       console.warn(
-        `[NHentai] Auth mismatch: unauthenticated rate bucket used for ${actualEndpointClass} despite API key being set (URL: ${preparedRequest.url.slice(0, 80)})`,
+        `[NHentai] Set API key is unauthenticated`,
       );
     }
     let effectiveRequest = preparedRequest;
@@ -4909,9 +5058,10 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     if (title && title.length > 0) {
       tokens.push(title);
     }
-    const languageToken = getLanguageToken();
-    if (!options?.skipDefaultLanguage && languageToken) {
-      tokens.push(`language:${languageToken}`);
+    if (!options?.skipDefaultLanguage) {
+      // Single preferred language → language:X
+      // Multiple preferred languages → -language:Y for the non-selected one(s)
+      tokens.push(...getLanguageQueryTokens());
     }
     const extraArguments = getExtraArgumentsSetting().trim();
     if (extraArguments.length > 0) {
@@ -5482,7 +5632,27 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
   private extractLanguageSlug(tags: GalleryTag[]): string | undefined {
     const available = this.getNonTranslatedLanguageSlugs(tags);
     if (available.length === 0) {
-      return undefined;
+      // Lite tiles occasionally lose language tags (e.g. after a detail fetch
+      // overwrites a search/related list tile and wipes tag_ids). When that
+      // happens, infer the language from the user's preferred-language setting
+      // so the "show language in subtitle" display option keeps working.
+      //
+      // Search/discover results are already constrained to the preferred
+      // languages by the query tokens (see getLanguageQueryTokens), so the
+      // gallery must be one of the preferred languages. Use the preference
+      // order (which already falls back to "english") — for a single preferred
+      // language this is exact; for multiple, it is the user's top priority.
+      const preferenceOrder = this.getLanguagePreferenceOrder();
+      const preferred = preferenceOrder.filter(
+        (slug) => slug !== "english" || preferenceOrder.length === 1,
+      );
+      // preferenceOrder always appends "english" as a last resort; only use it
+      // as the inferred slug when english is actually a preferred language or
+      // it is the only fallback left.
+      if (preferred.length > 0) {
+        return preferred[0];
+      }
+      return preferenceOrder[0];
     }
 
     const preferenceOrder = this.getLanguagePreferenceOrder();
@@ -5742,7 +5912,13 @@ export class NHentaiExtension implements ExtensionImpl<typeof NHentaiConfig> {
     }));
 
     for (const tag of gallery.tags) {
-      if (tag.type === "language") {
+      // Languages are handled separately; artists/groups already appear on
+      // mangaInfo.author via getCreatorFieldsFromTags, so omit them from the scroller.
+      if (
+        tag.type === "language" ||
+        tag.type === "artist" ||
+        tag.type === "group"
+      ) {
         continue;
       }
 

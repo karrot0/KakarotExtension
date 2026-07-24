@@ -1932,7 +1932,7 @@ export class HitomiExtension implements ExtensionImpl<typeof hitomiInfo> {
   }
 
   async cloudflareBypassCompleted(
-    _request: Request,
+    _request: globalThis.Request,
     cookies: Cookie[],
     _localStorage: Record<string, string>,
   ): Promise<void> {
