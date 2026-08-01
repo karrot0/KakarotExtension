@@ -3,7 +3,7 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 export default {
   name: "Batcave",
   description: "Extension that pulls content from batcave.biz.",
-  version: "1.7",
+  version: "1.8",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,

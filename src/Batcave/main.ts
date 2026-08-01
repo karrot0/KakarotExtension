@@ -124,17 +124,34 @@ export class BatcaveExtension implements BatcaveImplementation {
       };
     }
 
-    const urlBuilder = new URLBuilder(baseUrl).addPath("search").addPath(query.title);
+    let $ = await this.fetchCheerio({ url: this.buildSearchUrl(query.title, page), method: "GET" });
+    let searchResults = this.parseReadedList($);
+
+    if (searchResults.length === 0) {
+      const relaxed = relaxSearchTitle(query.title);
+      if (relaxed && relaxed !== query.title) {
+        $ = await this.fetchCheerio({ url: this.buildSearchUrl(relaxed, page), method: "GET" });
+        searchResults = this.parseReadedList($);
+      }
+    }
+
+    return {
+      items: searchResults,
+      metadata: hasNextPage($) ? { page: page + 1 } : undefined,
+    };
+  }
+
+  buildSearchUrl(title: string, page: number): string {
+    const urlBuilder = new URLBuilder(baseUrl).addPath("search").addPath(title, true);
 
     if (page > 1) {
       urlBuilder.addPath("page").addPath(page.toString());
     }
 
-    const searchUrl = urlBuilder;
+    return urlBuilder.build();
+  }
 
-    const request = { url: searchUrl.build(), method: "GET" };
-
-    const $ = await this.fetchCheerio(request);
+  parseReadedList($: CheerioAPI): SearchResultItem[] {
     const searchResults: SearchResultItem[] = [];
 
     $(".readed").each((_, element) => {
@@ -142,13 +159,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const infoLink = unit.find(".readed__title a");
       const title = infoLink.text().trim();
       const imgEl = unit.find(".readed__img img");
-      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
-      const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
+      const image = absoluteUrl(imgEl.attr("data-src") || imgEl.attr("src"));
+      const mangaId = parseMangaId(infoLink.attr("href"));
       const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
       const latestChapter = latestChapterText
         .replace("Last issue:", "")
@@ -166,33 +178,20 @@ export class BatcaveExtension implements BatcaveImplementation {
       });
     });
 
-    const currentPage = parseInt($(".pagination__pages > span").first().text()) || 1;
-    const hasNextPage =
-      $(".pagination__pages > a").filter((_, el) => {
-        const pageNum = parseInt($(el).text());
-        return !isNaN(pageNum) && pageNum > currentPage;
-      }).length > 0;
-
-    return {
-      items: searchResults,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
-    };
+    return searchResults;
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     // Expected mangaId: 6975-invincible-2003
-    const request = { url: `${baseUrl}/${mangaId}.html`, method: "GET" };
+    const request = { url: mangaUrl(mangaId), method: "GET" };
 
     const $ = await this.fetchCheerio(request);
 
     const title = $("h1").first().text().trim();
-    const rawImage = $(".page__poster img").attr("src") || "";
-    const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+    const image = absoluteUrl($(".page__poster img").attr("src"));
     const description = $(".page__text").text().trim();
 
-    const ratingMatch = $(".page__rating-votes")
-      .text()
-      .match(/(\d+(\.\d+)?)/);
+    const ratingMatch = /(\d+(\.\d+)?)/.exec($(".page__poster-rating-score").first().text());
     const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
 
     const statusText = $(".page__list li")
@@ -243,7 +242,7 @@ export class BatcaveExtension implements BatcaveImplementation {
   async getChapters(sourceManga: SourceManga): Promise<Chapter[]> {
     // Expected mangaId format: 6975-invincible-2003
     const request = {
-      url: `${baseUrl}/${sourceManga.mangaId}.html`,
+      url: mangaUrl(sourceManga.mangaId),
       method: "GET",
     };
     const $ = await this.fetchCheerio(request);
@@ -265,7 +264,7 @@ export class BatcaveExtension implements BatcaveImplementation {
       id: number;
       title?: string;
       posi: number;
-      date: string;
+      date?: string;
     }
 
     interface ParsedData {
@@ -280,15 +279,12 @@ export class BatcaveExtension implements BatcaveImplementation {
       if (parsedData.chapters) {
         parsedData.chapters.forEach((chapter: ChapterData) => {
           if (chapter.id && typeof chapter.id === "number") {
-            const [day, month, year] = chapter.date.split(".").map(Number);
-            const isoDate = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-
             chapters.push({
               chapterId: chapter.id.toString(),
-              title: chapter.title || `Chapter ${chapter.posi}`,
+              title: chapter.title?.trim() || `Chapter ${chapter.posi}`,
               sourceManga,
               chapNum: chapter.posi,
-              publishDate: new Date(isoDate),
+              publishDate: parsePublishDate(chapter.date),
               volume: 0,
               langCode: "🇬🇧",
             });
@@ -307,7 +303,11 @@ export class BatcaveExtension implements BatcaveImplementation {
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
     // The reader page ships images:[] and loads them via this AJAX call.
     // news_id = numeric mangaId prefix, chapter_id = chapterId; both required.
-    const newsId = chapter.sourceManga.mangaId.split("-")[0];
+    const newsId = parseNewsId(chapter.sourceManga.mangaId);
+    if (!newsId) {
+      throw new Error(`Could not read a news id from mangaId "${chapter.sourceManga.mangaId}"`);
+    }
+
     try {
       const request = {
         url: `${baseUrl}/engine/ajax/controller.php?mod=api&action=reader/getChapterData`,
@@ -327,9 +327,15 @@ export class BatcaveExtension implements BatcaveImplementation {
 
       const parsed = JSON.parse(Application.arrayBufferToUTF8String(data)) as {
         success?: boolean;
+        error?: string;
         data?: { images?: string[] };
       };
-      const pages = (parsed.data?.images ?? []).map(normalizeImageUrl);
+
+      if (parsed.success === false) {
+        throw new Error(parsed.error ?? "Chapter data request was rejected");
+      }
+
+      const pages = (parsed.data?.images ?? []).map(absoluteUrl);
 
       return {
         id: chapter.chapterId,
@@ -368,13 +374,8 @@ export class BatcaveExtension implements BatcaveImplementation {
       const infoLink = unit.find(".readed__title a");
       const title = infoLink.text().trim();
       const imgEl = unit.find(".readed__img img");
-      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
-      const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
+      const image = absoluteUrl(imgEl.attr("data-src") || imgEl.attr("src"));
+      const mangaId = parseMangaId(infoLink.attr("href"));
       const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
       const latestChapter = latestChapterText.replace("Last issue:", "").trim();
 
@@ -392,21 +393,16 @@ export class BatcaveExtension implements BatcaveImplementation {
       }
     });
 
-    const currentPage = $(".pagination__pages > span").first().text();
-    const hasNextPage =
-      $(".pagination__pages > a").filter((_, el) => parseInt($(el).text()) > parseInt(currentPage))
-        .length > 0;
-
     return {
       items: items,
-      metadata: hasNextPage ? { page: page + 1, collectedIds } : undefined,
+      metadata: hasNextPage($) ? { page: page + 1, collectedIds } : undefined,
     };
   }
 
   async getPopularSectionItems(
     _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const metadata = { page: 1, collectedIds: [] };
+    const metadata: Metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
@@ -421,13 +417,9 @@ export class BatcaveExtension implements BatcaveImplementation {
     $(".poster.grid-item").each((_, element) => {
       const unit = $(element);
       const title = unit.find(".poster__title").text().trim();
-      const rawImage = (unit.find(".poster__img img").attr("data-src") || "").trim();
-      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
-      const rawMangaId = unit.attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
+      const imgEl = unit.find(".poster__img img");
+      const image = absoluteUrl(imgEl.attr("data-src") || imgEl.attr("src"));
+      const mangaId = parseMangaId(unit.attr("href"));
       const rating = unit.find(".poster__label--rate").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -453,7 +445,7 @@ export class BatcaveExtension implements BatcaveImplementation {
   async getNewComicsSectionItems(
     _section: DiscoverSection,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const metadata = { page: 1, collectedIds: [] };
+    const metadata: Metadata = { page: 1, collectedIds: [] };
     const page = metadata?.page ?? 1;
     const collectedIds = metadata?.collectedIds ?? [];
 
@@ -470,14 +462,10 @@ export class BatcaveExtension implements BatcaveImplementation {
       const unit = $(element);
       // Target the anchor inside .latest__title to keep inner icons out of the title text
       const title = unit.find(".latest__title a").clone().children().remove().end().text().trim();
-      const rawImage = unit.find(".latest__img img").attr("src") || "";
-      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
+      const imgEl = unit.find(".latest__img img");
+      const image = absoluteUrl(imgEl.attr("data-src") || imgEl.attr("src"));
       // Grab the href from the title anchor rather than using closest()
-      const rawMangaId = unit.find(".latest__title a").attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
+      const mangaId = parseMangaId(unit.find(".latest__title a").attr("href"));
       const latestChapter = unit.find(".latest__chapter a").text().trim();
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
@@ -607,52 +595,15 @@ export class BatcaveExtension implements BatcaveImplementation {
     };
 
     const $ = await this.fetchCheerio(request);
-    const searchResults: SearchResultItem[] = [];
-
-    $(".readed").each((_, element) => {
-      const unit = $(element);
-      const infoLink = unit.find(".readed__title a");
-      const title = infoLink.text().trim();
-      const imgEl = unit.find(".readed__img img");
-      const rawImage = imgEl.attr("data-src") || imgEl.attr("src") || "";
-      const image = rawImage.startsWith("/") ? `https://batcave.biz${rawImage}` : rawImage;
-      const rawMangaId = infoLink.attr("href");
-      const mangaId = rawMangaId
-        ?.replace(/^https?:\/\/batcave\.biz\//, "") // Remove domain prefix if present
-        .replace(/\.html$/, "") // Remove the ".html" extension
-        .trim();
-      const latestChapterText = unit.find(".readed__info li:last-child").text().trim();
-      const latestChapter = latestChapterText
-        .replace("Last issue:", "")
-        .trim()
-        .replace(/.*#(\d+).*/, "#$1");
-
-      if (!mangaId) return;
-
-      searchResults.push({
-        mangaId: mangaId,
-        imageUrl: image,
-        title: title,
-        subtitle: latestChapter,
-        metadata: undefined,
-      });
-    });
-
-    const currentPage = parseInt($(".pagination__pages > span").first().text()) || 1;
-    const hasNextPage =
-      $(".pagination__pages > a").filter((_, el) => {
-        const pageNum = parseInt($(el).text());
-        return !isNaN(pageNum) && pageNum > currentPage;
-      }).length > 0;
 
     return {
-      items: searchResults,
-      metadata: hasNextPage ? { page: page + 1 } : undefined,
+      items: this.parseReadedList($),
+      metadata: hasNextPage($) ? { page: page + 1 } : undefined,
     };
   }
 
   getMangaShareUrl(mangaId: string): string {
-    return `${baseUrl}/${mangaId}`;
+    return mangaUrl(mangaId);
   }
 
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
@@ -672,12 +623,7 @@ export class BatcaveExtension implements BatcaveImplementation {
     const [response, data] = await Application.scheduleRequest(request);
     const html = Application.arrayBufferToUTF8String(data);
 
-    if (
-      response.status === 503 ||
-      response.status === 403 ||
-      html.includes("/_v") ||
-      (html.includes("window.performance") && html.includes("crypto.subtle"))
-    ) {
+    if (response.status === 503 || response.status === 403 || isBotCheckPage(html)) {
       throw new CloudflareError({
         url: baseUrl,
         method: "GET",
@@ -692,10 +638,107 @@ export class BatcaveExtension implements BatcaveImplementation {
   }
 }
 
-function normalizeImageUrl(raw: string): string {
-  const url = raw.replace(/\\\//g, "/").trim();
-  if (url.startsWith("http")) return url;
-  return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
+function parseMangaId(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  const slug = cleanMangaId(href);
+  return slug.length > 0 ? toMangaId(slug) : undefined;
+}
+
+const SAFE_ID = /^[A-Za-z0-9-]+$/;
+const ENCODED_ID = /^(\d*)-?hx-([0-9a-f]+)$/i;
+
+function toMangaId(slug: string): string {
+  if (SAFE_ID.test(slug)) return slug;
+
+  const newsId = /^(\d+)-/.exec(slug)?.[1] ?? "";
+  const rest = newsId ? slug.slice(newsId.length + 1) : slug;
+  return `${newsId}-hx-${toHex(rest)}`;
+}
+
+function toSlug(mangaId: string): string {
+  const id = cleanMangaId(mangaId);
+  const match = ENCODED_ID.exec(id);
+  if (!match) return id;
+
+  const rest = fromHex(match[2]);
+  return match[1] ? `${match[1]}-${rest}` : rest;
+}
+
+function toHex(value: string): string {
+  let hex = "";
+  for (let i = 0; i < value.length; i++) {
+    hex += value.charCodeAt(i).toString(16).padStart(4, "0");
+  }
+  return hex;
+}
+
+function fromHex(hex: string): string {
+  let value = "";
+  for (let i = 0; i + 4 <= hex.length; i += 4) {
+    value += String.fromCharCode(parseInt(hex.slice(i, i + 4), 16));
+  }
+  return value;
+}
+
+function cleanMangaId(mangaId: string): string {
+  return mangaId
+    .trim()
+    .replace(/^https?:/i, "")
+    .replace(/^\/\/[^/]+/, "")
+    .replace(/[?#].*$/, "")
+    .replace(/^\/+/, "")
+    .replace(/\.html?$/i, "")
+    .replace(/\/+$/, "")
+    .trim();
+}
+
+function mangaUrl(mangaId: string): string {
+  const path = toSlug(mangaId).split("/").map(encodeURIComponent).join("/");
+  return `${baseUrl}/${path}.html`;
+}
+
+function parseNewsId(mangaId: string): string | undefined {
+  return /^(\d+)/.exec(toSlug(mangaId))?.[1];
+}
+
+function absoluteUrl(raw: string | undefined): string {
+  const url = (raw ?? "").replace(/\\\//g, "/").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("//")) return `https:${url}`;
+  return `${baseUrl}/${url.replace(/^\/+/, "")}`;
+}
+
+function isBotCheckPage(html: string): boolean {
+  return (
+    /\.open\(\s*["']POST["']\s*,\s*["']\/_v["']/.test(html) ||
+    (html.includes("pow_nonce") && html.includes("pow_hash"))
+  );
+}
+
+function parsePublishDate(date: string | undefined): Date | undefined {
+  const match = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec((date ?? "").trim());
+  if (!match) return undefined;
+
+  const [, day, month, year] = match;
+  return new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
+}
+
+function hasNextPage($: CheerioAPI): boolean {
+  const currentPage = parseInt($(".pagination__pages > span").first().text()) || 1;
+  return (
+    $(".pagination__pages > a").filter((_, el) => {
+      const pageNum = parseInt($(el).text());
+      return !isNaN(pageNum) && pageNum > currentPage;
+    }).length > 0
+  );
+}
+
+function relaxSearchTitle(title: string): string {
+  return title
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function createDiscoverSectionItem(options: {

@@ -41,19 +41,18 @@ class URLBuilder {
   }
 
   build(): string {
-    const fullPath =
-      this.pathSegments.length > 0 ? `/${this.pathSegments.join("/")}` : "";
+    const fullPath = this.pathSegments.length > 0 ? `/${this.pathSegments.join("/")}` : "";
 
     const queryString = this.formatQuery(this.queryParams);
 
-    if (queryString.length > 0)
-      return `${this.baseUrl}${fullPath}?${queryString}`;
+    if (queryString.length > 0) return `${this.baseUrl}${fullPath}?${queryString}`;
 
     return `${this.baseUrl}${fullPath}`;
   }
 
-  addPath(segment: string): this {
-    this.pathSegments.push(segment.replace(/^\/+|\/+$/g, ""));
+  addPath(segment: string, encode = false): this {
+    const trimmed = segment.replace(/^\/+|\/+$/g, "");
+    this.pathSegments.push(encode ? encodeURIComponent(trimmed) : trimmed);
     return this;
   }
 
