@@ -30,3 +30,24 @@ export function assertMustBeAuthenticated(): void {
     );
   }
 }
+
+const AUTO_READ_KEY = "lofcg_auto_mark_read";
+const AUTO_COLLECT_KEY = "lofcg_auto_add_collection";
+
+/** Mark each issue you finish as read on League of Comic Geeks (default on). */
+export function getAutoMarkRead(): boolean {
+  return Application.getState(AUTO_READ_KEY) !== false;
+}
+
+export function setAutoMarkRead(value: boolean): void {
+  Application.setState(value, AUTO_READ_KEY);
+}
+
+/** Also add each issue you finish to your collection (default off). */
+export function getAutoAddToCollection(): boolean {
+  return Application.getState(AUTO_COLLECT_KEY) === true;
+}
+
+export function setAutoAddToCollection(value: boolean): void {
+  Application.setState(value, AUTO_COLLECT_KEY);
+}

@@ -1,6 +1,7 @@
 import type { CookieStorageInterceptor } from "@paperback/types";
 import * as cheerio from "cheerio";
-import type { LOFCGGetComicsParams } from "../Implementations/Shared/models/main";
+import type { LOFCGGetComicsParams, LOFCGSeriesStatus } from "../Implementations/Shared/models/main";
+import { parseSeriesIssues } from "../Implementations/Shared/parser/comic";
 import { LIST_IDS } from "../Implementations/Shared/models/main";
 import type { Session } from "../Implementations/Shared/parser/session";
 import { session } from "../Implementations/Shared/parser/main";
@@ -12,6 +13,7 @@ const MY_LIST_MOVE_URL = `${BASE_URL}/comic/my_list_move`;
 const MY_LIST_BULK_URL = `${BASE_URL}/comic/my_list_bulk`;
 const LOGIN_URL = `${BASE_URL}/login`;
 const LOGOUT_URL = `${BASE_URL}/logout`;
+const POST_RATING_URL = `${BASE_URL}/comic/post_rating`;
 
 function buildQueryString(params: Record<string, string | number | undefined>): string {
   return Object.entries(params)
@@ -423,4 +425,97 @@ async function seriesBulkAction(
   }
 
   console.log(`${logPrefix} complete`);
+}
+
+/** Numeric series id from "comics/series/106930/slug"; undefined for issue ids. */
+export function seriesNumericId(mangaId: string): string | undefined {
+  return mangaId.match(/^comics\/series\/(\d+)/)?.[1];
+}
+
+/** Numeric issue id from "comic/2313016/slug"; undefined for series ids. */
+export function issueNumericId(mangaId: string): string | undefined {
+  return mangaId.match(/^comic\/(\d+)/)?.[1];
+}
+
+/**
+ * Every regular issue in a series, with the logged-in user's pull, collection,
+ * read, wish list and rating state for each (the same request the series page makes).
+ */
+export async function getSeriesStatus(seriesId: string): Promise<LOFCGSeriesStatus> {
+  const logPrefix = `[lofcg:getSeriesStatus] seriesId=${seriesId}`;
+  console.log(`${logPrefix} starts`);
+
+  const query = [
+    "list=search",
+    "view=thumbs",
+    `format${encodeURIComponent("[]")}=1`,
+    `series_id=${encodeURIComponent(seriesId)}`,
+    "character=0",
+    "order=date-desc",
+  ].join("&");
+
+  const [response, data] = await Application.scheduleRequest({
+    url: `${GET_COMICS_URL}?${query}`,
+    method: "GET",
+    headers: baseHeaders(),
+  });
+  if (response.status !== 200) {
+    throw new Error(`Could not load the series issues (status ${response.status}).`);
+  }
+
+  let json: { list?: string; statbar?: string; series?: { title?: string } };
+  try {
+    json = JSON.parse(Application.arrayBufferToUTF8String(data)) as typeof json;
+  } catch {
+    throw new Error("Could not read the series issues from League of Comic Geeks.");
+  }
+
+  const status = parseSeriesIssues(json, seriesId);
+  console.log(`${logPrefix} complete: ${status.issues.length} issues, pulled=${status.pulled}`);
+  return status;
+}
+
+/** Adds (add = true) or removes one issue from a list. */
+export async function setIssueOnList(issueId: string, listId: number, add: boolean): Promise<void> {
+  await modifyList(issueId, listId, add ? 1 : 0);
+}
+
+/** Rates one issue, 1 to 5; 0 clears the rating. */
+export async function rateIssue(issueId: string, score: number): Promise<void> {
+  const logPrefix = `[lofcg:rateIssue] issueId=${issueId} score=${score}`;
+  console.log(`${logPrefix} starts`);
+  session.assertMustBeAuthenticated();
+
+  const [response, data] = await Application.scheduleRequest({
+    url: POST_RATING_URL,
+    method: "POST",
+    headers: { ...baseHeaders(), "content-type": "application/x-www-form-urlencoded" },
+    body: buildFormBody({ comic_id: issueId, score: Math.max(0, Math.min(5, Math.round(score))) }),
+  });
+  if (response.status !== 200) {
+    throw new Error(`Rating failed with status ${response.status}`);
+  }
+  assertSuccess(Application.arrayBufferToUTF8String(data), "Rating");
+  console.log(`${logPrefix} complete`);
+}
+
+/**
+ * Whole-series list actions (my_list_bulk):
+ * subscribe/unsubscribe (pull list), add/remove (collection, wish list),
+ * addall/remove (read list), addnotowned (wish list: issues you don't own).
+ */
+export async function seriesListAction(seriesId: string, listId: number, action: string): Promise<void> {
+  await seriesBulkAction(seriesId, listId, action);
+}
+
+function assertSuccess(responseText: string, what: string): void {
+  let parsed: { type?: string; text?: string };
+  try {
+    parsed = JSON.parse(responseText) as { type?: string; text?: string };
+  } catch {
+    throw new Error(`${what}: unexpected response from League of Comic Geeks.`);
+  }
+  if (parsed.type !== "success") {
+    throw new Error(`${what} failed: ${parsed.text ?? responseText}`);
+  }
 }

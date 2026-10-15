@@ -1,6 +1,7 @@
 import {
   type CookieStorageInterceptor,
   ButtonRow,
+  ToggleRow,
   Form,
   InputRow,
   LabelRow,
@@ -128,6 +129,25 @@ export class SettingsForm extends Form {
           value: username,
         }),
       ]),
+      Section(
+        {
+          id: "tracking-section",
+          header: "Automatic Tracking",
+          footer: "Applies to the issue you finish reading, matched by issue number.",
+        },
+        [
+          ToggleRow("auto-read", {
+            title: "Mark issues read",
+            value: session.getAutoMarkRead(),
+            onValueChange: Application.Selector(this as SettingsForm, "onAutoReadChange"),
+          }),
+          ToggleRow("auto-collect", {
+            title: "Add issues to collection",
+            value: session.getAutoAddToCollection(),
+            onValueChange: Application.Selector(this as SettingsForm, "onAutoCollectChange"),
+          }),
+        ],
+      ),
       Section({ id: "session-section" }, [
         ButtonRow("logout-button", {
           title: "Log out",
@@ -135,6 +155,14 @@ export class SettingsForm extends Form {
         }),
       ]),
     ];
+  }
+
+  async onAutoReadChange(value: boolean): Promise<void> {
+    session.setAutoMarkRead(value);
+  }
+
+  async onAutoCollectChange(value: boolean): Promise<void> {
+    session.setAutoAddToCollection(value);
   }
 
   async logOut(): Promise<void> {
