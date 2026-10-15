@@ -1,6 +1,6 @@
 import { ContentRating, type MangaInfo, type SearchResultItem, type SourceManga, type TagSection } from "@paperback/types";
 import * as cheerio from "cheerio";
-import type { LOFCGComicSeries } from "../models/main";
+import type { LOFCGComicSeries, LOFCGIssueEntry, LOFCGSeriesStatus } from "../models/main";
 
 const BASE_URL = "https://leagueofcomicgeeks.com";
 
@@ -242,4 +242,84 @@ export function parseSeriesPageDetails(html: string, mangaId: string): SourceMan
       tagGroups: tags,
     },
   };
+}
+
+/** Issue number from a title like "Batman #12" or "Saga #54.1"; null when there is none. */
+export function parseIssueNumber(title: string): number | null {
+  const matches = [...title.matchAll(/#\s*(-?\d+(?:\.\d+)?)/g)];
+  const last = matches[matches.length - 1];
+  return last ? parseFloat(last[1]) : null;
+}
+
+const OFF_NUMBERING = /\b(annual|special|one[- ]shot|giant[- ]size|king[- ]size|preview|director'?s cut|facsimile|free comic book day|fcbd)\b/i;
+
+/**
+ * Parses get_comics?list=search&series_id=... (the request the series page
+ * makes). Each issue <li> carries four .comic-controller buttons in the order
+ * pull, collection, read, want; "active" marks the ones the user has set.
+ */
+export function parseSeriesIssues(
+  json: { list?: string; statbar?: string; series?: { title?: string } },
+  seriesId: string,
+): LOFCGSeriesStatus {
+  const $ = cheerio.load(json.list ?? "");
+  const issues: LOFCGIssueEntry[] = [];
+  const seen = new Set<string>();
+
+  let $items = $("#comic-list-issues li");
+  if ($items.length === 0) $items = $("li");
+
+  $items.each((_i, el) => {
+    const $el = $(el);
+    const href =
+      $el.find("a[href^='/comic/']").first().attr("href") ?? $el.find("a").first().attr("href") ?? "";
+    const idMatch = href.match(/\/comic\/(\d+)/);
+    if (!idMatch || seen.has(idMatch[1])) return;
+    seen.add(idMatch[1]);
+
+    const title = $el.find(".title").first().text().replace(/\s+/g, " ").trim();
+    const controllers = $el.find(".comic-controller").toArray();
+    const active = (index: number) => {
+      const c = controllers[index];
+      return !!c && ($(c).attr("class") ?? "").split(/\s+/).includes("active");
+    };
+
+    const rateEl = $el.find("[data-rateit-value]").first();
+    const rating = Number($el.attr("data-rating") ?? rateEl.attr("data-rateit-value") ?? 0) || 0;
+
+    const img = $el.find("img").first();
+    const rawSrc = img.attr("data-src") ?? img.attr("src") ?? "";
+
+    issues.push({
+      issueId: idMatch[1],
+      title,
+      number: parseIssueNumber(title),
+      offNumbering: OFF_NUMBERING.test(title),
+      cover: rawSrc && !rawSrc.startsWith("data:") && !rawSrc.includes("no-cover") ? rawSrc : null,
+      releaseDate: $el.find(".date").first().attr("data-date") ?? "",
+      pull: active(0),
+      collected: active(1),
+      read: active(2),
+      wanted: active(3),
+      rating: Math.max(0, Math.min(5, Math.round(rating))),
+    });
+  });
+
+  // Oldest first, so issue lists read in order.
+  issues.sort((a, b) => (a.number ?? Number.MAX_SAFE_INTEGER) - (b.number ?? Number.MAX_SAFE_INTEGER));
+
+  // The series is on the pull list when the stat bar offers to remove it.
+  const statbar = cheerio.load(json.statbar ?? "");
+  const pulled = statbar(".btn-remove").length > 0;
+
+  return { seriesId, title: json.series?.title ?? "", pulled, issues };
+}
+
+/**
+ * Finds the issue a reading source's chapter number refers to. Prefers the
+ * regular numbering over annuals and specials, which often repeat numbers.
+ */
+export function findIssueForChapter(issues: LOFCGIssueEntry[], chapterNum: number): LOFCGIssueEntry | undefined {
+  const sameNumber = issues.filter((i) => i.number !== null && Math.abs(i.number - chapterNum) < 0.001);
+  return sameNumber.find((i) => !i.offNumbering) ?? sameNumber[0];
 }
