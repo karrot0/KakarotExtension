@@ -4,7 +4,7 @@ export default {
   name: "LeagueOfComicGeeks",
   description:
     "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
-  version: "1.0.0-alpha.3",
+  version: "1.0.0-alpha.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
