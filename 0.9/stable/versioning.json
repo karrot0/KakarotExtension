@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-08-01T19:36:11.019Z",
+  "buildTime": "2026-10-15T15:40:51.914Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.91",
     "types": "1.0.0-alpha.91"
@@ -403,7 +403,7 @@
     {
       "name": "ReadComicsOnlineRu",
       "description": "Extension that pulls content from readcomicsonline.ru.",
-      "version": "1.1",
+      "version": "1.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
