@@ -1,4 +1,4 @@
-import type { CookieStorageInterceptor } from "@paperback/types";
+import { CloudflareError, type CookieStorageInterceptor, type Request, type Response } from "@paperback/types";
 import * as cheerio from "cheerio";
 import type { LOFCGGetComicsParams, LOFCGSeriesStatus } from "../Implementations/Shared/models/main";
 import { parseSeriesIssues } from "../Implementations/Shared/parser/comic";
@@ -32,8 +32,48 @@ function baseHeaders(): Record<string, string> {
   return {
     "accept": "application/json, text/html, */*",
     "accept-language": "en-US,en;q=0.9",
-    "user-agent": "Mozilla/5.0 (compatible; Paperback)",
+    // No user-agent here: the header interceptor sends the device's real one.
+    // A made-up bot user agent gets blocked by Cloudflare, and Cloudflare's
+    // clearance cookie only works with the user agent that earned it.
   };
+}
+
+const CHALLENGE_MARKERS = [
+  "challenges.cloudflare.com",
+  "cf-browser-verification",
+  "cf_chl_",
+  "cf-chl-",
+  "Just a moment...",
+  "Attention Required! | Cloudflare",
+  "Checking your browser",
+];
+
+/**
+ * Sends a request and turns a Cloudflare block into a CloudflareError, which
+ * lets Paperback open the check in a web view instead of failing outright.
+ */
+async function send(request: Request): Promise<[Response, ArrayBuffer]> {
+  const [response, data] = await Application.scheduleRequest(request);
+  if (response.status === 403 || response.status === 503 || response.status === 429) {
+    const head = Application.arrayBufferToUTF8String(data).slice(0, 4000);
+    const isJson = /^\s*[[{]/.test(head);
+    if (!isJson || CHALLENGE_MARKERS.some((m) => head.includes(m))) {
+      throw cloudflareError(request.method === "GET" ? request.url : `${BASE_URL}/`);
+    }
+  } else if (response.status === 200) {
+    const head = Application.arrayBufferToUTF8String(data).slice(0, 4000);
+    if (head.includes("challenges.cloudflare.com") && head.includes("Just a moment")) {
+      throw cloudflareError(request.method === "GET" ? request.url : `${BASE_URL}/`);
+    }
+  }
+  return [response, data];
+}
+
+function cloudflareError(url: string): CloudflareError {
+  return new CloudflareError(
+    { url, method: "GET", headers: { referer: `${BASE_URL}/` } },
+    "League of Comic Geeks is showing a Cloudflare check. Complete it, then try again.",
+  );
 }
 
 /**
@@ -54,7 +94,7 @@ export async function login(
   // A stale session can make the site skip the login form, so start clean.
   clearSiteCookies(cookieStore);
 
-  const [pageResponse, pageData] = await Application.scheduleRequest({
+  const [pageResponse, pageData] = await send({
     url: LOGIN_URL,
     method: "GET",
     headers: baseHeaders(),
@@ -67,7 +107,7 @@ export async function login(
   form.fields[form.usernameField] = username;
   form.fields[form.passwordField] = password;
 
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: form.action,
     method: "POST",
     headers: {
@@ -199,7 +239,7 @@ export async function logout(cookieStore?: CookieStorageInterceptor): Promise<vo
   const logPrefix = "[lofcg:logout]";
   console.log(`${logPrefix} starts`);
   try {
-    await Application.scheduleRequest({
+    await send({
       url: LOGOUT_URL,
       method: "GET",
       headers: baseHeaders(),
@@ -232,7 +272,7 @@ export async function getComics(
   });
 
   const url = `${GET_COMICS_URL}?${query}`;
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url,
     method: "GET",
     headers: baseHeaders(),
@@ -266,7 +306,7 @@ export async function searchAjax(query: string): Promise<string> {
   console.log(`${logPrefix} starts: ${query}`);
 
   const qs = buildQueryString({ query });
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: `${SEARCH_AJAX_URL}?${qs}`,
     method: "GET",
     headers: baseHeaders(),
@@ -296,7 +336,7 @@ export async function modifyList(
 
   const body = buildFormBody({ comic_id: numericId, list_id: listId, action_id: actionId });
 
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: MY_LIST_MOVE_URL,
     method: "POST",
     headers: {
@@ -330,7 +370,7 @@ export async function getSeriesPage(mangaId: string): Promise<string> {
 
   // mangaId is a URL path like 'comics/series/193593/slug' or 'comic/2313016/slug'
   const url = `${BASE_URL}/${mangaId}`;
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url,
     method: "GET",
     headers: baseHeaders(),
@@ -399,7 +439,7 @@ async function seriesBulkAction(
 
   const body = buildFormBody(params);
 
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: MY_LIST_BULK_URL,
     method: "POST",
     headers: {
@@ -454,7 +494,7 @@ export async function getSeriesStatus(seriesId: string): Promise<LOFCGSeriesStat
     "order=date-desc",
   ].join("&");
 
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: `${GET_COMICS_URL}?${query}`,
     method: "GET",
     headers: baseHeaders(),
@@ -486,7 +526,7 @@ export async function rateIssue(issueId: string, score: number): Promise<void> {
   console.log(`${logPrefix} starts`);
   session.assertMustBeAuthenticated();
 
-  const [response, data] = await Application.scheduleRequest({
+  const [response, data] = await send({
     url: POST_RATING_URL,
     method: "POST",
     headers: { ...baseHeaders(), "content-type": "application/x-www-form-urlencoded" },
@@ -518,4 +558,41 @@ function assertSuccess(responseText: string, what: string): void {
   if (parsed.type !== "success") {
     throw new Error(`${what} failed: ${parsed.text ?? responseText}`);
   }
+}
+
+/**
+ * Finishes a login done in the web view: store the cookies it returned, then
+ * ask the site who is logged in.
+ */
+export async function completeWebLogin(
+  cookies: { name: string; value: string; domain: string; path?: string; expires?: Date }[],
+  cookieStore?: CookieStorageInterceptor,
+): Promise<Session> {
+  const logPrefix = "[lofcg:completeWebLogin]";
+  console.log(`${logPrefix} starts - ${cookies.length} cookie(s)`);
+
+  if (cookieStore) {
+    const expires = new Date(Date.now() + LOGIN_COOKIE_DAYS * 24 * 60 * 60 * 1000);
+    for (const cookie of cookies) {
+      if (!/leagueofcomicgeeks\.com$/i.test(cookie.domain.replace(/^\./, ""))) continue;
+      cookieStore.setCookie({ ...cookie, path: cookie.path ?? "/", expires: cookie.expires ?? expires } as never);
+    }
+  }
+
+  const check = await getComics({ list: LIST_IDS.RELEASES, list_option: "thumbs", view: "list", per_page: 1 });
+  if (!check.myUserId) {
+    throw new Error("You don't appear to be logged in. Log in on the page, then tap Done.");
+  }
+
+  let username = "";
+  try {
+    const [, data] = await send({ url: `${BASE_URL}/`, method: "GET", headers: baseHeaders() });
+    const match = Application.arrayBufferToUTF8String(data).match(/href=["'](?:https:\/\/leagueofcomicgeeks\.com)?\/profile\/([^/"'?#]+)/i);
+    if (match?.[1]) username = decodeURIComponent(match[1]);
+  } catch {
+    // The username is only for display.
+  }
+
+  console.log(`${logPrefix} complete - user: ${username || check.myUserId}`);
+  return { username: username || `User ${check.myUserId}`, userId: String(check.myUserId) };
 }

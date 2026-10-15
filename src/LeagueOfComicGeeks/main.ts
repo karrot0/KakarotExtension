@@ -1,4 +1,10 @@
-import { BasicRateLimiter, CookieStorageInterceptor, type Extension, type MangaProviding } from "@paperback/types";
+import {
+  BasicRateLimiter,
+  type Cookie,
+  CookieStorageInterceptor,
+  type Extension,
+  type MangaProviding,
+} from "@paperback/types";
 import { DiscoverSectionImplementation } from "./Implementations/DiscoverSection/main";
 import { applyMixins } from "./Implementations/helper";
 import { MangaImplementation } from "./Implementations/Manga/main";
@@ -28,6 +34,27 @@ export class LeagueOfComicGeeksExtension implements Omit<Extension, keyof MangaP
     this.mainRateLimiter.registerInterceptor();
     this.headerInterceptor.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
+  }
+
+  // Cookies from a completed Cloudflare check. Existing cookies are kept so
+  // the user stays logged in.
+  async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
+    this.storeBypassCookies(cookies);
+  }
+
+  async cloudflareBypassCompleted(
+    _request: globalThis.Request,
+    cookies: Cookie[],
+    _localStorage: Record<string, string>,
+  ): Promise<void> {
+    this.storeBypassCookies(cookies);
+  }
+
+  private storeBypassCookies(cookies: Cookie[]): void {
+    for (const cookie of cookies) {
+      if (cookie.expires && cookie.expires.getTime() <= Date.now()) continue;
+      this.cookieStorageInterceptor.setCookie(cookie);
+    }
   }
 }
 
