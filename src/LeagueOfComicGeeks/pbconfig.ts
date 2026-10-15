@@ -4,15 +4,16 @@ export default {
   name: "LeagueOfComicGeeks",
   description:
     "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
-  version: "1.0.0-alpha.2",
+  version: "1.0.0-alpha.4",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
-  capabilities:
-    SourceIntents.SETTINGS_FORM_PROVIDING |
-    SourceIntents.DISCOVER_SECTION_PROVIDING |
-    SourceIntents.SEARCH_RESULT_PROVIDING |
+  capabilities: [
+    SourceIntents.SETTINGS_FORM_PROVIDING,
+    SourceIntents.DISCOVER_SECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.PROGRESS_PROVIDING,
+  ],
   badges: [
     {
       label: "Tracker",
@@ -30,4 +31,4 @@ export default {
       name: "Karrot",
     },
   ],
-} as ExtensionInfo;
+} satisfies ExtensionInfo;

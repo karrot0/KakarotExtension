@@ -1,3 +1,4 @@
+import type { CookieStorageInterceptor } from "@paperback/types";
 import * as cheerio from "cheerio";
 import type { LOFCGGetComicsParams } from "../Implementations/Shared/models/main";
 import { LIST_IDS } from "../Implementations/Shared/models/main";
@@ -33,60 +34,166 @@ function baseHeaders(): Record<string, string> {
   };
 }
 
-export async function login(username: string, password: string): Promise<Session> {
+/**
+ * Logs in by submitting the site's own login form: load /login, copy every
+ * field the form carries (hidden security token included), fill in the
+ * username and password, and post it back from the same cookie session.
+ * Success is confirmed by asking the site who is logged in
+ * (get_comics returns configurator.my_user_id, which is 0 when logged out).
+ */
+export async function login(
+  username: string,
+  password: string,
+  cookieStore?: CookieStorageInterceptor,
+): Promise<Session> {
   const logPrefix = "[lofcg:login]";
   console.log(`${logPrefix} starts`);
 
-  const body = buildFormBody({ username, password });
+  // A stale session can make the site skip the login form, so start clean.
+  clearSiteCookies(cookieStore);
+
+  const [pageResponse, pageData] = await Application.scheduleRequest({
+    url: LOGIN_URL,
+    method: "GET",
+    headers: baseHeaders(),
+  });
+  if (pageResponse.status !== 200) {
+    throw new Error(`Could not open the login page (status ${pageResponse.status}).`);
+  }
+  const loginPage = Application.arrayBufferToUTF8String(pageData);
+  const form = readLoginForm(loginPage);
+  form.fields[form.usernameField] = username;
+  form.fields[form.passwordField] = password;
 
   const [response, data] = await Application.scheduleRequest({
-    url: LOGIN_URL,
+    url: form.action,
     method: "POST",
     headers: {
       ...baseHeaders(),
       "content-type": "application/x-www-form-urlencoded",
+      referer: LOGIN_URL,
+      origin: BASE_URL,
     },
-    body,
+    body: buildFormBody(form.fields),
   });
 
-  if (response.status !== 200 && response.status !== 302) {
-    throw new Error(`Login request failed with status ${response.status}`);
+  const replyText = Application.arrayBufferToUTF8String(data);
+  const siteError = readLoginError(replyText);
+  if (siteError) throw new Error(siteError);
+  if (response.status >= 400) {
+    throw new Error(`Login request failed with status ${response.status}.`);
   }
 
-  const html = Application.arrayBufferToUTF8String(data);
-  const $ = cheerio.load(html);
-
-  // If the login page form is still present with no user context → credentials were wrong
-  const loginError = $(".alert-error, .alert-danger").first().text().trim();
-  if (loginError) {
-    throw new Error(loginError);
-  }
-
-  const stillOnLoginPage =
-    $("form[action*='/login']").length > 0 &&
-    $("a[href*='/profile/'], .user-nav, .user-menu, [data-userid]").length === 0;
-  if (stillOnLoginPage) {
+  // Ask the site whether we are logged in now.
+  const check = await getComics({ list: LIST_IDS.RELEASES, list_option: "thumbs", view: "list", per_page: 1 });
+  if (!check.myUserId) {
     throw new Error("Invalid username or password.");
   }
 
-  // Extract userId from page if available
-  let userId = "";
-  const userIdMatch = html.match(/["']user_id["']\s*:\s*["']?(\d+)["']?/i)
-    ?? html.match(/data-userid=["'](\d+)["']/i)
-    ?? html.match(/\/profile\/[^/]+\/(\d+)/i);
-  if (userIdMatch?.[1]) userId = userIdMatch[1];
+  keepLoginCookies(cookieStore);
 
-  // Prefer username from profile link in case server normalises capitalisation
   let resolvedUsername = username;
-  const profileHref = $("a[href*='/profile/']").first().attr("href");
-  const profileMatch = profileHref?.match(/\/profile\/([^/?#]+)/);
-  if (profileMatch?.[1]) resolvedUsername = profileMatch[1];
+  const profileMatch = replyText.match(/href=["']\/profile\/([^/"'?#]+)/i);
+  if (profileMatch?.[1] && !username.includes("@")) resolvedUsername = decodeURIComponent(profileMatch[1]);
 
   console.log(`${logPrefix} complete - user: ${resolvedUsername}`);
-  return { username: resolvedUsername, userId };
+  return { username: resolvedUsername, userId: String(check.myUserId) };
 }
 
-export async function logout(): Promise<void> {
+interface LoginFormData {
+  action: string;
+  fields: Record<string, string>;
+  usernameField: string;
+  passwordField: string;
+}
+
+function readLoginForm(html: string): LoginFormData {
+  const $ = cheerio.load(html);
+  let $form = $("form").filter((_i, el) => $(el).find("input[type='password']").length > 0).first();
+  if ($form.length === 0) $form = $("form[action*='login']").first();
+
+  const fields: Record<string, string> = {};
+  let usernameField = "username";
+  let passwordField = "password";
+
+  $form.find("input[name], select[name], textarea[name]").each((_i, el) => {
+    const $el = $(el);
+    const name = $el.attr("name") ?? "";
+    const type = ($el.attr("type") ?? "text").toLowerCase();
+    if (!name || type === "submit" || type === "button" || type === "image") return;
+
+    if (type === "password") {
+      passwordField = name;
+      return;
+    }
+    if (type === "checkbox" || type === "radio") {
+      // Tick "remember me" so the site issues a lasting login cookie.
+      if (/remember|keep|persist/i.test(name)) fields[name] = $el.attr("value") ?? "1";
+      else if ($el.is("[checked]")) fields[name] = $el.attr("value") ?? "on";
+      return;
+    }
+    if (type !== "hidden" && /user|login|email|name/i.test(name)) {
+      usernameField = name;
+      return;
+    }
+    fields[name] = $el.attr("value") ?? $el.find("option[selected]").attr("value") ?? "";
+  });
+
+  // Some sites only put the security token in a meta tag.
+  const metaToken = $("meta[name='csrf-token']").attr("content");
+  if (metaToken && !Object.keys(fields).some((k) => /csrf|token/i.test(k))) {
+    fields[$("meta[name='csrf-param']").attr("content") ?? "csrf_token"] = metaToken;
+  }
+
+  const rawAction = $form.attr("action")?.trim();
+  const action = !rawAction
+    ? LOGIN_URL
+    : rawAction.startsWith("http")
+      ? rawAction
+      : `${BASE_URL}${rawAction.startsWith("/") ? "" : "/"}${rawAction}`;
+
+  return { action, fields, usernameField, passwordField };
+}
+
+/** Reads an error the site put in its reply, as JSON ({type, text}) or an alert box. */
+function readLoginError(reply: string): string | undefined {
+  try {
+    const json = JSON.parse(reply) as { type?: string; text?: string; message?: string };
+    if (json.type === "error" || json.type === "danger") {
+      return cheerio.load(`<p>${json.text ?? json.message ?? "Login failed."}</p>`)("p").text().trim();
+    }
+    return undefined;
+  } catch {
+    const $ = cheerio.load(reply);
+    const alert = $(".alert-error, .alert-danger, .form-error, .error-message").first().text().trim();
+    return alert || undefined;
+  }
+}
+
+const SITE_URL = `${BASE_URL}/`;
+const LOGIN_COOKIE_DAYS = 30;
+
+/**
+ * Paperback only saves cookies that have an expiry date, so a login held in a
+ * session cookie is lost when the app restarts while the plugin still thinks
+ * it is logged in. Give the site's cookies an expiry so the login survives.
+ */
+function keepLoginCookies(cookieStore?: CookieStorageInterceptor): void {
+  if (!cookieStore) return;
+  const expires = new Date(Date.now() + LOGIN_COOKIE_DAYS * 24 * 60 * 60 * 1000);
+  for (const cookie of cookieStore.cookiesForUrl(SITE_URL)) {
+    if (!cookie.expires) cookieStore.setCookie({ ...cookie, expires });
+  }
+}
+
+function clearSiteCookies(cookieStore?: CookieStorageInterceptor): void {
+  if (!cookieStore) return;
+  for (const cookie of [...cookieStore.cookiesForUrl(SITE_URL)]) {
+    cookieStore.deleteCookie(cookie);
+  }
+}
+
+export async function logout(cookieStore?: CookieStorageInterceptor): Promise<void> {
   const logPrefix = "[lofcg:logout]";
   console.log(`${logPrefix} starts`);
   try {
@@ -98,6 +205,7 @@ export async function logout(): Promise<void> {
   } catch (e) {
     console.log(`${logPrefix} request error (ignoring): ${String(e)}`);
   }
+  clearSiteCookies(cookieStore);
   session.clearSession();
   console.log(`${logPrefix} complete`);
 }

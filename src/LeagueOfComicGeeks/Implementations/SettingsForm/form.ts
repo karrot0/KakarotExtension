@@ -1,4 +1,5 @@
 import {
+  type CookieStorageInterceptor,
   ButtonRow,
   Form,
   InputRow,
@@ -17,9 +18,14 @@ interface LoginInput {
 export class LoginForm extends Form {
   loginInput: LoginInput = { username: "", password: "" };
 
-  override get requiresExplicitSubmission(): boolean {
-    return true;
+  constructor(
+    private readonly cookieStore?: CookieStorageInterceptor,
+    private readonly onLoggedIn?: () => void,
+  ) {
+    super();
   }
+
+  override requiresExplicitSubmission = true;
 
   override formWillAppear(): void {
     this.resetFields();
@@ -40,13 +46,14 @@ export class LoginForm extends Form {
         },
         [
           InputRow("username-input", {
-            title: "Username",
+            title: "Username or email",
             value: this.loginInput.username,
             onValueChange: Application.Selector(this as LoginForm, "onUsernameChange"),
           }),
           InputRow("password-input", {
             title: "Password",
             value: this.loginInput.password,
+            isSecureEntry: true,
             onValueChange: Application.Selector(this as LoginForm, "onPasswordChange"),
           }),
         ],
@@ -69,13 +76,19 @@ export class LoginForm extends Form {
     }
 
     try {
-      const sessionData = await login(this.loginInput.username, this.loginInput.password);
+      const sessionData = await login(
+        this.loginInput.username.trim(),
+        this.loginInput.password,
+        this.cookieStore,
+      );
       session.setSession(sessionData);
       console.log(`${logPrefix} login successful`);
     } catch (e) {
-      console.log(`${logPrefix} login failed: ${String(e)}`);
-      throw new Error(`Login failed: ${String(e)}`);
+      const message = e instanceof Error ? e.message : String(e);
+      console.log(`${logPrefix} login failed: ${message}`);
+      throw new Error(`Login failed: ${message}`);
     }
+    this.onLoggedIn?.();
   }
 
   resetFields(): void {
@@ -84,6 +97,10 @@ export class LoginForm extends Form {
 }
 
 export class SettingsForm extends Form {
+  constructor(private readonly cookieStore?: CookieStorageInterceptor) {
+    super();
+  }
+
   override getSections() {
     const info = session.getSession();
     if (!info) {
@@ -97,7 +114,7 @@ export class SettingsForm extends Form {
       Section({ id: "login-section" }, [
         NavigationRow("login", {
           title: "Log in",
-          form: new LoginForm(),
+          form: new LoginForm(this.cookieStore, () => this.reloadForm()),
         }),
       ]),
     ];
@@ -122,7 +139,7 @@ export class SettingsForm extends Form {
 
   async logOut(): Promise<void> {
     try {
-      await logout();
+      await logout(this.cookieStore);
     } catch (e) {
       console.log(`[SettingsForm:logout] error: ${String(e)}`);
     }

@@ -65,24 +65,26 @@ export class DiscoverSectionImplementation implements DiscoverSectionProviding {
     try {
       switch (section.id as SectionId) {
         case SectionId.newComics: {
+          // The releases list comes back whole in one response (no paging), in the
+          // issue list markup, so it needs the issue parser.
+          if (page > 1) return { items: [], metadata: -1 };
           const date = currentWeekDate();
           const response = await getComics({
             list: LIST_IDS.RELEASES,
-            list_option: "issue",
+            list_option: "thumbs",
             date_type: "week",
             date,
             order: "pulls",
             view: "list",
-            page,
           });
-          const items: SimpleCarouselItem[] = comic.parseSeriesHtml(response.list).map((s) => ({
+          const items: SimpleCarouselItem[] = comic.parseIssueListHtml(response.list).map((s) => ({
             type: "simpleCarouselItem" as const,
             mangaId: s.id,
             title: s.name,
             imageUrl: s.cover ?? "",
             subtitle: s.publisher || undefined,
           }));
-          return { items: items as DiscoverSectionItem[], metadata: items.length >= 20 ? page + 1 : -1 };
+          return { items: items as DiscoverSectionItem[], metadata: -1 };
         }
 
         case SectionId.popularSeries: {
