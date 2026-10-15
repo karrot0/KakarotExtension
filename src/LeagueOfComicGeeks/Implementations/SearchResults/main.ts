@@ -19,7 +19,7 @@ export class SearchResultsImplementation extends MangaImplementation implements 
     return new LOCGSearchForm(meta);
   }
 
-  async getSortingOptions(query: SearchQuery): Promise<SortingOption[]> {
+  async getSortingOptions(query: SearchQuery<Metadata>): Promise<SortingOption[]> {
     void query;
     return [
       { id: "alpha-asc", label: "A-Z" },
@@ -30,7 +30,7 @@ export class SearchResultsImplementation extends MangaImplementation implements 
   }
 
   async getSearchResults(
-    query: SearchQuery,
+    query: SearchQuery<Metadata>,
     metadata: number | undefined,
     sortingOption?: SortingOption,
   ): Promise<PagedResults<SearchResultItem>> {
@@ -38,42 +38,44 @@ export class SearchResultsImplementation extends MangaImplementation implements 
     console.log(`${logPrefix} starts: ${query.title}`);
 
     const page = metadata ?? 1;
+    if (page < 1) return { items: [], metadata: -1 };
 
     const searchMeta = (query.metadata as { searchMeta?: LOCGSearchMetadata } | undefined)?.searchMeta;
     const listOption = searchMeta?.format === "issue" ? "issue" : "series";
-    const order = sortingOption?.id ?? "alpha-asc";
+    const title = (query.title ?? "").trim();
+    const order = sortingOption?.id ?? (title ? "pulls" : "alpha-asc");
 
     const PAGE_SIZE = 25;
 
     try {
-      let allSeries;
+      // The site's full search goes through get_comics (list=search&title=...),
+      // which returns every match in one response. The ajax_issues endpoint the
+      // search box uses only returns a handful of suggestions, so it's a fallback.
+      const response = await getComics({
+        list: LIST_IDS.SEARCH,
+        list_option: listOption,
+        title: title || undefined,
+        order: String(order),
+      });
 
-      if (query.title) {
-        const html = await searchAjax(query.title);
-        allSeries = comic.parseAjaxSeriesHtml(html);
-        const items: SearchResultItem[] = allSeries.map((s) => comic.seriestoSearchResultItem(s));
-        console.log(`${logPrefix} complete: ${items.length} results`);
-        return { items};
-      } else {
-        const response = await getComics({
-          list: LIST_IDS.SEARCH,
-          list_option: listOption,
-          order: String(order),
-          page: 1,
-        });
-        if (!response.list) {
-          return { items: [], metadata: -1 };
-        }
+      let allSeries =
+        listOption === "issue"
+          ? comic.parseIssueListHtml(response.list)
+          : comic.parseSeriesHtml(response.list);
+      if (allSeries.length === 0 && listOption === "issue") {
         allSeries = comic.parseSeriesHtml(response.list);
+      }
+      if (allSeries.length === 0 && title) {
+        allSeries = comic.parseAjaxSeriesHtml(await searchAjax(title));
       }
 
       const start = (page - 1) * PAGE_SIZE;
-      const series = allSeries.slice(start, start + PAGE_SIZE);
-      const items: SearchResultItem[] = series.map((s) => comic.seriestoSearchResultItem(s));
-      // If we have fewer results than the page size, there's no next page. Otherwise, we assume there is one, even if the next page might be empty (e.g. if items were removed since the initial search).
+      const items = allSeries
+        .slice(start, start + PAGE_SIZE)
+        .map((s) => comic.seriestoSearchResultItem(s));
       const nextPage = start + PAGE_SIZE < allSeries.length ? page + 1 : -1;
 
-      console.log(`${logPrefix} complete: ${items.length} results`);
+      console.log(`${logPrefix} complete: ${items.length} of ${allSeries.length} results`);
       return { items, metadata: nextPage };
     } catch (e) {
       console.log(`${logPrefix} error: ${String(e)}`);

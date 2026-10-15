@@ -22,16 +22,20 @@ export function parseSeriesHtml(html: string): LOFCGComicSeries[] {
   $("li").each((_i, el) => {
     const $el = $(el);
 
-    const $coverLink = $el.find(".cover a[data-id]");
-    const numericId = $coverLink.attr("data-id");
-    const name = $el.find(".title.color-primary a").text().trim();
+    const $coverLink = $el.find(".cover a").first();
+    const hrefMatch = ($coverLink.attr("href") ?? "").match(/\/comics\/series\/(\d+)/);
+    const numericId = $coverLink.attr("data-id") ?? hrefMatch?.[1];
+    const name = ($el.find(".title.color-primary a").text() || $el.find(".title.color-primary").text()).trim();
     if (!numericId || !name) return;
 
     const rawSrc = $el.find(".cover img").attr("data-src") ?? "";
     // data-src is already a full URL (https://s3.amazonaws.com/...)
     const cover = rawSrc && !rawSrc.includes("no-cover") ? rawSrc.split("?")[0] : null;
 
-    const publisher = $el.find(".copy-really-small span").first().text().trim();
+    const publisher = (
+      $el.find(".publisher.color-offset").first().text() ||
+      $el.find(".copy-really-small span").first().text()
+    ).trim();
     const issueCount = parseInt($el.find(".details.count-issues").text().trim(), 10) || 0;
 
     const hrefSlug = $coverLink.attr("href") ?? "";
@@ -43,6 +47,55 @@ export function parseSeriesHtml(html: string): LOFCGComicSeries[] {
   });
 
   return results;
+}
+
+/**
+ * Parses the issue list markup returned by get_comics with view=list
+ * (new releases, issue searches). Each <li> holds .comic-cover-art img,
+ * .title.color-primary, .comic-details ("Publisher · date · price") and a
+ * link to /comic/{id}/{slug}.
+ */
+export function parseIssueListHtml(html: string): LOFCGComicSeries[] {
+  const $ = cheerio.load(html);
+  const results: LOFCGComicSeries[] = [];
+  const seen = new Set<string>();
+
+  $("li").each((_i, el) => {
+    const $el = $(el);
+
+    const href =
+      $el.find(".comic-description a[href^='/comic/']").first().attr("href") ??
+      $el.find(".title a[href^='/comic/']").first().attr("href") ??
+      $el.find("a[href^='/comic/']").first().attr("href") ??
+      "";
+    const match = href.match(/^\/comic\/(\d+)/);
+    if (!match || seen.has(match[1])) return;
+
+    const name = (
+      $el.find(".title.color-primary a").first().text() ||
+      $el.find(".title.color-primary").first().text()
+    ).trim();
+    if (!name) return;
+
+    const img = $el.find(".comic-cover-art img, .cover img").first();
+    const rawSrc = img.attr("data-src") ?? img.attr("src") ?? "";
+    const cover =
+      rawSrc && !rawSrc.startsWith("data:") && !rawSrc.includes("no-cover")
+        ? absolute(rawSrc.split("?")[0].replace("/medium/", "/large/"))
+        : null;
+
+    const publisher = ($el.find(".comic-details").first().text().split("·")[0] ?? "").trim();
+
+    seen.add(match[1]);
+    const id = href.replace(/^\//, "").split("?")[0];
+    results.push({ id, name, url: `${BASE_URL}/${id}`, cover, publisher, issueCount: 0 });
+  });
+
+  return results;
+}
+
+function absolute(url: string): string {
+  return url.startsWith("/") ? `${BASE_URL}${url}` : url;
 }
 
 export function parseAjaxSeriesHtml(html: string): LOFCGComicSeries[] {
@@ -126,9 +179,20 @@ export function parseSeriesPageDetails(html: string, mangaId: string): SourceMan
     || $("title").text().replace(/ [|] League.*$/i, "").trim();
 
   // Cover: og:image first, then .cover-art img (individual comic pages)
-  const cover = $("meta[property='og:image']").attr("content")
-    ?? $(".cover-art img").first().attr("src")
-    ?? undefined;
+  // og:image can be the site's "cover coming soon" placeholder even when the
+  // page shows real issue covers, so skip placeholders and use the first real one.
+  const isRealCover = (url?: string): url is string =>
+    !!url && !url.startsWith("data:") && !/no-cover|cover-coming-soon/i.test(url);
+  const candidates = [
+    $("meta[property='og:image']").attr("content"),
+    $(".cover-art img").first().attr("data-src"),
+    $(".cover-art img").first().attr("src"),
+    ...$(".comic-cover-art img, .cover img")
+      .toArray()
+      .map((el) => $(el).attr("data-src") ?? $(el).attr("src")),
+  ];
+  const found = candidates.find(isRealCover);
+  const cover = found ? absolute(found.split("?")[0].replace("/medium/", "/large/")) : undefined;
 
   // Description: og:description or any .description / .about paragraph
   const description = $("meta[property='og:description'], meta[name='description']").first().attr("content")?.trim()

@@ -23,7 +23,7 @@ export interface LOFCGComicIssue {
   description: string;
 }
 
-export type LOFCGListType = "series" | "issue";
+export type LOFCGListType = "series" | "issue" | "thumbs";
 
 export interface LOFCGGetComicsParams {
   list: string | number;
