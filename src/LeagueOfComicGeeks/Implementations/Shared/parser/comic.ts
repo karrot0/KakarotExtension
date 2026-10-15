@@ -256,7 +256,7 @@ const OFF_NUMBERING = /\b(annual|special|one[- ]shot|giant[- ]size|king[- ]size|
 /**
  * Parses get_comics?list=search&series_id=... (the request the series page
  * makes). Each issue <li> carries four .comic-controller buttons in the order
- * pull, collection, read, want; "active" marks the ones the user has set.
+ * pull, collection, read, wish; "active" marks the ones the user has set.
  */
 export function parseSeriesIssues(
   json: { list?: string; statbar?: string; series?: { title?: string } },

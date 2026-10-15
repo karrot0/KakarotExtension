@@ -439,7 +439,7 @@ export function issueNumericId(mangaId: string): string | undefined {
 
 /**
  * Every regular issue in a series, with the logged-in user's pull, collection,
- * read, want and rating state for each (the same request the series page makes).
+ * read, wish list and rating state for each (the same request the series page makes).
  */
 export async function getSeriesStatus(seriesId: string): Promise<LOFCGSeriesStatus> {
   const logPrefix = `[lofcg:getSeriesStatus] seriesId=${seriesId}`;
@@ -501,8 +501,8 @@ export async function rateIssue(issueId: string, score: number): Promise<void> {
 
 /**
  * Whole-series list actions (my_list_bulk):
- * subscribe/unsubscribe (pull list), add/remove (collection, want list),
- * addall/remove (read list), addnotowned (want list: issues you don't own).
+ * subscribe/unsubscribe (pull list), add/remove (collection, wish list),
+ * addall/remove (read list), addnotowned (wish list: issues you don't own).
  */
 export async function seriesListAction(seriesId: string, listId: number, action: string): Promise<void> {
   await seriesBulkAction(seriesId, listId, action);

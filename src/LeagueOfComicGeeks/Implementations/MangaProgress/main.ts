@@ -18,7 +18,7 @@ import { MangaProgressForm } from "./form";
 
 /**
  * League of Comic Geeks tracks every issue separately (pull, collection, read,
- * want, rating) rather than keeping one "chapters read" counter like AniList.
+ * wish list, rating) rather than keeping one "chapters read" counter like AniList.
  * So each chapter you finish is matched to the issue with the same number and
  * only that issue is marked read; nothing else in the series is touched.
  */

@@ -37,7 +37,7 @@ function issueSummary(issue: IssueState): string {
   if (issue.read) parts.push("Read");
   if (issue.collected) parts.push("Owned");
   if (issue.pull) parts.push("Pull");
-  if (issue.wanted) parts.push("Want");
+  if (issue.wanted) parts.push("Wish");
   if (issue.rating > 0) parts.push(`${issue.rating}★`);
   return parts.join(" · ");
 }
@@ -144,7 +144,7 @@ export class MangaProgressForm extends Form {
       }),
       LabelRow("read-count", { title: "Read", value: `${count((i) => i.read)} of ${total}` }),
       LabelRow("owned-count", { title: "Collection", value: `${count((i) => i.collected)} of ${total}` }),
-      LabelRow("want-count", { title: "Want List", value: `${count((i) => i.wanted)}` }),
+      LabelRow("want-count", { title: "Wish List", value: `${count((i) => i.wanted)}` }),
     ]);
   }
 
@@ -163,7 +163,7 @@ export class MangaProgressForm extends Form {
           onValueChange: Application.Selector(this as MangaProgressForm, "onCollectAllChange"),
         }),
         ToggleRow("want-missing", {
-          title: "Add issues I don't own to want list",
+          title: "Add issues I don't own to wish list",
           value: this.actions.wantMissing,
           onValueChange: Application.Selector(this as MangaProgressForm, "onWantMissingChange"),
         }),
@@ -246,7 +246,7 @@ export class MangaProgressForm extends Form {
     if (readAll) await attempt("Mark all read", () => seriesListAction(seriesId, LIST_IDS.READ_LIST, "addall"));
     if (collectAll) await attempt("Collect all", () => seriesListAction(seriesId, LIST_IDS.COLLECTION, "add"));
     if (wantMissing) {
-      await attempt("Want missing", () => seriesListAction(seriesId, LIST_IDS.WISH_LIST, "addnotowned"));
+      await attempt("Wish list missing", () => seriesListAction(seriesId, LIST_IDS.WISH_LIST, "addnotowned"));
     }
 
     const before = new Map(this.original.issues.map((i) => [i.issueId, i]));
@@ -267,7 +267,7 @@ export class MangaProgressForm extends Form {
         await attempt(`${label} read`, () => setIssueOnList(issue.issueId, LIST_IDS.READ_LIST, issue.read));
       }
       if (issue.wanted !== old.wanted) {
-        await attempt(`${label} want list`, () => setIssueOnList(issue.issueId, LIST_IDS.WISH_LIST, issue.wanted));
+        await attempt(`${label} wish list`, () => setIssueOnList(issue.issueId, LIST_IDS.WISH_LIST, issue.wanted));
       }
       if (issue.rating !== old.rating) {
         await attempt(`${label} rating`, () => rateIssue(issue.issueId, issue.rating));
@@ -295,7 +295,7 @@ function issueSections(issue: LOFCGIssueEntry, on: IssueHandlers, prefix: string
       ToggleRow(`${prefix}-read`, { title: "Read", value: issue.read, onValueChange: on.read }),
       ToggleRow(`${prefix}-collected`, { title: "Collection", value: issue.collected, onValueChange: on.collected }),
       ToggleRow(`${prefix}-pull`, { title: "Pull List", value: issue.pull, onValueChange: on.pull }),
-      ToggleRow(`${prefix}-wanted`, { title: "Want List", value: issue.wanted, onValueChange: on.wanted }),
+      ToggleRow(`${prefix}-wanted`, { title: "Wish List", value: issue.wanted, onValueChange: on.wanted }),
     ]),
     Section({ id: `${prefix}-rating`, header: "Rating" }, [
       StepperRow(`${prefix}-rating-value`, {
