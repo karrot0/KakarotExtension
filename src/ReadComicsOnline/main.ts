@@ -115,78 +115,154 @@ export class ReadComicsOnlineExtension
     query: SearchQuery<Metadata>,
     metadata: Metadata | undefined,
   ): Promise<PagedResults<SearchResultItem>> {
-    return this.getAdvancedSearchResults(
-      (query.title ?? "").trim(),
-      query.metadata?.searchMeta ?? { status: "", types: "", categories: "" },
-      metadata?.page ?? 1,
-      metadata?.csrfToken,
-    );
+    const title = (query.title ?? "").trim();
+    const searchMeta = query.metadata?.searchMeta ?? { status: "", types: "", categories: "" };
+    const page = metadata?.page ?? 1;
+
+    const results = await this.getAdvancedSearchResults(title, searchMeta, page);
+
+    // The advanced search came back empty for a text query: fall back to the
+    // site's quick-search endpoint, which returns JSON suggestions.
+    if (results.items.length === 0 && title && page === 1) {
+      const quick = await this.getQuickSearchResults(title);
+      if (quick.length > 0) {
+        return { items: quick, metadata: undefined };
+      }
+    }
+
+    return results;
   }
 
-
+  /**
+   * Runs the advanced search inside one web view session: load the search
+   * page, read its form (action, method, hidden fields, CSRF token), fill it
+   * in, and submit it from the same page so the token and the session cookie
+   * always match. Doing the token GET and the POST in separate sessions makes
+   * the site reject the search, which shows up as zero results.
+   */
   private async getAdvancedSearchResults(
     title: string,
     searchMeta: NonNullable<Metadata["searchMeta"]>,
     page: number,
-    cachedToken?: string,
   ): Promise<PagedResults<SearchResultItem>> {
-    let token = cachedToken ?? "";
+    const fields = {
+      name: title,
+      status_id: searchMeta.status,
+      type_id: searchMeta.types,
+      category: searchMeta.categories,
+    };
 
-    if (!token) {
-      const { status, body: tokenHtml } = await this.webViewFetch(
-        `${baseUrl}/advanced-search`,
-      );
-      this.checkCloudflare(status, tokenHtml);
-      const $tokenPage = cheerio.load(tokenHtml);
-      token = $tokenPage('input[name="_token"]').val() as string ?? "";
+    const inject = `
+      const fields = ${JSON.stringify(fields)};
+      const page = ${page};
+      const pageRes = await fetch("/advanced-search", { credentials: "include" });
+      const pageHtml = await pageRes.text();
+      if (!pageRes.ok) {
+        return JSON.stringify({ status: pageRes.status, body: pageHtml });
+      }
+
+      const doc = new DOMParser().parseFromString(pageHtml, "text/html");
+      const form =
+        doc.querySelector('form[action*="advanced-search"]') ||
+        Array.from(doc.querySelectorAll("form")).find((f) => f.querySelector('[name="status_id"], [name="type_id"], [name="category"]')) ||
+        null;
+
+      const params = new URLSearchParams();
+      if (form) {
+        for (const el of form.querySelectorAll("input[name], select[name], textarea[name]")) {
+          const type = (el.getAttribute("type") || "").toLowerCase();
+          if ((type === "checkbox" || type === "radio") && !el.checked) continue;
+          if (type === "submit" || type === "button") continue;
+          params.append(el.name, el.value || "");
+        }
+      }
+
+      const token =
+        params.get("_token") ||
+        doc.querySelector('input[name="_token"]')?.value ||
+        doc.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
+        "";
+      params.set("_token", token);
+
+      // Put the title in the form's text field, whatever it is called.
+      let titleField = "name";
+      if (form && !form.querySelector('[name="name"]')) {
+        const textInput = form.querySelector('input[type="text"][name], input[type="search"][name], input:not([type])[name]');
+        if (textInput && textInput.name !== "_token") titleField = textInput.name;
+      }
+      params.set(titleField, fields.name);
+      for (const key of ["status_id", "type_id", "category"]) {
+        params.set(key, fields[key]);
+      }
+
+      const method = ((form && form.getAttribute("method")) || "POST").toUpperCase();
+      const action = new URL((form && form.getAttribute("action")) || "/advanced-search", location.origin);
+      if (page > 1) action.searchParams.set("page", String(page));
+
+      let res;
+      if (method === "GET") {
+        for (const [k, v] of params) action.searchParams.set(k, v);
+        res = await fetch(action.toString(), { credentials: "include" });
+      } else {
+        res = await fetch(action.toString(), {
+          method: "POST",
+          headers: {
+            "content-type": "application/x-www-form-urlencoded",
+            "x-csrf-token": token,
+          },
+          body: params.toString(),
+          credentials: "include",
+          redirect: "follow",
+        });
+      }
+      return JSON.stringify({ status: res.status, body: await res.text() });
+    `;
+
+    const { status, body } = await this.runInWebView(inject);
+    this.checkCloudflare(status, body);
+    if (status === 419) {
+      console.log("ReadComicsOnline: search rejected (CSRF token expired)");
+      return { items: [] };
     }
 
-    const body = [
-      `name=${encodeURIComponent(title ?? "")}`,
-      `status_id=${encodeURIComponent(searchMeta.status)}`,
-      `type_id=${encodeURIComponent(searchMeta.types)}`,
-      `category=${encodeURIComponent(searchMeta.categories)}`,
-      `_token=${encodeURIComponent(token)}`,
-    ].join("&");
+    const $ = cheerio.load(body);
+    const items = parseComicCards($);
 
-    const searchUrl = page > 1
-      ? `${baseUrl}/advanced-search?page=${page}`
-      : `${baseUrl}/advanced-search`;
+    const hasNextPage =
+      items.length > 0 &&
+      ($("a[rel='next']").length > 0 ||
+        $(`a[href*='page=${page + 1}']`).length > 0);
 
-    const { status: searchStatus, body: searchHtml } = await this.webViewFetch(
-      searchUrl,
-      "POST",
-      body,
-    );
-    this.checkCloudflare(searchStatus, searchHtml);
-    const $ = cheerio.load(searchHtml);
-    const items: SearchResultItem[] = [];
-
-
-    $("a:has(.rc-cover)").each((_, element) => {
-      const unit = $(element);
-      const href = unit.attr("href") ?? "";
-      const mangaId = href
-        .replace(/^https?:\/\/readcomicsonline\.ru\/comic\//, "")
-        .trim();
-
-      const img = unit.find(".rc-cover img");
-      const imageUrl = img.attr("src") ?? "";
-      const title = unit.find("p").text().trim() || (img.attr("alt") ?? "");
-
-      if (title && mangaId) {
-        items.push({ mangaId, title, imageUrl });
-      }
-    });
-
-    const hasNextPage = !!$("a[rel='next']").length;
-    const nextToken = $('input[name="_token"]').val() as string | undefined;
-
-    await this.ensureCdnAccess((items[0] as { imageUrl?: string })?.imageUrl ?? "");
+    await this.ensureCdnAccess(items[0]?.imageUrl ?? "");
     return {
       items,
-      metadata: hasNextPage ? { page: page + 1, csrfToken: nextToken ?? token } : undefined,
+      metadata: hasNextPage ? { page: page + 1 } : undefined,
     };
+  }
+
+  /**
+   * The site's quick-search endpoint, /search?query=, returns
+   * {"suggestions":[{"value": title, "data": slug}]}.
+   */
+  private async getQuickSearchResults(title: string): Promise<SearchResultItem[]> {
+    try {
+      const { status, body } = await this.webViewFetch(
+        `${baseUrl}/search?query=${encodeURIComponent(title)}`,
+      );
+      if (status !== 200) return [];
+      const data = JSON.parse(body) as {
+        suggestions?: { value?: string; data?: string }[];
+      };
+      return (data.suggestions ?? [])
+        .filter((s) => s.value && s.data)
+        .map((s) => ({
+          mangaId: s.data as string,
+          title: decodeEntities(s.value as string),
+          imageUrl: "",
+        }));
+    } catch {
+      return [];
+    }
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
@@ -553,7 +629,10 @@ export class ReadComicsOnlineExtension
       const text = await res.text();
       return JSON.stringify({ status: res.status, body: text });
     `;
+    return this.runInWebView(inject);
+  }
 
+  private async runInWebView(inject: string): Promise<{ status: number; body: string }> {
     const { result, storage } = await Application.executeInWebView({
       source: {
         html: "<!doctype html><html><head></head><body></body></html>",
@@ -643,6 +722,52 @@ function createDiscoverSectionItem(options: {
     subtitle: options.subtitle,
     metadata: undefined,
   };
+}
+
+/**
+ * Reads comic cards from a results page. Uses the current card layout
+ * (an anchor wrapping .rc-cover) and falls back to any link to a comic's main
+ * page that contains a cover image.
+ */
+export function parseComicCards($: CheerioAPI): SearchResultItem[] {
+  const items: SearchResultItem[] = [];
+  const seen = new Set<string>();
+
+  let cards = $("a:has(.rc-cover)");
+  if (cards.length === 0) {
+    cards = $("a[href*='/comic/']:has(img)");
+  }
+
+  cards.each((_, element) => {
+    const unit = $(element);
+    const mangaId = parseComicSlug(unit.attr("href"));
+    if (!mangaId || seen.has(mangaId)) return;
+
+    const img = unit.find(".rc-cover img, img").first();
+    const imageUrl = img.attr("data-src") || img.attr("src") || "";
+    const title = (
+      unit.find("p").first().text().trim() ||
+      unit.attr("title")?.trim() ||
+      img.attr("alt")?.trim() ||
+      ""
+    ).replace(/\s+/g, " ");
+    if (!title) return;
+
+    seen.add(mangaId);
+    items.push({ mangaId, title, imageUrl });
+  });
+
+  return items;
+}
+
+/** Slug of a comic's main page link; chapter links (/comic/slug/42) are skipped. */
+function parseComicSlug(href: string | undefined): string {
+  const match = href?.match(/\/comic\/([^/?#]+)\/?(?:[?#]|$)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function decodeEntities(text: string): string {
+  return cheerio.load(`<p>${text}</p>`)("p").text();
 }
 
 export const ReadComicsOnline = new ReadComicsOnlineExtension();
