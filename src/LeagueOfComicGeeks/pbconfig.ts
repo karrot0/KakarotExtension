@@ -4,7 +4,7 @@ export default {
   name: "LeagueOfComicGeeks",
   description:
     "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
-  version: "1.1.1",
+  version: "1.1.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -13,6 +13,7 @@ export default {
     SourceIntents.DISCOVER_SECTION_PROVIDING,
     SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.PROGRESS_PROVIDING,
+    SourceIntents.CLOUDFLARE_BYPASS_PROVIDING,
   ],
   badges: [
     {

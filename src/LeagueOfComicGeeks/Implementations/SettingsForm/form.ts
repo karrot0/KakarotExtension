@@ -2,13 +2,17 @@ import {
   type CookieStorageInterceptor,
   ButtonRow,
   ToggleRow,
+  CloudflareError,
+  type Cookie,
+  type ListSectionElement,
+  WebViewRow,
   Form,
   InputRow,
   LabelRow,
   NavigationRow,
   Section,
 } from "@paperback/types";
-import { login, logout } from "../../Services/Requests";
+import { completeWebLogin, login, logout } from "../../Services/Requests";
 import { session } from "../Shared/parser/main";
 
 interface LoginInput {
@@ -87,6 +91,11 @@ export class LoginForm extends Form {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.log(`${logPrefix} login failed: ${message}`);
+      if (e instanceof CloudflareError) {
+        throw new Error(
+          'League of Comic Geeks is blocking this login with a Cloudflare check. Go back and use "Log in on League of Comic Geeks" instead.',
+        );
+      }
       throw new Error(`Login failed: ${message}`);
     }
     this.onLoggedIn?.();
@@ -110,15 +119,50 @@ export class SettingsForm extends Form {
     return this.authenticatedView(info.username);
   }
 
-  unauthenticatedView() {
+  private webLoginError?: string;
+
+  unauthenticatedView(): ListSectionElement[] {
     return [
-      Section({ id: "login-section" }, [
+      Section(
+        {
+          id: "login-section",
+          header: "Log in",
+          footer: this.webLoginError
+            ? `Login failed: ${this.webLoginError}`
+            : "Opens the League of Comic Geeks login page. Log in there, then tap Done. This also gets past Cloudflare checks.",
+        },
+        [
+          WebViewRow("web-login", {
+            title: "Log in on League of Comic Geeks",
+            request: { url: "https://leagueofcomicgeeks.com/login", method: "GET" },
+            onComplete: Application.Selector(this as SettingsForm, "onWebLoginComplete"),
+            onCancel: Application.Selector(this as SettingsForm, "onWebLoginCancel"),
+          }),
+        ],
+      ),
+      Section({ id: "password-login-section" }, [
         NavigationRow("login", {
-          title: "Log in",
+          title: "Log in with username and password",
           form: new LoginForm(this.cookieStore, () => this.reloadForm()),
         }),
       ]),
     ];
+  }
+
+  async onWebLoginComplete(cookies: Cookie[]): Promise<void> {
+    try {
+      const sessionData = await completeWebLogin(cookies, this.cookieStore);
+      session.setSession(sessionData);
+      this.webLoginError = undefined;
+    } catch (e) {
+      this.webLoginError = e instanceof Error ? e.message : String(e);
+      console.log(`[SettingsForm:webLogin] failed: ${this.webLoginError}`);
+    }
+    this.reloadForm();
+  }
+
+  async onWebLoginCancel(): Promise<void> {
+    this.reloadForm();
   }
 
   authenticatedView(username: string) {
