@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-10-15T21:16:44.351Z",
+  "buildTime": "2026-10-16T00:11:44.938Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.91",
     "types": "1.0.0-alpha.91"
@@ -145,7 +145,7 @@
     {
       "name": "LeagueOfComicGeeks",
       "description": "Extension that integrates with leagueofcomicgeeks.com for tracking and collection management.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
@@ -153,7 +153,8 @@
         32,
         4,
         64,
-        2
+        2,
+        16
       ],
       "badges": [
         {
