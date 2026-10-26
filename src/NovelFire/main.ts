@@ -266,7 +266,7 @@ export class NovelFireExtension implements NovelFireImplementation {
         const chapterNo =
           parseFloat(String(a.find(".chapter-no").text()).trim()) || undefined;
         const createdAt = String(a.find("time").attr("datetime"));
-        const chapterId = url.split("/book/")[1] || url;
+        const chapterId = (url.split("/book/")[1] || url).split(/[?#]/)[0] ?? url;
         chapters.push({
           chapterId: chapterId,
           title: title,
@@ -296,11 +296,41 @@ export class NovelFireExtension implements NovelFireImplementation {
       method: "GET",
     };
 
-    const $ = (await this.fetchCheerio(request));
+    const $ = await this.fetchCheerio(request);
 
-    $(".nf-ads").remove();
+    // Strip ads, scripts and site chrome that can end up inside the content node
+    $(".nf-ads, .ads, .adsbygoogle, script, style, iframe, ins, noscript").remove();
 
-    const content = $("#content").map((_, el) => $(el).html() ?? "").toArray().join("").replace(/&nbsp;/g, " ");
+    // The content container has changed names over time, so try a few
+    const selectors = ["#content", "#chapter-container", ".chapter-content", "#chapter-content", ".chapter-body"];
+    let content = "";
+    for (const selector of selectors) {
+      const node = $(selector).first();
+      if (node.length === 0) continue;
+      const inner = (node.html() ?? "").trim();
+      if (node.text().trim().length > 0 && inner.length > 0) {
+        content = inner;
+        break;
+      }
+    }
+
+    // Last resort: collect every non-empty paragraph on the page
+    if (content === "") {
+      content = $("p")
+        .map((_, el) => ($(el).text().trim() ? $.html(el) : ""))
+        .toArray()
+        .join("");
+    }
+
+    content = content.replace(/&nbsp;/g, " ").trim();
+
+    // Throw instead of returning an empty page so the reader shows an error, not a blank screen
+    if (content === "") {
+      throw new Error(
+        `NovelFire: no chapter text found at ${request.url}. The site layout may have changed or the request was blocked.`,
+      );
+    }
+
     const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
 
     return {
@@ -495,8 +525,8 @@ export class NovelFireExtension implements NovelFireImplementation {
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
-    const [, data] = await Application.scheduleRequest(request);
-    this.checkCloudflareStatus((data as any)?.status ?? 200);
+    const [response, data] = await Application.scheduleRequest(request);
+    this.checkCloudflareStatus(response.status);
     const htmlStr = Application.arrayBufferToUTF8String(data);
     const dom = htmlparser2.parseDocument(htmlStr);
     return cheerio.load(dom);
