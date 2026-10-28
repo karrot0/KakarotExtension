@@ -35,6 +35,13 @@ import type { CheerioAPI } from "cheerio";
 
 const baseUrl = "https://novelfire.net";
 
+// Accepts "/book/slug", "/novel/slug/chapter-1" or a full URL on any mirror domain
+// and returns just "slug" or "slug/chapter-1".
+function toId(href: string): string {
+  const match = href.match(/\/(?:book|novel)\/([^?#]+)/);
+  return (match?.[1] ?? href).replace(/^\/+|\/+$/g, "");
+}
+
 type NovelFireImplementation = Extension &
   SearchResultsProviding &
   MangaProviding &
@@ -164,7 +171,7 @@ export class NovelFireExtension implements NovelFireImplementation {
       const title = a.attr("title") || a.text().trim();
       const imgurl = novel.find("img").attr("data-src") || novel.find("img").attr("src") || "";
       const coverUrl = imgurl.startsWith("http") ? imgurl : `${baseUrl}${imgurl}`;
-      const mangaId = url.split("/book/")[1] || "";
+      const mangaId = toId(url);
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
         items.push({ mangaId, title, imageUrl: coverUrl, subtitle: undefined });
@@ -288,13 +295,28 @@ export class NovelFireExtension implements NovelFireImplementation {
   }
 
   async getChapterDetails(chapter: Chapter): Promise<NovelChapter> {
-    const request = {
-      url: new URLBuilder(baseUrl)
-        .addPath("book")
-        .addPath(chapter.chapterId)
-        .build(),
-      method: "GET",
-    };
+    let url = new URLBuilder(baseUrl)
+      .addPath("book")
+      .addPath(chapter.chapterId)
+      .build();
+
+    const trail: string[] = [];
+
+    // The site may answer with a redirect page (meta refresh / JS) pointing to a mirror
+    // domain that has the real text, so follow up to 3 hops.
+    for (let hop = 0; hop < 3; hop++) {
+      const page = await this.fetchPage({ url, method: "GET" });
+      const content = this.extractChapterText(page.$);
+
+      if (content !== "") {
+        const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
+        return {
+          mangaId: chapter.sourceManga.mangaId,
+          id: chapter.chapterId,
+          type: "html",
+          html,
+        };
+      }
 
     const $ = await this.fetchCheerio(request);
 
@@ -333,12 +355,32 @@ export class NovelFireExtension implements NovelFireImplementation {
 
     const html = `<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>${content}</body></html>`;
 
-    return {
-      mangaId: chapter.sourceManga.mangaId,
-      id: chapter.chapterId,
-      type: "html",
-      html,
-    };
+  extractChapterText($: CheerioAPI): string {
+    $(".nf-ads, .ads, .adsbygoogle, script, style, iframe, ins, noscript").remove();
+
+    for (const selector of ["#content", ".chapter-content", "#chapter-content", ".chapter-body"]) {
+      const node = $(selector).first();
+      if (node.length === 0 || node.text().trim() === "") continue;
+      return (node.html() ?? "").replace(/&nbsp;/g, " ").trim();
+    }
+    return "";
+  }
+
+  findRedirectTarget($: CheerioAPI, html: string, currentUrl: string): string | undefined {
+    const refresh = $("meta[http-equiv]")
+      .filter((_, el) => ($(el).attr("http-equiv") ?? "").toLowerCase() === "refresh")
+      .attr("content");
+    const fromMeta = refresh?.match(/url\s*=\s*['"]?([^'";\s]+)/i)?.[1];
+    const fromScript = html.match(
+      /(?:window\.|document\.|top\.)?location(?:\.href)?\s*(?:=|\.replace\(|\.assign\()\s*['"]([^'"]+)['"]/,
+    )?.[1];
+
+    const target = fromMeta ?? fromScript;
+    if (!target || target.startsWith("#") || target.startsWith("javascript:")) return undefined;
+    if (/^https?:\/\//i.test(target)) return target;
+
+    const origin = currentUrl.match(/^(https?:\/\/[^/]+)/i)?.[1] ?? baseUrl;
+    return target.startsWith("/") ? `${origin}${target}` : `${origin}/${target}`;
   }
 
   getMangaShareUrl(mangaId: string): string {
@@ -382,7 +424,7 @@ export class NovelFireExtension implements NovelFireImplementation {
         parseInt(novel.find(".novel-stats").text().replace(/\D/g, "")) ||
         undefined;
 
-      const mangaId = url.split("/book/")[1] || "";
+      const mangaId = toId(url);
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -439,7 +481,7 @@ export class NovelFireExtension implements NovelFireImplementation {
         parseInt(novel.find(".novel-stats").text().replace(/\D/g, "")) ||
         undefined;
 
-      const mangaId = url.split("/book/")[1] || "";
+      const mangaId = toId(url);
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -496,7 +538,7 @@ export class NovelFireExtension implements NovelFireImplementation {
       const rating =
         parseFloat(novel.find(".badge._br").text().trim()) || undefined;
 
-      const mangaId = url.split("/book/")[1] || "";
+      const mangaId = toId(url);
 
       if (title && mangaId && !collectedIds.includes(mangaId)) {
         collectedIds.push(mangaId);
@@ -522,6 +564,24 @@ export class NovelFireExtension implements NovelFireImplementation {
     if (status == 503 || status == 403) {
       throw new CloudflareError({ url: baseUrl, method: "GET" });
     }
+  }
+
+  async fetchPage(request: Request): Promise<{
+    $: CheerioAPI;
+    html: string;
+    finalUrl: string;
+    status: number;
+  }> {
+    const [response, data] = await Application.scheduleRequest(request);
+    this.checkCloudflareStatus(response.status);
+    const html = Application.arrayBufferToUTF8String(data);
+    const dom = htmlparser2.parseDocument(html);
+    return {
+      $: cheerio.load(dom),
+      html,
+      finalUrl: response.url || request.url,
+      status: response.status,
+    };
   }
 
   async fetchCheerio(request: Request): Promise<CheerioAPI> {
