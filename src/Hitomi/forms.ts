@@ -13,6 +13,7 @@ import {
   SelectRow,
   StepperRow,
   ToggleRow,
+  WebViewRow,
 } from "@paperback/types";
 import {
   ALL_DISCOVER_SECTIONS,
@@ -315,6 +316,24 @@ export class HitomiSettingsForm extends Form {
           : "EN | 67p";
 
     return [
+      Section(
+        {
+          id: "repoNotice",
+          header: "Repository Relocated",
+          footer:
+            "Development for Hitomi and NHentai is no longer maintained in this repository. Please switch to the new repository for major speed improvements and updates. All your data will be saved.",
+        },
+        [
+          LabelRow("relocationNotice", {
+            title: "Development Relocated",
+          }),
+          InputRow("newRepoUrl", {
+            title: "New Repo URL",
+            value: "https://pisshammy.github.io/HammyExtensions/",
+            onValueChange: Application.Selector(this as any, "noop"),
+          }),
+        ],
+      ),
       // Main settings section
       Section("hitomiMain", [
         LabelRow("topLabel", {
@@ -532,6 +551,8 @@ export class HitomiSettingsForm extends Form {
     this.removeSpaces = getRemoveSeparatorSpacesSetting();
     this.reloadForm();
   }
+
+  async noop(): Promise<void> { }
 }
 
 // -- Discover Order Form --

@@ -4,8 +4,8 @@ import { ContentRating, ExtensionInfo, SourceIntents } from "@paperback/types";
 
 export default {
   name: "NHentai",
-  description: "Extension that pulls content from nhentai.net",
-  version: "2.9.6",
+  description: "Development stopped on this repo. Check the settings page for a direct link to the new repo hosting updated NHentai and Hitomi sources.",
+  version: "2.9.2",
   icon: "icon.png",
   language: "multi",
   contentRating: ContentRating.ADULT,
@@ -20,7 +20,7 @@ export default {
   developers: [
     {
       name: "pisshammy",
-      website: "$1/climax: consider donating :3 \ncashapp: $0hammy0",
+      website: "https://pisshammy.github.io/HammyExtensions/",
     },
   ],
 } satisfies ExtensionInfo;

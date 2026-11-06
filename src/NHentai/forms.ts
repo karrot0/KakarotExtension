@@ -12,6 +12,7 @@ import {
   SelectRow,
   StepperRow,
   ToggleRow,
+  WebViewRow,
 } from "@paperback/types";
 import {
   ALL_DISCOVER_SECTIONS,
@@ -482,6 +483,24 @@ export class SettingsForm extends Form {
           : "EN | 67p";
 
     return [
+      Section(
+        {
+          id: "repoNotice",
+          header: "Repository Relocated",
+          footer:
+            "Development for Hitomi and NHentai is no longer maintained in this repository. Please switch to the new repository for major speed improvements and updates. All your data will be saved.",
+        },
+        [
+          LabelRow("relocationNotice", {
+            title: "Development Relocated",
+          }),
+          InputRow("newRepoUrl", {
+            title: "New Repo URL",
+            value: "https://pisshammy.github.io/HammyExtensions/",
+            onValueChange: Application.Selector(this as any, "noop"),
+          }),
+        ],
+      ),
       // Main settings section - NHentai Settings header + Language + Manga Filters nav
       Section("nhentaiMain", [
         LabelRow("topLabel", {
@@ -625,6 +644,8 @@ export class SettingsForm extends Form {
       ]),
     ];
   }
+
+  async noop(): Promise<void> { }
 }
 
 function stripTagPrefix(value: string): string {
